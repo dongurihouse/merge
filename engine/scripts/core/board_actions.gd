@@ -15,6 +15,7 @@ const Improvements = preload("res://engine/scripts/core/improvements.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Mastery = preload("res://engine/scripts/core/mastery.gd")
+const Vault = preload("res://engine/scripts/core/vault.gd")
 
 # Deliver quest `qi` by consuming the tile at `cell`: drop the quest from the live fence, remember
 # the asked item (anti-monotony window, ≤5), and pay the COIN reward through the coin clock (the
@@ -77,59 +78,33 @@ static func produce_due_generators(board: BoardModel, quests: Array) -> Dictiona
 	var landed: Array = []
 	var bagged: Array = []
 	for id in [gid]:                              # one owed gen per tap (kept as a loop to mirror the source)
-		var kept := _take_kept_gen_state(String(id))
-		var tier := int(kept.get("tier", 1))
-		var boost := int(kept.get("boost", 0))
+		var boost := _take_kept_gen_boost(String(id))
 		var dest := Vector2i(-1, -1)
 		for c in board.empty_auto_gen_cells():   # auto-placement skips improved cells; manual drops may use them
 			if not board.gens.has(c):
 				dest = c
 				break
 		if dest == Vector2i(-1, -1):
-			board.bag_add(id, tier, boost)        # board genuinely full → hold it in the bag
+			board.bag_add(id, boost)              # board genuinely full → hold it in the bag
 			bagged.append(id)
 		else:
-			board.place_gen(id, dest, tier)
+			board.place_gen(id, dest)
 			if boost > 0:
 				board.arm_gen_boost(dest, boost)
 			landed.append(dest)
 	return {"due": true, "landed": landed, "bagged": bagged}
 
-static func _take_kept_gen_state(gid: String) -> Dictionary:
+static func _take_kept_gen_boost(gid: String) -> int:
 	var g := Save.grove()
 	var kept: Dictionary = g.get("gen_kept", {})
 	var raw: Variant = kept.get(String(gid), [])
 	if not (raw is Array) or (raw as Array).is_empty():
-		return {"tier": 1, "boost": 0}
+		return 0
 	var arr: Array = raw
 	kept.erase(String(gid))
 	g["gen_kept"] = kept
 	Save.grove_write()
-	return {
-		"tier": clampi(int(arr[0]), 1, G.GEN_TOP_TIER),
-		"boost": maxi(0, int(arr[1]) if arr.size() > 1 else 0),
-	}
-
-# Gen stranding fix — SELF-DUP (the merge fuel). The duplicate spawns at the LINE's TOP tier
-# (top_gen_tier across board+bag) so every self-dup feeds ONE lineage and merges up — no sub-tier strand
-# forms, and a maxed line breeds nothing. Lands on a free cell, else the bag. Mutates the model; returns
-# {landed, bagged} for the scene's pop-in render (mirrors produce_due_generators).
-static func self_dup_generator(board: BoardModel, src: Vector2i) -> Dictionary:
-	var dup_id := board.gen_id_at(src)
-	if dup_id == "" or G.gen_def(G.GENERATORS, dup_id).is_empty():
-		return {"landed": [], "bagged": []}
-	var line := int(G.gen_def(G.GENERATORS, dup_id).get("line", 0))
-	var tier := board.top_gen_tier(line)
-	if tier <= 0 or tier >= G.GEN_TOP_TIER:
-		return {"landed": [], "bagged": []}          # maxed line → no merge fuel, no new strand
-	for c in board.empty_auto_gen_cells():
-		if not board.gens.has(c):
-			board.place_gen(dup_id, c, tier)
-			return {"landed": [c], "bagged": []}
-	if not board.gen_bag.has(dup_id):
-		board.bag_add(dup_id, tier)
-		return {"landed": [], "bagged": [dup_id]}
-	return {"landed": [], "bagged": []}
+	return maxi(0, int(arr[1]) if arr.size() > 1 else int(arr[0]))
 
 # #14 the special CODE crafted by dragging two DIFFERENT base lines at the SAME tier together (0 if
 # not a recipe, Core §6.G). The special lands at the ingredients' tier, then climbs its own ladder.
@@ -253,34 +228,33 @@ static func farewells_due(board: BoardModel, level: int) -> Array:
 
 static func farewell_preview(board: BoardModel, line: int) -> Dictionary:
 	var ln := int(line)
-	var out := {"line": ln, "pieces": 0, "coins": 0, "gens": 0, "gen_cells": []}
+	var out := {"line": ln, "pieces": 0, "coins": 0, "acorns": 0, "gens": 0, "gen_cells": []}
 	if G.zone_of_line(ln) < 0:
 		return out
 	var coins := 0
+	var acorns := 0                                       # the deep tiers sell for acorns, not coins (§9 ladder)
 	var pieces := 0
 	for i in board.items.size():
 		var code: int = board.items[i]
 		if code > 0 and not G.is_coin(code) and BoardModel.line_of(code) == ln:
-			coins += int(G.sell_reward(code).x)
+			var rw := G.sell_reward(code)
+			coins += int(rw.x)
+			acorns += int(rw.y)
 			pieces += 1
 	var gid := G.gen_for_line(ln)
 	var cells: Array = []
-	var keep_tier := 1
 	var keep_boost := 0
 	if gid != "":
 		for cell in board.gens.keys():
 			if String(board.gens[cell]) == gid:
-				var tier := board.gen_tier_at(cell)
 				var boost := board.gen_boost_at(cell)
-				if tier > keep_tier or (tier == keep_tier and boost > keep_boost):
-					keep_tier = tier
-					keep_boost = boost
+				keep_boost = maxi(keep_boost, boost)
 				cells.append(cell)
 	out["pieces"] = pieces
 	out["coins"] = coins
+	out["acorns"] = acorns
 	out["gens"] = cells.size()
 	out["gen_cells"] = cells
-	out["keep_tier"] = keep_tier
 	out["keep_boost"] = keep_boost
 	return out
 
@@ -298,47 +272,32 @@ static func sweep_line(board: BoardModel, line: int) -> Dictionary:
 	for cell_v in cells:
 		var cell := Vector2i(cell_v)
 		board.remove_gen(cell)
-	var keep_tier := int(out.get("keep_tier", 1))
 	var keep_boost := int(out.get("keep_boost", 0))
 	if gid != "":
-		if keep_tier > 1 or keep_boost > 0:
-			_merge_kept_gen_state(gid, keep_tier, keep_boost)
+		if keep_boost > 0:
+			_merge_kept_gen_boost(gid, keep_boost)
 	var coins := int(out.get("coins", 0))
+	var acorns := int(out.get("acorns", 0))
 	if coins > 0:
 		Save.add_coins(coins)                         # spendable only — farewell sweep never advances the clock
-	elif gid != "" and (keep_tier > 1 or keep_boost > 0):
+	if acorns > 0:
+		Save.add_diamonds(acorns)                     # a swept t10+ item pays acorns, same as selling it by hand
+		Vault.skim(acorns)                            # T44 SKIM-SITE — the jar skims every acorn a sale mints
+	if coins <= 0 and acorns <= 0 and gid != "" and keep_boost > 0:
 		Save.grove_write()
 	return out
 
-static func _merge_kept_gen_state(gid: String, tier: int, boost: int) -> void:
+static func _merge_kept_gen_boost(gid: String, boost: int) -> void:
 	var g := Save.grove()
 	var kept: Dictionary = g.get("gen_kept", {})
-	var best_tier := clampi(int(tier), 1, G.GEN_TOP_TIER)
 	var best_boost := maxi(0, int(boost))
 	var raw: Variant = kept.get(String(gid), [])
 	if raw is Array and not (raw as Array).is_empty():
 		var arr: Array = raw
-		var old_tier := clampi(int(arr[0]), 1, G.GEN_TOP_TIER)
-		var old_boost := maxi(0, int(arr[1]) if arr.size() > 1 else 0)
-		if old_tier > best_tier:
-			best_tier = old_tier
-			best_boost = old_boost
-		elif old_tier == best_tier:
-			best_boost = maxi(old_boost, best_boost)
-	kept[String(gid)] = [best_tier, best_boost]
+		var old_boost := maxi(0, int(arr[1]) if arr.size() > 1 else int(arr[0]))
+		best_boost = maxi(old_boost, best_boost)
+	kept[String(gid)] = [best_boost]
 	g["gen_kept"] = kept
-
-# Gen stranding fix — SELL a redundant generator (one that has a strictly-higher same-line sibling, so the
-# line keeps its top producer). Guarded: a non-redundant generator is refused. Removes it from the model and
-# credits GEN_SELL_COINS. Returns {sold, coins} for the scene's poof + coin float.
-static func sell_generator(board: BoardModel, cell: Vector2i) -> Dictionary:
-	if not board.is_redundant_gen(cell):
-		return {"sold": false, "coins": 0}
-	var coins := G.gen_sell_coins(board.gen_tier_at(cell))
-	board.remove_gen(cell)
-	if coins > 0:
-		Save.add_coins(coins)                     # spendable only — SELLING NEVER ADVANCES THE CLOCK (quests only)
-	return {"sold": true, "coins": coins}
 
 static func place_seed(board: BoardModel, cell: Vector2i) -> Dictionary:
 	return {"placed": board.place_seed(cell)}

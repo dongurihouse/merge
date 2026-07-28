@@ -1,5 +1,9 @@
 # Generator stranding fix — prevent + sell redundant generators
 
+> **Historical note (2026-07-27):** this design described the retired generator merge-tier ladder.
+> Current generators no longer merge, self-duplicate, or expose redundant-generator selling; rank/mastery
+> is the active progression system.
+
 ## Problem
 
 Generators merge 2:1 up a short ladder (`GEN_TOP_TIER = 3`); a higher tier bursts more

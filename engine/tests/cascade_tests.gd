@@ -9,6 +9,7 @@ const Improvements = preload("res://engine/scripts/core/improvements.gd")
 
 func _initialize() -> void:
 	_test_chain_path()
+	_test_run_excludes_unreachable_tiers()
 	_test_chain_reward_codes()
 	_test_growing_soil_is_excluded_from_chain_search()
 	_test_ready_ladders()
@@ -25,7 +26,6 @@ func _blank_board() -> BoardModel:
 		b.terrain[i] = 0
 		b.items[i] = 0
 	b.gens = {}
-	b.gen_tiers = {}
 	b.gen_boost = {}
 	b.collect_rewards = {}
 	b.improvements = {}
@@ -131,6 +131,47 @@ func _test_chain_path() -> void:
 	_put(b, Vector2i(4, 3), 102)
 	ok(_cells_equal(BoardLogic.chain_path(b, Vector2i(4, 1), Vector2i(4, 2)), []), \
 		"chain_path: recipes and other-code pairs never auto-chain")
+
+# A same-line flood fill has NO tier condition, so a stray tier sitting next to a ladder joins its
+# component while being unable to feed the chain. The ribbon draws `run`, which must exclude it.
+func _test_run_excludes_unreachable_tiers() -> void:
+	var b := _blank_board()
+	b.place(Vector2i(3, 1), 101)
+	b.place(Vector2i(3, 2), 101)
+	b.place(Vector2i(3, 3), 102)
+	b.place(Vector2i(3, 4), 103)
+	b.place(Vector2i(2, 4), 106)          # same line, four tiers clear of the ladder
+	var entries := BoardLogic.ready_ladders(b)
+	var cells: Array = [] if entries.is_empty() else Array((entries[0] as Dictionary).get("cells", []))
+	var run: Array = [] if entries.is_empty() else Array((entries[0] as Dictionary).get("run", []))
+	ok(cells.has(Vector2i(2, 4)), "the raw component still gathers the unreachable tier")
+	ok(not run.has(Vector2i(2, 4)) and run.size() == 4, \
+		"the run drops it: only the cells the cascade walks (%s)" % str(run))
+
+	var r := _blank_board()                # a runway with the same stray hanging off it
+	r.place(Vector2i(5, 1), 102)
+	r.place(Vector2i(5, 2), 103)
+	r.place(Vector2i(5, 3), 104)
+	r.place(Vector2i(4, 3), 106)
+	var rw := BoardLogic.runways(r, 3)
+	var rrun: Array = [] if rw.is_empty() else Array((rw[0] as Dictionary).get("run", []))
+	ok(not rrun.has(Vector2i(4, 3)) and rrun.size() == 3, \
+		"a runway's rungs stop at the tier gap (%s)" % str(rrun))
+
+	# The rungs must survive a MESSY component. A stray at or below the ladder's foot, bridged in
+	# through an unrelated tier, used to hijack the walk and collapse the ribbon to a single dot —
+	# which on a played board is most of them, and read as the guide vanishing outright.
+	var m := _blank_board()
+	m.place(Vector2i(2, 1), 102)          # stray t2, dead end, row-major FIRST
+	m.place(Vector2i(2, 2), 107)          # unrelated tier bridging it to the ladder
+	m.place(Vector2i(2, 3), 102)
+	m.place(Vector2i(2, 4), 103)
+	m.place(Vector2i(2, 5), 104)
+	var mw := BoardLogic.runways(m, 3)
+	var mrun: Array = [] if mw.is_empty() else Array((mw[0] as Dictionary).get("run", []))
+	ok(mrun.size() == 3 and mrun.has(Vector2i(2, 3)) and mrun.has(Vector2i(2, 5)) \
+		and not mrun.has(Vector2i(2, 1)), \
+		"a messy component still draws the real ladder, not the stray (%s)" % str(mrun))
 
 func _test_chain_reward_codes() -> void:
 	ok(BoardLogic.chain_reward_code(1) == 0, "chain_reward_code: x1 has no reward")
@@ -355,7 +396,6 @@ func _test_chain_placements_no_mutation() -> void:
 	loose.terrain[BoardModel.idx(Vector2i(3, 5))] = 1
 	loose.items[BoardModel.idx(Vector2i(3, 5))] = 0
 	loose.gens[Vector2i(5, 5)] = "acorn_tree"
-	loose.gen_tiers[Vector2i(5, 5)] = 2
 	loose.items[BoardModel.idx(Vector2i(5, 5))] = 0
 	_untouched(loose, Vector2i(0, 0), 101, "rewards, a bramble and a generator, pads lit", true)
 	_untouched(_dense_board(), Vector2i(0, 0), 101, "the dense worst case", false)
@@ -365,10 +405,9 @@ func _untouched(b: BoardModel, from: Vector2i, code: int, label: String, want_pa
 	var terrain_before := b.terrain.duplicate()
 	var rewards_before := str(b.collect_rewards)
 	var gens_before := str(b.gens)
-	var tiers_before := str(b.gen_tiers)
 	var got: Array = BoardLogic.chain_placements(b, from, code)
 	var clean := _packed_equal(b.items, items_before) and _packed_equal(b.terrain, terrain_before) \
-		and str(b.collect_rewards) == rewards_before and str(b.gens) == gens_before and str(b.gen_tiers) == tiers_before
+		and str(b.collect_rewards) == rewards_before and str(b.gens) == gens_before
 	ok(clean and (got.size() > 0 or not want_pads), \
 		"chain_placements leaves the caller's board untouched: %s (%d guide pads)" % [label, got.size()])
 
@@ -555,9 +594,7 @@ static func _ref_copy_board(board: BoardModel) -> BoardModel:
 	cp.items = board.items.duplicate()
 	cp.collect_rewards = board.collect_rewards.duplicate(true)
 	cp.gens = board.gens.duplicate(true)
-	cp.gen_tiers = board.gen_tiers.duplicate(true)
 	cp.gen_bag = board.gen_bag.duplicate(true)
-	cp.gen_bag_tiers = board.gen_bag_tiers.duplicate(true)
 	cp.gen_boost = board.gen_boost.duplicate(true)
 	cp.gen_bag_boost = board.gen_bag_boost.duplicate(true)
 	return cp

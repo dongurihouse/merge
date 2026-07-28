@@ -1,5 +1,8 @@
 # Generator stranding fix — Implementation Plan
 
+> **Historical note (2026-07-27):** this plan implemented the now-retired generator merge-tier ladder.
+> Current generators are boost/rank tools only; redundant-generator selling and self-dup merge fuel are gone.
+
 > **For agentic workers:** Use TDD. Each task ends with an independently testable deliverable. Steps use checkbox (`- [ ]`) syntax.
 
 **Goal:** Stop generators from stranding a low-tier copy, and let the player sell a redundant generator.

@@ -2,6 +2,10 @@
 
 Date: 2026-06-29
 
+> **Current note (2026-07-27):** generator merge tiers are retired. The active boost contract is
+> per-cell `gen_boost` plus parallel `gen_bag_boost`; generator merge/sell seams and `gen_tiers` /
+> `gen_bag_tiers` references below are historical context from the original implementation plan.
+
 ## Problem
 
 Buying the temporary generator boost (the info-bar boost chip on a tapped generator)
@@ -20,14 +24,13 @@ Make the boost apply to a single, chosen generator. Each generator carries its o
 1. **Stackable per-generator.** Several generators can be boosted at once, each with its
    own remaining-taps counter. The "no re-buy while live" rule becomes per-generator:
    you cannot re-buy on an already-boosted generator, but you can boost a different one.
-2. **Merge combines the taps.** When two generators merge (2:1 → survivor gains a tier),
-   the survivor's boost taps = source taps + target taps. No boost is wasted, and which
-   generator was dragged onto which does not matter.
+2. **Generator merge retired.** Generators no longer merge 2:1 or gain a generator tier;
+   boost movement is through move, store, place, and removal.
 3. **Move carries the boost.** Relocating a generator carries its boost with it.
-4. **Sell / spent clears the boost.** A sold generator, or a bonus generator that
-   vanishes when spent, loses its boost.
+4. **Spent / removed clears the boost.** A generator that vanishes when spent or is removed
+   loses its boost.
 5. **Bag carries the boost.** Storing a boosted generator into the bag keeps its remaining
-   taps; re-placing it restores them (a parallel bag array, mirroring `gen_bag_tiers`).
+   taps; re-placing it restores them through the parallel `gen_bag_boost` array.
 6. **Free charge spent on the board.** The map-3 free boost charge is no longer armed from
    the map screen. The board boost chip shows "Free" when a charge is in stock and spends a
    charge instead of coins, targeting the selected generator like a paid boost. The map
@@ -39,8 +42,7 @@ Make the boost apply to a single, chosen generator. Each generator carries its o
 ## Architecture
 
 The per-generator boost **state** lives in `BoardModel` (`engine/scripts/core/board_model.gd`)
-as data that rides alongside `gens` and `gen_tiers`, reusing the exact mutation seams that
-already keep `gen_tiers` correct. `content.gd` keeps the boost **constants**. `board.gd`
+as data that rides alongside `gens` and `gen_bag`. `content.gd` keeps the boost **constants**. `board.gd`
 orchestrates purchase, taps, and the on-board indicator through the new `BoardModel` API.
 `Habitat` owns the free-charge stock. `map.gd` loses the Use-boost button.
 
@@ -54,7 +56,7 @@ Rejected alternatives:
 
 | Unit | Owns |
 |------|------|
-| `BoardModel` | Per-cell + per-bag boost state and its mutation rules (move/merge/sell/store/place); serialization. Unit-testable with no scene. |
+| `BoardModel` | Per-cell + per-bag boost state and its mutation rules (move/store/place/remove); serialization. Unit-testable with no scene. |
 | `content.gd` | Boost constants: `boost_cost()`, `boost_bonus()`, `BOOST_TAPS`. |
 | `Habitat` | Free-charge stock (`boost_charges`) and spending one charge. |
 | `board.gd` | Orchestration: purchase chip, charged-tap consume, bonus-gen collect, on-board indicator. |
@@ -62,8 +64,7 @@ Rejected alternatives:
 
 ## Data model — `BoardModel`
 
-New state, parallel to the existing generator dictionaries (`gens`, `gen_tiers`,
-`gen_bag`, `gen_bag_tiers`):
+New state, parallel to the existing generator ids (`gens`, `gen_bag`):
 
 - `gen_boost: Dictionary` — cell → remaining taps (absent / 0 = not boosted).
 - `gen_bag_boost: Array` — PARALLEL to `gen_bag`: remaining taps of each stored generator.
@@ -79,21 +80,20 @@ New methods:
 ### Mutation rules (wired into existing seams)
 
 - `move_gen(from, to)` (board_model.gd:132): carry — `gen_boost[to] = gen_boost_at(from)` (only if > 0), `gen_boost.erase(from)`.
-- `merge_gens(from, to)` (board_model.gd:147): combine — `gen_boost[to] = gen_boost_at(to) + gen_boost_at(from)` (only if the sum > 0), `gen_boost.erase(from)`.
 - `remove_gen(cell)` (board_model.gd:163): clear — `gen_boost.erase(cell)`.
 - `store_gen(cell)` (board_model.gd:85): move into the bag — append `gen_boost_at(cell)` to `gen_bag_boost`, `gen_boost.erase(cell)`.
-- `place_gen_from_bag(id, cell)` (board_model.gd:95): restore — read the bagged boost at the same index used for the tier, set `gen_boost[cell]` (only if > 0), remove the bag entry.
-- `place_gen(id, cell, tier)` (board_model.gd:173) / `seed_gens` / `grow_gens`: no boost (a fresh generator starts unboosted).
-- `bag_add(id, tier)` (board_model.gd:110): gains a `boost := 0` default param and appends to `gen_bag_boost` so the parallel arrays stay aligned.
-- `prune_bag(should_keep)` (board_model.gd:120): rebuild `gen_bag_boost` alongside `gen_bag` / `gen_bag_tiers` so all three stay aligned.
+- `place_gen_from_bag(id, cell)` (board_model.gd:95): restore — read the bagged boost at the same index, set `gen_boost[cell]` (only if > 0), remove the bag entry.
+- `place_gen(id, cell)` (board_model.gd:173) / `seed_gens` / `grow_gens`: no boost (a fresh generator starts unboosted).
+- `bag_add(id, boost := 0)` (board_model.gd:110): appends to `gen_bag_boost` so the parallel arrays stay aligned.
+- `prune_bag(should_keep)` (board_model.gd:120): rebuild `gen_bag_boost` alongside `gen_bag` so both arrays stay aligned.
 
 ### Serialization (board_model.gd:375 `to_dict` / 387 `from_dict`)
 
-- Each generator entry already serializes as `[row, col, id, tier]`. Append boost as the
-  **5th element**: `[row, col, id, tier, boost]`. `from_dict` reads index 4 when present;
-  4-element legacy entries → boost 0.
-- `gen_bag_boost` serializes as a parallel array beside `gen_bag` / `gen_bag_tiers`
-  (key `"gen_bag_boost"`); absent in old saves → all 0.
+- Each generator entry serializes as `[row, col, id, 1, boost]`; the `1` keeps the legacy
+  slot shape but no longer means a generator tier. `from_dict` reads boost from the fifth
+  element when present; 4-element legacy entries become boost 0.
+- `gen_bag_boost` serializes as a parallel array beside `gen_bag` (key `"gen_bag_boost"`);
+  absent in old saves → all 0. Legacy `gen_bag_tiers` is tolerated but not emitted.
 
 ## `content.gd` (engine/scripts/core/content.gd:643–690)
 
@@ -160,9 +160,9 @@ boost badge is suppressed there while the boost still applies) is unchanged.
 
 `BoardModel` unit tests (no scene, fast):
 - arm sets taps; consume decrements and erases at 0; consume on an unboosted cell is a no-op.
-- `move_gen` carries the boost; `merge_gens` sums both generators' taps; `remove_gen` clears.
+- `move_gen` carries the boost; `remove_gen` clears it.
 - `store_gen` moves the boost into `gen_bag_boost`; `place_gen_from_bag` restores it; the
-  three bag arrays stay aligned through `bag_add` and `prune_bag`.
+  two bag arrays stay aligned through `bag_add` and `prune_bag`.
 - `to_dict`/`from_dict` round-trip the per-cell and per-bag boost; a 4-element legacy
   generator entry and a save with no `gen_bag_boost` both read as 0.
 

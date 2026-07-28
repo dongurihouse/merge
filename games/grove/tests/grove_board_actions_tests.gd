@@ -21,9 +21,6 @@ func _initialize() -> void:
 	_test_produce_due_generators()
 	_test_apply_recipe()
 	_test_split_piece()
-	_test_gen_redundancy()
-	_test_self_dup_at_top()
-	_test_sell_generator()
 	_test_line_farewell_predicates()
 	_test_farewell_sweep()
 	_test_pick_drop_cell()
@@ -77,7 +74,7 @@ func _test_deliver_empty_quest_skips_recent() -> void:
 	ok(int(out.get("coins", -1)) == 2, "the outcome reports the paid coins")
 
 # §6 per-generator boost: pure BoardModel state that rides with the generator (arm / consume / stackable /
-# move-carries / merge-sums / sell-clears / bag round-trip). Gated HERE (active suite) because the fuller
+# move-carries / remove-clears / bag round-trip). Gated HERE (active suite) because the fuller
 # grove_model_tests / grove_economy_tests boost coverage currently sits in *_DISABLED.
 func _test_per_generator_boost() -> void:
 	fresh("pergen_boost")
@@ -90,13 +87,12 @@ func _test_per_generator_boost() -> void:
 	ok(b.gen_boost_at(a) == G.BOOST_TAPS - 1, "boost: a tap consumes one of that cell's taps")
 	# a second generator is independently boostable (stackable) and unaffected by the first
 	var c: Vector2i = b.empty_ground_cells()[0]
-	b.place_gen(b.gen_id_at(a), c, b.gen_tier_at(a))
+	b.place_gen(b.gen_id_at(a), c)
 	b.arm_gen_boost(c, 5)
 	ok(b.is_gen_boosted(a) and b.is_gen_boosted(c), "boost: two generators are boosted at once (stackable)")
-	# move carries the taps; merge sums them; sell clears
+	# move carries the taps; remove clears them
 	var d: Vector2i = b.empty_ground_cells()[0]
 	ok(b.move_gen(a, d) and b.gen_boost_at(d) == G.BOOST_TAPS - 1 and b.gen_boost_at(a) == 0, "boost: move carries the taps to the new cell")
-	ok(b.merge_gens(d, c) and b.gen_boost_at(c) == (G.BOOST_TAPS - 1) + 5, "boost: merge sums the survivor's and source's taps")
 	ok(b.remove_gen(c) and b.gen_boost_at(c) == 0, "boost: sell/remove clears the boost")
 	# the bag carries the boost in, and it survives a save round-trip back onto the board
 	var e := BoardModel.new(); e.seed_gens(0)
@@ -172,7 +168,7 @@ func _test_produce_due_generators() -> void:
 	var outf: Dictionary = BoardActions.produce_due_generators(full, [])
 	ok(bool(outf.due) and outf.landed.is_empty() and outf.bagged == [anchor], "a full board bags the owed anchor instead of placing it")
 	ok(full.gen_bag.has(anchor), "the bagged anchor is held in the gen bag")
-	# 4. a returning line restores the kept tier/boost saved by the farewell sweep, then consumes the keepsake.
+	# 4. a returning line restores the kept boost saved by the farewell sweep, then consumes the keepsake.
 	fresh("produce_due_generators_kept")
 	var kept := Save.grove()
 	kept["gen_kept"] = {"gen_4": [3, 6]}
@@ -184,8 +180,8 @@ func _test_produce_due_generators() -> void:
 	var outk: Dictionary = BoardActions.produce_due_generators(returning, due)
 	ok(bool(outk.due) and outk.landed.size() == 1, "a future special ask births the missing kept generator")
 	var rc: Vector2i = outk.landed[0]
-	ok(returning.gen_id_at(rc) == "gen_4" and returning.gen_tier_at(rc) == 3 and returning.gen_boost_at(rc) == 6,
-		"the returning generator restores its kept tier and boost exactly")
+	ok(returning.gen_id_at(rc) == "gen_4" and returning.gen_boost_at(rc) == 6,
+		"the returning generator restores its kept boost from the legacy [tier, boost] keepsake")
 	ok(not (Save.grove().get("gen_kept", {}) as Dictionary).has("gen_4"),
 		"the keepsake is consumed after the generator returns")
 
@@ -353,84 +349,6 @@ func _test_split_piece() -> void:
 	invalid.place_gen("gen_1", target)
 	ok(BoardActions.split_piece(invalid, scissors, target).is_empty(), "split_piece refuses generators")
 
-# top_gen_tier = the line's highest owned tier across board + bag; is_redundant_gen flags any generator
-# that has a strictly-higher same-line sibling (so it can never merge up to the top → safe to sell).
-func _test_gen_redundancy() -> void:
-	fresh("gen_redundancy")
-	var b := BoardModel.new()
-	var gid := G.anchor_gen()                          # gen_1, line 1
-	var line := int(G.gen_def(G.GENERATORS, gid).get("line", 0))
-	ok(b.top_gen_tier(line) == 0, "no generators of a line → top tier 0")
-	var t1: Vector2i = b.empty_ground_cells()[0]
-	b.place_gen(gid, t1, 1)
-	ok(b.top_gen_tier(line) == 1 and not b.is_redundant_gen(t1), "a lone tier-1 is the top, not redundant")
-	var t3: Vector2i = b.empty_ground_cells()[0]
-	b.place_gen(gid, t3, 3)
-	ok(b.top_gen_tier(line) == 3, "top_gen_tier reports the highest owned tier")
-	ok(b.is_redundant_gen(t1) and not b.is_redundant_gen(t3), "the tier-1 is redundant under the tier-3; the tier-3 is not")
-	# a bagged higher tier still makes a board leftover redundant (top is bag-aware)
-	var b2 := BoardModel.new()
-	var lc: Vector2i = b2.empty_ground_cells()[0]
-	b2.place_gen(gid, lc, 1)
-	b2.bag_add(gid, 3)
-	ok(b2.top_gen_tier(line) == 3 and b2.is_redundant_gen(lc), "a bagged tier-3 makes the board tier-1 redundant")
-	ok(not b2.is_redundant_gen(Vector2i(0, 0)), "an empty cell is not a redundant generator")
-
-# Self-dup feeds the line's TOP lineage: the duplicate spawns at top_gen_tier (not the tapped generator's
-# tier), so tapping a sub-top leftover never breeds more low tiers, and a maxed line breeds nothing at all.
-func _test_self_dup_at_top() -> void:
-	fresh("self_dup_at_top")
-	var gid := G.anchor_gen()
-	# tapping a tier-1 leftover while a tier-2 top exists spawns the duplicate at the TOP (tier 2)
-	var b := BoardModel.new()
-	var low: Vector2i = b.empty_ground_cells()[0]
-	b.place_gen(gid, low, 1)
-	var top: Vector2i = b.empty_ground_cells()[0]
-	b.place_gen(gid, top, 2)
-	var out: Dictionary = BoardActions.self_dup_generator(b, low)
-	ok(out.landed.size() == 1, "self-dup placed one duplicate")
-	ok(b.gen_tier_at(out.landed[0]) == 2, "the duplicate spawns at the line top (tier 2), not the tapped tier 1")
-	# a maxed line (top == GEN_TOP_TIER) breeds nothing — no new strand
-	var bm := BoardModel.new()
-	var mx: Vector2i = bm.empty_ground_cells()[0]
-	bm.place_gen(gid, mx, G.GEN_TOP_TIER)
-	var leftover: Vector2i = bm.empty_ground_cells()[0]
-	bm.place_gen(gid, leftover, 1)
-	var outm: Dictionary = BoardActions.self_dup_generator(bm, leftover)
-	ok(outm.landed.is_empty() and outm.bagged.is_empty(), "a maxed line breeds no duplicate")
-	# board full → the duplicate falls into the bag at the line-top tier
-	var bf := BoardModel.new()
-	for i in bf.items.size():
-		bf.items[i] = 101
-	bf.place_gen(gid, Vector2i(4, 3), 1)               # place_gen clears this cell's item; the board is else full
-	var outf: Dictionary = BoardActions.self_dup_generator(bf, Vector2i(4, 3))
-	ok(outf.landed.is_empty() and outf.bagged == [gid], "a full board bags the duplicate")
-	ok(bf._bag_tier_at(0) == 1, "the bagged duplicate carries the line-top tier")
-
-# Selling a redundant generator removes it + credits GEN_SELL_COINS; the guard refuses a non-redundant
-# (last/highest) generator, so a line always keeps its top producer (quests stay satisfiable).
-func _test_sell_generator() -> void:
-	fresh("sell_generator")
-	var gid := G.anchor_gen()
-	var b := BoardModel.new()
-	var low: Vector2i = b.empty_ground_cells()[0]
-	b.place_gen(gid, low, 1)
-	var top: Vector2i = b.empty_ground_cells()[0]
-	b.place_gen(gid, top, 3)
-	var coins_b := Save.coins()
-	var clock_b := Save.coins_earned_lifetime()
-	var out: Dictionary = BoardActions.sell_generator(b, low)
-	ok(bool(out.sold) and int(out.coins) == G.gen_sell_coins(1), "selling a redundant tier-1 reports sold + its coin value")
-	ok(not b.gens.has(low) and b.gens.has(top), "the redundant generator is removed; the top survives")
-	ok(Save.coins() == coins_b + G.gen_sell_coins(1), "the sale credits GEN_SELL_COINS to the wallet")
-	# THE CLOCK IS QUESTS ONLY (owner call 2026-07-25) — a sale is cleanup: its coins spend, but they must
-	# never buy progression, or retiring stock pays for its own retirement (grove_sim measured that loop at
-	# 8x the quest faucet). The guard belongs here so a future sell path can't quietly re-open it.
-	ok(Save.coins_earned_lifetime() == clock_b, "SELLING NEVER ADVANCES THE CLOCK — the sale is spendable-only")
-	var out2: Dictionary = BoardActions.sell_generator(b, top)
-	ok(not bool(out2.sold) and b.gens.has(top), "a non-redundant (top) generator cannot be sold")
-	ok(G.gen_sell_coins(1) >= 0 and G.gen_sell_coins(2) >= 0, "gen_sell_coins is defined for the sellable tiers 1..2")
-
 # The farewell predicates read the active window's recursive closure, not just the three visible asks.
 # This catches the bug where Woolens/Snow/Wild Berries leave the current window but must come back later as
 # special-line ingredients. Levels are derived from the zone cadence so tuning moves the assertions with it.
@@ -470,15 +388,14 @@ func _test_farewell_sweep() -> void:
 	var cells := b.empty_ground_cells()
 	ok(cells.size() >= 8, "fixture: opened board has room for the farewell sweep")
 	var l65 := G.zone_unlock_level(10)
-	b.place_gen("gen_2", cells[0], 3)
+	b.place_gen("gen_2", cells[0])
 	b.arm_gen_boost(cells[0], 5)
-	b.place_gen("gen_4", cells[1], 2)
+	b.place_gen("gen_4", cells[1])
 	b.place(cells[2], 2 * 100 + 2)
 	b.place(cells[3], 4 * 100 + 3)
 	b.place(cells[4], 8 * 100 + 1)
 	b.place(cells[5], 16 * 100 + 2)             # currently needed at L65 — must survive
 	b.gen_bag = ["gen_2", "gen_4"]
-	b.gen_bag_tiers = [4, 1]
 	b.gen_bag_boost = [9, 0]
 	var due: Array = BoardActions.farewells_due(b, l65)
 	ok(due.map(func(e): return int(e.line)) == [2, 4, 8],
@@ -508,33 +425,33 @@ func _test_farewell_sweep() -> void:
 	ok(Save.coins() == wallet_b + expect, "sweep_line credits board-stock coins to the wallet")
 	ok(Save.coins_earned_lifetime() == clock_b, "SWEEP NEVER ADVANCES THE CLOCK")
 	ok(not b.gens.values().has("gen_2") and b.gen_bag == ["gen_2", "gen_4"]
-		and b.gen_bag_tiers == [4, 1] and b.gen_bag_boost == [9, 0],
+		and b.gen_bag_boost == [9, 0],
 		"sweep touches board generators but leaves the generator bag untouched")
 	var kept: Dictionary = Save.grove().get("gen_kept", {})
-	ok(kept.get("gen_2", []) == [3, 5], "an upgraded swept board generator writes gen_kept [tier, boost]")
+	ok(kept.get("gen_2", []) == [5], "a swept boosted board generator writes gen_kept [boost]")
 	fresh("farewell_kept_merge_max")
 	var weaker := BoardModel.new()
 	for i in weaker.items.size():
 		weaker.terrain[i] = 0
 		weaker.items[i] = 0
-	weaker.place_gen("gen_2", Vector2i(0, 0), 2)
+	weaker.place_gen("gen_2", Vector2i(0, 0))
 	weaker.arm_gen_boost(Vector2i(0, 0), 9)
 	Save.grove()["gen_kept"] = {"gen_2": [3, 1]}
 	Save.grove_write()
 	BoardActions.sweep_line(weaker, 2)
-	ok((Save.grove().get("gen_kept", {}) as Dictionary).get("gen_2", []) == [3, 1],
-		"a second farewell keeps the stronger banked generator tier instead of overwriting it with a weaker copy")
+	ok((Save.grove().get("gen_kept", {}) as Dictionary).get("gen_2", []) == [9],
+		"a second farewell upgrades an old [tier, boost] keepsake to the strongest boost")
 	var equal := BoardModel.new()
 	for i in equal.items.size():
 		equal.terrain[i] = 0
 		equal.items[i] = 0
-	equal.place_gen("gen_2", Vector2i(0, 0), 3)
+	equal.place_gen("gen_2", Vector2i(0, 0))
 	equal.arm_gen_boost(Vector2i(0, 0), 9)
-	Save.grove()["gen_kept"] = {"gen_2": [3, 1]}
+	Save.grove()["gen_kept"] = {"gen_2": [1]}
 	Save.grove_write()
 	BoardActions.sweep_line(equal, 2)
-	ok((Save.grove().get("gen_kept", {}) as Dictionary).get("gen_2", []) == [3, 9],
-		"a same-tier farewell keeps the stronger boost taps in the banked generator keepsake")
+	ok((Save.grove().get("gen_kept", {}) as Dictionary).get("gen_2", []) == [9],
+		"a farewell keeps the stronger boost taps in the banked generator keepsake")
 	ok(BoardActions.farewells_due(b, l65).map(func(e): return int(e.line)) == [4, 8],
 		"presence-based evaluation is idempotent: the swept line does not re-fire")
 	var live_piece_survived := false
@@ -542,6 +459,26 @@ func _test_farewell_sweep() -> void:
 		if int(v) == 16 * 100 + 2:
 			live_piece_survived = true
 	ok(live_piece_survived, "a currently needed line's board piece is untouched")
+	# §9 ladder: a swept ACORN-tier piece pays acorns, not coins — the sweep must not drop that payout
+	# on the floor (the preview summed only .x before the rework).
+	fresh("farewell_acorn_tier")
+	var deep := BoardModel.new()
+	for i in deep.items.size():
+		deep.terrain[i] = 0
+		deep.items[i] = 0
+	var deep_code := 2 * 100 + int(G.TOP_TIER)
+	deep.place(Vector2i(0, 0), deep_code)
+	var deep_pay := G.sell_reward(deep_code)
+	var acorns_b := Save.diamonds()
+	var deep_wallet_b := Save.coins()
+	var deep_preview: Dictionary = BoardActions.farewell_preview(deep, 2)
+	ok(int(deep_preview.get("acorns", -1)) == int(deep_pay.y) and int(deep_pay.y) > 0
+		and int(deep_preview.get("coins", -1)) == 0,
+		"farewell_preview reports the acorn payout of an acorn-tier piece (and no coins)")
+	var deep_out: Dictionary = BoardActions.sweep_line(deep, 2)
+	ok(int(deep_out.get("acorns", -1)) == int(deep_pay.y)
+		and Save.diamonds() == acorns_b + int(deep_pay.y) and Save.coins() == deep_wallet_b,
+		"sweep_line credits a swept acorn-tier piece to the acorn purse, not the coin wallet")
 
 # The lucky-drop landing cell (shared by the coin shake + the §6.B special shake): one of the ≤3 open
 # cells nearest the merge, picked by rng — or the (-1,-1) sentinel when the board has no open ground.
@@ -564,14 +501,13 @@ func _test_pick_drop_cell() -> void:
 		full.items[i] = 101
 	ok(BoardLogic.pick_drop_cell(full, near, rng) == Vector2i(-1, -1), "a board with no open ground yields the (-1,-1) sentinel")
 
-# Generators are movable board pieces: besides empty-ground moves and same-generator merges, they can
-# trade cells with a regular item or with a non-mergeable generator without dropping tier/boost state.
+# Generators are movable board pieces: besides empty-ground moves, they can trade cells with a regular item
+# or another generator without dropping boost state.
 func _test_generator_swaps() -> void:
 	fresh("generator_swaps")
 	var b := BoardModel.new(); b.seed_gens(0)
 	var gen_cell: Vector2i = b.gens.keys()[0]
 	var gen_id := b.gen_id_at(gen_cell)
-	b.gen_tiers[gen_cell] = 2
 	b.arm_gen_boost(gen_cell, 3)
 	var item_cell: Vector2i = b.empty_ground_cells()[0]
 	b.place(item_cell, 101)
@@ -581,17 +517,17 @@ func _test_generator_swaps() -> void:
 		ok(b.swap_gen_with_item(gen_cell, item_cell), "generator swap: generator trades places with an occupied item cell")
 		ok(b.is_gen(item_cell) and b.gen_id_at(item_cell) == gen_id, "generator swap: generator lands on the item's old cell")
 		ok(b.item_at(gen_cell) == 101 and not b.collect_reward_at(gen_cell).is_empty(), "generator swap: item and reward land on the generator's old cell")
-		ok(b.gen_tier_at(item_cell) == 2 and b.gen_boost_at(item_cell) == 3, "generator swap: tier and boost travel with the generator")
+		ok(b.gen_boost_at(item_cell) == 3, "generator swap: boost travels with the generator")
 
 	var live_gen_cell := item_cell if b.is_gen(item_cell) else gen_cell
 	var other_cell: Vector2i = b.empty_ground_cells()[0]
-	b.place_gen("gen_2", other_cell, 3)
+	b.place_gen("gen_2", other_cell)
 	b.arm_gen_boost(other_cell, 5)
 	ok(b.has_method("swap_gens"), "generator swap: model exposes a generator-generator swap")
 	if b.has_method("swap_gens"):
 		ok(b.swap_gens(live_gen_cell, other_cell), "generator swap: two non-matching generators trade cells")
-		ok(b.gen_id_at(other_cell) == gen_id and b.gen_tier_at(other_cell) == 2 and b.gen_boost_at(other_cell) == 3, "generator swap: dragged generator state lands on the target cell")
-		ok(b.gen_id_at(live_gen_cell) == "gen_2" and b.gen_tier_at(live_gen_cell) == 3 and b.gen_boost_at(live_gen_cell) == 5, "generator swap: target generator state lands on the source cell")
+		ok(b.gen_id_at(other_cell) == gen_id and b.gen_boost_at(other_cell) == 3, "generator swap: dragged generator state lands on the target cell")
+		ok(b.gen_id_at(live_gen_cell) == "gen_2" and b.gen_boost_at(live_gen_cell) == 5, "generator swap: target generator state lands on the source cell")
 
 # The info bar's tier subtitle: an item AT its merge ceiling (G.merge_top — TOP_TIER for a content line,
 # COIN_TOP for coins) reads "Max tier" instead of a tier number the player can never raise. Driven through
@@ -623,3 +559,4 @@ func _test_info_bar_max_tier_subtitle() -> void:
 	var coin_text := String(scn._info_desc_label.text)
 	ok(coin_text.begins_with("Max tier"), "a coin at COIN_TOP reads \"Max tier\" too (got %s)" % coin_text)
 	await drop(scn)
+

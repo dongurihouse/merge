@@ -182,6 +182,7 @@ var _sky_state: Dictionary = {}
 var _sky_live_secs := 0.0
 var _sky_patch: Control = null
 var _sky_marker: Button = null
+var _sky_cell_glyphs := []
 var _sky_docked_star: Control = null
 var _star_catch_nodes := {}
 var _star_pending_started_secs := -1.0
@@ -225,7 +226,16 @@ var _farewell_check_queued := false
 # the bottom-bar INFO BAR: tapping a board item selects it here (its name + an info button that opens the
 # Tiers ladder + a trashcan that sells it for coins when it's a deletable, non-generator item).
 var _selected_cell := Vector2i(-1, -1)
-var _selected_improvement := false  # true when the info bar is showing an empty improved cell, not an item/generator
+# WHAT the info bar is showing, stored rather than re-derived from the board. Two kinds live on cells the
+# board reports as EMPTY — an improved-but-empty cell and a powered sky cell answer 0/false to item_at(),
+# is_gen() and is_growing() — so any if/elif chain that re-derives the kind ends in "none of the above"
+# and destroys the selection. Every _select_* entry point sets this; _restore_selected_info() switches on it.
+const SEL_NONE := 0
+const SEL_ITEM := 1         # a board item, including a seed growing on soil (same entry point: _select_item)
+const SEL_GENERATOR := 2    # generators live in board.gens, never board.items — item_at() reads 0 on their cell
+const SEL_IMPROVEMENT := 3  # an EMPTY improved cell (soil/magnet/…) — the improvement itself is the subject
+const SEL_SKY := 4          # a powered Sunbeam/Rain cell — an empty cell whose subject is the weather
+var _selection_kind := SEL_NONE
 var _focus_ring: Control = null      # the corner-bracket frame drawn on the selected cell (lazily built in board_area)
 var _split_preview: Control = null   # scissors hover preview: dashed target + twin ghosts
 var _info_icon: CenterContainer      # the selected piece preview
@@ -271,8 +281,7 @@ var _info_soil_water: Button         # Soil grow-row chip: spend board water to 
 var _info_soil_water_sb: StyleBoxFlat
 var _info_soil_water_count: Label
 var _info_soil_water_coin: Control
-var _info_mastery_row: HBoxContainer # generator mastery row: pips + slim meter + next reward
-var _info_mastery_pips: Array = []
+var _info_mastery_row: HBoxContainer # generator mastery row: slim meter + next reward (the rank number rides the title)
 var _info_mastery_progress: ProgressBar
 var _info_mastery_next_label: Label
 var _info_almanac: Button            # the empty-state Almanac button, shown only when no board cell is selected
@@ -515,6 +524,7 @@ func _sync_sky_patch_marker(pop_marker: bool) -> void:
 	if board_area == null or not is_instance_valid(board_area):
 		return
 	_clear_starfall_catch_ui()
+	_clear_sky_cell_glyph()
 	for node in [_sky_patch, _sky_marker]:
 		if node != null and is_instance_valid(node):
 			if node.get_parent() != null:
@@ -535,6 +545,9 @@ func _sync_sky_patch_marker(pop_marker: bool) -> void:
 	board_area.add_child(patch)
 	board_area.move_child(patch, _sky_patch_insert_index())
 	_sky_patch = patch
+	if sky != SkyLogic.SKY_STARFALL:
+		_sync_sky_cell_glyph(pop_marker)
+		return
 	var marker := _make_sky_marker()
 	board_area.add_child(marker)
 	_sky_marker = marker
@@ -549,6 +562,87 @@ func _sky_patch_insert_index() -> int:
 			if node is Control and is_instance_valid(node) and node.get_parent() == board_area:
 				insert_at = mini(insert_at, node.get_index())
 	return mini(insert_at, board_area.get_child_count() - 1)
+
+func _clear_sky_cell_glyph() -> void:
+	for raw_glyph in _sky_cell_glyphs:
+		_free_now(raw_glyph)
+	_sky_cell_glyphs.clear()
+	if board_area != null and is_instance_valid(board_area):
+		for glyph in board_area.find_children("SkyCellGlyph*", "TextureRect", true, false):
+			_free_now(glyph)
+
+func _weather_focus_sky() -> bool:
+	var sky := String(_sky_state.get("sky", ""))
+	return sky == SkyLogic.SKY_SUNBEAM or sky == SkyLogic.SKY_RAIN
+
+func _sky_lane_cells() -> Array:
+	var out: Array = []
+	var axis := String(_sky_state.get("lane_axis", SkyLogic.AXIS_COLUMN))
+	var lane := int(_sky_state.get("lane", 0))
+	if axis == SkyLogic.AXIS_ROW:
+		for c in G.COLS:
+			out.append(Vector2i(lane, c))
+	else:
+		for r in G.ROWS:
+			out.append(Vector2i(r, lane))
+	return out
+
+func _sky_icon_cell() -> Vector2i:
+	if board == null or _sky_state.is_empty() or not SkyLogic.gate_open() or not _weather_focus_sky():
+		return Vector2i(-1, -1)
+	var center := _lane_center_cell()
+	if board.is_open(center) and not board.is_gen(center):
+		return center
+	var best := Vector2i(-1, -1)
+	var best_dist := 1 << 20
+	for raw_cell in _sky_lane_cells():
+		var cell := Vector2i(raw_cell)
+		if not board.is_open(cell) or board.is_gen(cell):
+			continue
+		var d := absi(cell.x - center.x) + absi(cell.y - center.y)
+		if d < best_dist:
+			best = cell
+			best_dist = d
+	if best.x >= 0:
+		return best
+	if board.in_bounds(center) and SkyLogic.in_patch(_sky_state, center):
+		return center
+	return Vector2i(-1, -1)
+
+func _sync_sky_cell_glyph(pop_glyph: bool = false) -> void:
+	if board_area == null or not is_instance_valid(board_area) or not _weather_focus_sky():
+		return
+	var insert_at := board_area.get_child_count()
+	if _sky_patch != null and is_instance_valid(_sky_patch):
+		insert_at = _sky_patch.get_index() + 1
+	for raw_cell in _sky_lane_cells():
+		var cell := Vector2i(raw_cell)
+		if not board.in_bounds(cell):
+			continue
+		var glyph := _make_sky_cell_glyph(cell)
+		board_area.add_child(glyph)
+		board_area.move_child(glyph, mini(insert_at, board_area.get_child_count() - 1))
+		insert_at += 1
+		_sky_cell_glyphs.append(glyph)
+		if pop_glyph:
+			FX.pop(glyph)
+
+func _make_sky_cell_glyph(cell: Vector2i) -> TextureRect:
+	var glyph := TextureRect.new()
+	glyph.name = "SkyCellGlyph_%d_%d" % [cell.x, cell.y]
+	glyph.texture = _sky_marker_texture()
+	glyph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glyph.modulate = Color(1, 1, 1, 0.28)
+	glyph.set_meta("icon_path", _sky_marker_icon_path())
+	glyph.set_meta("cell", cell)
+	var inset := maxf(8.0, csz * 0.16)
+	glyph.position = _cell_pos(cell) + Vector2(inset, inset)
+	glyph.custom_minimum_size = Vector2(csz - inset * 2.0, csz - inset * 2.0)
+	glyph.size = glyph.custom_minimum_size
+	glyph.pivot_offset = glyph.size * 0.5
+	return glyph
 
 func _make_sky_marker() -> Button:
 	var marker := Button.new()
@@ -734,16 +828,39 @@ func _sky_info_desc() -> String:
 		return Strings.t("board.sky.starfall.catch")
 	return Strings.t("board.sky.%s.desc" % String(_sky_state.get("sky", "sunbeam")))
 
-func _on_sky_marker_pressed() -> void:
+func _weather_info_for_cell(cell: Vector2i) -> String:
+	if not _is_weather_focus_cell(cell):
+		return ""
+	return "%s: %s" % [_sky_info_title(), _sky_info_desc()]
+
+func _is_weather_focus_cell(cell: Vector2i) -> bool:
+	if board == null or cell.x < 0 or _sky_state.is_empty() or not SkyLogic.gate_open() or not _weather_focus_sky():
+		return false
+	return board.in_bounds(cell) and SkyLogic.in_patch(_sky_state, cell)
+
+func _write_sky_info_bar() -> void:
 	if _info_label == null or not is_instance_valid(_info_label):
 		return
-	_selected_cell = Vector2i(-1, -1)
-	if _focus_ring != null and is_instance_valid(_focus_ring):
-		_focus_ring.queue_free()
-		_focus_ring = null
+	_place_info_button(false)
+	_hide_mastery_info_row()
+	_hide_soil_chips()
+	_hide_seed_chips()
+	_hide_improvement_chips()
+	if _info_almanac != null and is_instance_valid(_info_almanac):
+		_info_almanac.visible = false
 	if _info_icon != null and is_instance_valid(_info_icon):
 		for c in _info_icon.get_children():
 			c.queue_free()
+		var glyph := TextureRect.new()
+		glyph.name = "SkyInfoGlyph"
+		glyph.texture = _sky_marker_texture()
+		glyph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		glyph.custom_minimum_size = Vector2(_info_item_px, _info_item_px)
+		glyph.size = glyph.custom_minimum_size
+		glyph.set_meta("icon_path", _sky_marker_icon_path())
+		_info_icon.add_child(glyph)
 	_info_label.text = _sky_info_title()
 	if _info_desc_label != null and is_instance_valid(_info_desc_label):
 		_info_desc_label.text = _sky_info_desc()
@@ -757,6 +874,21 @@ func _on_sky_marker_pressed() -> void:
 		_info_burst.visible = false
 	if _info_buy != null and is_instance_valid(_info_buy):
 		_info_buy.visible = false
+
+func _select_sky_cell(cell: Vector2i) -> bool:
+	if not _is_weather_focus_cell(cell):
+		return false
+	_selected_cell = cell
+	_selection_kind = SEL_SKY
+	_show_focus(cell)
+	_write_sky_info_bar()
+	return true
+
+func _on_sky_marker_pressed() -> void:
+	_selected_cell = Vector2i(-1, -1)
+	_selection_kind = SEL_NONE
+	_hide_focus()
+	_write_sky_info_bar()
 
 func _reconcile_starfall_pending_for_sky() -> void:
 	var sky_save := SkyLogic.grove_sky_state()
@@ -791,16 +923,7 @@ func _pending_star_code() -> int:
 	return int(SkyLogic.grove_sky_state().get("pending", 0))
 
 func _star_lane_cells() -> Array:
-	var out: Array = []
-	var axis := String(_sky_state.get("lane_axis", "column"))
-	var lane := int(_sky_state.get("lane", 0))
-	if axis == "row":
-		for c in G.COLS:
-			out.append(Vector2i(lane, c))
-	else:
-		for r in G.ROWS:
-			out.append(Vector2i(r, lane))
-	return out
+	return _sky_lane_cells()
 
 func _star_catch_cells() -> Array:
 	var out: Array = []
@@ -1775,7 +1898,7 @@ func _tick_water() -> void:
 			_rebuild_all()
 	else:
 		_rebuild_soil_overlays()
-	_refresh_selected_soil_info()
+	_refresh_selected_info()
 	_update_water_hud()
 	if water != before or changed:
 		_persist()
@@ -2392,21 +2515,59 @@ func _show_cascade_drag_guides(from: Vector2i) -> void:
 	var code := board.item_at(from)
 	if code <= 0:
 		return
-	var pads: Array = []
 	var occupied := {}
+	var pads := _merge_target_pads(from)
+	var fires := false
+	for raw_pad in pads:
+		if raw_pad is Dictionary:
+			occupied[Vector2i((raw_pad as Dictionary).get("cell", Vector2i(-1, -1)))] = true
+			fires = fires or String((raw_pad as Dictionary).get("kind", "")) == "cascade"
+	# Everything below lands on an EMPTY cell, and dropping on an empty cell is a move — it never
+	# reaches _prepare_chain, so it fires nothing. These are STAGING marks: they say "put it here
+	# and the ladder grows", never "put it here and it goes off". Hence kind, and hence no ×n:
+	# a number on an empty cell advertises a cascade the drop does not perform.
+	var staged: Array = []
 	for raw in BoardLogic.chain_placements(board, from, code):
 		if raw is Dictionary:
 			var entry: Dictionary = (raw as Dictionary).duplicate(true)
 			if int(entry.get("n", 0)) < CHAIN_MIN_N:
 				continue
 			entry["line"] = BoardModel.line_of(code)
-			entry["kind"] = "ignition"
-			pads.append(entry)
+			entry["kind"] = "stage"
+			staged.append(entry)
 			occupied[Vector2i(entry.get("cell", Vector2i(-1, -1)))] = true
-	pads.append_array(_cascade_extension_pads(from, code, occupied))
+	staged.append_array(_cascade_extension_pads(from, code, occupied))
+	# One place for the eye: when the held piece has a merge that actually cascades, that target is
+	# the answer, so the staging cells around it are noise competing with it.
+	if not fires:
+		pads.append_array(staged)
 	var outline := _ensure_cascade_outline()
 	if outline != null:
 		outline.set_ghost_pads(pads)
+
+func _merge_target_pads(from: Vector2i) -> Array:
+	var out: Array = []
+	if board == null:
+		return out
+	var code := board.item_at(from)
+	if code <= 0:
+		return out
+	for raw_target in piece_nodes.keys():
+		var target := Vector2i(raw_target)
+		if target == from or not board.can_merge(from, target):
+			continue
+		var n := 1 + BoardLogic.chain_path(board, from, target).size()
+		var entry := {
+			"cell": target,
+			"line": BoardModel.line_of(code),
+			# The ONLY mark that carries a ×n: an occupied cell you can drop onto, whose merge
+			# really does run a chain. Anything short of CHAIN_MIN_N is an ordinary merge.
+			"kind": "cascade" if n >= CHAIN_MIN_N else "merge",
+			"n": maxi(2, n),
+		}
+		out.append(entry)
+	out.sort_custom(func(a, b): return BoardModel.idx(Vector2i((a as Dictionary).get("cell", Vector2i.ZERO))) < BoardModel.idx(Vector2i((b as Dictionary).get("cell", Vector2i.ZERO))))
+	return out
 
 func _cascade_extension_pads(from: Vector2i, code: int, occupied: Dictionary) -> Array:
 	var out: Array = []
@@ -2455,7 +2616,7 @@ func _extension_pads_for_component(from: Vector2i, code: int, cells: Array, occu
 			var cell := base + Vector2i(raw_d)
 			if not _can_show_extension_pad(cell, from, occupied):
 				continue
-			out.append({"cell": cell, "line": BoardModel.line_of(code), "kind": "extension"})
+			out.append({"cell": cell, "line": BoardModel.line_of(code), "kind": "stage"})
 	return out
 
 func _can_show_extension_pad(cell: Vector2i, from: Vector2i, occupied: Dictionary) -> bool:
@@ -2551,22 +2712,17 @@ func _pos_to_cell(p: Vector2) -> Vector2i:
 # move/swap path, so an intended merge wins near a shared edge without making any other drop target looser.
 func _merge_target_at(from: Vector2i, pos: Vector2, drag_is_gen: bool) -> Vector2i:
 	var best := Vector2i(-1, -1)
+	if drag_is_gen:
+		return best
 	var best_dist := INF
-	var candidates: Array = board.gens.keys() if drag_is_gen else piece_nodes.keys()
+	var candidates: Array = piece_nodes.keys()
 	for raw_target in candidates:
 		var target := Vector2i(raw_target)
 		if target == from:
 			continue
-		var compatible := false
-		if drag_is_gen:
-			compatible = board.is_gen(from) and board.is_gen(target) \
-				and board.gen_id_at(from) == board.gen_id_at(target) \
-				and board.gen_tier_at(from) == board.gen_tier_at(target) \
-				and board.gen_tier_at(from) < G.GEN_TOP_TIER
-		else:
-			compatible = board.can_merge(from, target) \
-				or _recipe_merge_code(board.item_at(from), board.item_at(target)) > 0 \
-				or (Features.on("scissors") and BoardActions.can_split_piece(board, from, target))
+		var compatible := board.can_merge(from, target) \
+			or _recipe_merge_code(board.item_at(from), board.item_at(target)) > 0 \
+			or (Features.on("scissors") and BoardActions.can_split_piece(board, from, target))
 		if not compatible:
 			continue
 		var hit := Rect2(_cell_pos(target), Vector2(csz, csz)).grow(csz * MERGE_TARGET_GROW)
@@ -2610,7 +2766,7 @@ func _rebuild_all() -> void:
 	var ghl := _gen_highlight_opts()         # workbench-tuned glow/outline/sparkle (or {} for shipped look)
 	for cell in board.gens:                  # the live, stateful set (cell -> id), §6
 		var gid := String(board.gens[cell])
-		var gn := _make_generator(gid, ghl, board.gen_tier_at(cell))
+		var gn := _make_generator(gid, ghl)
 		gn.position = _cell_pos(cell)
 		board_area.add_child(gn)
 		FX.breathe(gn)
@@ -3001,7 +3157,7 @@ func _select_improvement_cell(cell: Vector2i) -> void:
 		_clear_selection()
 		return
 	_selected_cell = cell
-	_selected_improvement = true
+	_selection_kind = SEL_IMPROVEMENT
 	_show_focus(cell)
 	if _info_burst != null and is_instance_valid(_info_burst):
 		_info_burst.visible = false
@@ -3082,7 +3238,7 @@ func _water_soil(cell: Vector2i, now: float = -1.0) -> bool:
 	water -= int(G.SOIL_WATER_COST)
 	_update_water_hud()
 	_after_board_change()
-	_refresh_selected_soil_info()
+	_refresh_selected_info()
 	return true
 
 func _on_soil_water() -> void:
@@ -3243,7 +3399,6 @@ func _rebuild_action_bar_row(row: HBoxContainer, bottom_btn_px: float, action_op
 	if row == null:
 		return
 	var prior_selection := _selected_cell
-	var prior_improvement := _selected_improvement
 	for child in row.get_children():
 		row.remove_child(child)
 		child.queue_free()
@@ -3258,12 +3413,7 @@ func _rebuild_action_bar_row(row: HBoxContainer, bottom_btn_px: float, action_op
 		float(action_opts.get("info_x_frac", 0.0)), "ActionBarInfoOffset"))
 	row.add_child(_build_bag_box(bottom_btn_px, action_opts))   # right: the Bag tile, OUTSIDE the info tray
 	if preserve_selection and prior_selection.x >= 0 and board != null:
-		if prior_improvement and board.has_improvement(prior_selection) and board.item_at(prior_selection) == 0:
-			_select_improvement_cell(prior_selection)
-		elif board.is_gen(prior_selection):
-			_select_generator(prior_selection)
-		else:
-			_select_item(prior_selection)
+		_restore_selected_info(true)                   # kind-driven: the tray's widgets were just re-made
 	else:
 		_clear_selection()                             # the info bar starts in its empty "tap an item" state
 
@@ -3617,21 +3767,64 @@ func _refresh_soil_chips(cell: Vector2i) -> void:
 	var water_ready := water >= int(G.SOIL_WATER_COST) and not watered
 	_set_action_chip(_info_soil_water, _info_soil_water_sb, _info_soil_water_coin, _info_soil_water_count, "water", "%d" % int(G.SOIL_WATER_COST), water_ready)
 
-func _refresh_selected_soil_info() -> void:
+## The ONE place that re-shows the info bar for whatever is selected. Both callers reach it — the water
+## regen tick (_tick_water / _water_soil, via _refresh_selected_info) and the action-bar rebuild
+## (_rebuild_action_bar_row, with rebuild = true, after it has freed and re-made the tray's widgets).
+##
+## It switches on the STORED _selection_kind instead of re-deriving the kind from the board. Both callers
+## used to run their own if/elif chain over item_at()/is_gen()/has_improvement() and end in an `else` that
+## cleared the selection — and two kinds sit on cells the board calls empty (an improved-but-empty cell,
+## a powered sky cell), so they matched nothing and were silently defocused ~0.7s after the tap. The
+## default branch below therefore HOLDS the selection: a kind this dispatch does not know must degrade to
+## a stale-but-focused info bar, never a destroyed one. Clearing happens ONLY from a per-kind validity
+## check that failed (the item merged away, the generator sold, the sky hour rolled the patch elsewhere).
+func _restore_selected_info(rebuild: bool) -> void:
 	if _selected_cell.x < 0 or _info_label == null or not is_instance_valid(_info_label):
 		return
 	if board == null:
 		return
-	if _selected_improvement and board.has_improvement(_selected_cell):
-		_select_improvement_cell(_selected_cell)
-		return
-	if board.is_growing(_selected_cell):
-		_info_label.text = _soil_info_title(_selected_cell)
-		_refresh_soil_chips(_selected_cell)
-	elif board.item_at(_selected_cell) > 0:
-		_select_item(_selected_cell)
-	else:
-		_clear_selection()
+	var cell := _selected_cell
+	match _selection_kind:
+		SEL_SKY:
+			if not _is_weather_focus_cell(cell):   # the hour can roll the patch off this cell
+				_clear_selection()
+				return
+			_select_sky_cell(cell)
+		SEL_IMPROVEMENT:
+			if not board.has_improvement(cell) or board.item_at(cell) > 0:
+				_clear_selection()
+				return
+			_select_improvement_cell(cell)
+		SEL_GENERATOR:
+			if not board.is_gen(cell):
+				_clear_selection()
+				return
+			# Nothing the generator tray shows reads `water` — the title/tier/boost detail, the mastery
+			# row and the burst chip are driven by coins, boost charges and pops, and each of those has
+			# its own refresh hook (_refresh_selected_generator_mastery() from _after_board_change, the
+			# pop path's own relabel). So a tick HOLDS the selection rather than rebuilding it: re-running
+			# _select_generator() every regen tick would just churn the preview sprite. A rebuild has no
+			# choice — the widgets it would refresh were just freed.
+			if rebuild:
+				_select_generator(cell)
+		SEL_ITEM:
+			if board.is_growing(cell):
+				if rebuild:
+					_select_item(cell)
+				else:
+					_info_label.text = _soil_info_title(cell)
+					_refresh_soil_chips(cell)
+				return
+			if board.item_at(cell) <= 0:
+				_clear_selection()
+				return
+			_select_item(cell)
+		_:
+			return   # unknown kind: hold the focus + whatever the bar already says
+
+## The water regen tick's hook into the dispatch above: refresh in place, keep every widget that exists.
+func _refresh_selected_info() -> void:
+	_restore_selected_info(false)
 
 func _build_almanac_chip(opts: Dictionary, row: Control) -> void:
 	var KitA: GDScript = KIT
@@ -3656,7 +3849,7 @@ func _select_item(cell: Vector2i) -> void:
 		_clear_selection()
 		return
 	_selected_cell = cell
-	_selected_improvement = false
+	_selection_kind = SEL_ITEM
 	_show_focus(cell)                          # the corner-bracket frame makes the focus visible on the board
 	if _info_burst != null and is_instance_valid(_info_burst):
 		_info_burst.visible = false           # the burst chip is a GENERATOR action (see _select_generator)
@@ -3677,6 +3870,9 @@ func _select_item(cell: Vector2i) -> void:
 		_hide_mastery_info_row()
 		var tier_text := Strings.t("board.info.max_tier") if tier >= G.merge_top(code) else "%s %d" % [Strings.t("board.info.tier"), tier]
 		var desc := _item_description_for_cell(cell, code)
+		var weather_desc := _weather_info_for_cell(cell)
+		if weather_desc != "":
+			desc = weather_desc if desc == "" else "%s · %s" % [desc, weather_desc]
 		_info_desc_label.text = tier_text if desc == "" else "%s · %s" % [tier_text, desc]
 		_info_desc_label.visible = true
 	var show_info := seed_kind == "" and not _info_button_hidden
@@ -3728,7 +3924,7 @@ func _select_generator(cell: Vector2i) -> void:
 		_clear_selection()
 		return
 	_selected_cell = cell
-	_selected_improvement = false
+	_selection_kind = SEL_GENERATOR
 	_show_focus(cell)                          # the corner-bracket frame makes the focus visible on the board
 	var gid := board.gen_id_at(cell)
 	_place_info_button(false)
@@ -3736,8 +3932,7 @@ func _select_generator(cell: Vector2i) -> void:
 		_info_almanac.visible = false
 	for c in _info_icon.get_children():
 		c.queue_free()
-	var tier := board.gen_tier_at(cell)
-	var prev := PieceView.make_generator(gid, _info_item_px, {}, tier)
+	var prev := PieceView.make_generator(gid, _info_item_px, {})
 	prev.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_info_icon.add_child(prev)
 	_info_label.text = _gen_info_text(gid, cell)
@@ -3759,35 +3954,24 @@ func _select_generator(cell: Vector2i) -> void:
 	_hide_soil_chips()
 	_hide_seed_chips()
 	_hide_improvement_chips()
-	# A generator is clearable only when it is REDUNDANT (a higher-tier same-line sibling exists — the
-	# stranding fix). Not-currently-needed lines are now swept by the automatic farewell card, so the
-	# info tray never carries a second manual line-clearing path.
-	if board.is_redundant_gen(cell):
-		var sell_coins := G.gen_sell_coins(tier)
-		_info_trash_count.text = "%d" % sell_coins
-		for ic in _info_trash_coin.get_children():
-			ic.queue_free()
-		var pay_icon := Look.icon("coin", _info_trash_coin.custom_minimum_size.x)
-		pay_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_info_trash_coin.add_child(pay_icon)
-		_info_trash.visible = true
+	_info_trash.visible = false
+	if G.is_accumulator(gid) or G.is_treat_gen(gid):
 		if _info_burst != null and is_instance_valid(_info_burst):
-			_info_burst.visible = false       # a generator you're clearing isn't boostable
+			_info_burst.visible = false
 	else:
-		_info_trash.visible = false           # the top/only generator of a line is never sold
-		if G.is_accumulator(gid) or G.is_treat_gen(gid):
-			if _info_burst != null and is_instance_valid(_info_burst):
-				_info_burst.visible = false
-		else:
-			_refresh_burst_chip()             # the boost chip (full when armable, faded while live)
+		_refresh_burst_chip()                 # the boost chip (full when armable, faded while live)
 
-# The generator's info-bar label: its name, plus — while a boost is live — the boost detail (that the
-# boost is on and how many taps are left). Built here so a pop can refresh it live without rebuilding
-# the whole info bar (§3 boost detail).
+# The generator's info-bar label: its name, then — on a mastery line — the "· Tier N" mastery badge,
+# plus — while a boost is live — the boost detail (that the boost is on and how many taps are left).
+# Built here so a pop can refresh it live without rebuilding the whole info bar (§3 boost detail).
+# The badge is gated on the SAME condition _select_generator uses to choose the mastery row over the
+# plain description, so the number and the meter under it always appear (and vanish) together. It sits
+# BEFORE the boost detail so arming a boost never shunts it sideways.
 func _gen_info_text(gid: String, cell: Vector2i) -> String:
 	var lbl := G.generator_display_name(gid)
-	if not G.gen_def(G.GENERATORS, gid).is_empty():
-		lbl += " · %s %d" % [Strings.t("board.info.tier"), board.gen_tier_at(cell)]
+	var line := _gen_line(gid)
+	if Features.on("mastery") and G.ZONE_BASE_LINES.has(line):
+		lbl += " · " + (Strings.t("mastery.info.badge") % Mastery.rank(line))
 	if G.is_treat_gen(gid):
 		var clicks := int(Save.grove().get("treat_clicks", 0))
 		if clicks > 0:
@@ -3809,15 +3993,15 @@ func _refresh_selected_generator_mastery() -> void:
 	if Features.on("mastery") and G.ZONE_BASE_LINES.has(line):
 		_show_mastery_info_row(line)
 
+# The TEXT twin of the mastery row, used when the graphical row could not be installed. It carries the
+# same two payloads the row does — the within-rank progress and the next reward. The rank NUMBER is not
+# repeated here: it rides the title (_gen_info_text) in both renderings.
 func _mastery_info_text(line: int) -> String:
 	var rank := Mastery.rank(line)
 	var meter := Mastery.meter(line)
 	var next := Mastery.next_threshold(line)
-	var pips := ""
-	for i in range(G.MASTERY_THRESHOLDS.size()):
-		pips += "●" if i < rank else "○"
 	var progress := Strings.t("mastery.info.maxed") if rank >= G.MASTERY_THRESHOLDS.size() else "%d/%d" % [meter, next]
-	return "%s · %s · %s" % [pips, progress, _mastery_next_text(rank)]
+	return "%s · %s" % [progress, _mastery_next_text(rank)]
 
 func _mastery_next_text(rank: int) -> String:
 	if rank >= G.MASTERY_THRESHOLDS.size():
@@ -3845,27 +4029,21 @@ func _install_mastery_info_row() -> void:
 	parent.add_child(row)
 	parent.move_child(row, _info_desc_label.get_index() + 1)
 	_info_mastery_row = row
-	var pip_row := HBoxContainer.new()
-	pip_row.name = "MasteryPips"
-	pip_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pip_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	pip_row.add_theme_constant_override("separation", 3)
-	row.add_child(pip_row)
-	_info_mastery_pips.clear()
-	for i in range(G.MASTERY_THRESHOLDS.size()):
-		var pip := PanelContainer.new()
-		pip.name = "Pip%d" % (i + 1)
-		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		pip.custom_minimum_size = Vector2(9, 9)
-		pip_row.add_child(pip)
-		_info_mastery_pips.append(pip)
+	# The row's width is PINNED at 391px on the 1080-wide design canvas (the generator icon and the
+	# Boost chip beside it are already at their minimums, so nothing more can be taken). TWO children
+	# and the ONE 8px separation between them leave 383px to split between the meter and the
+	# next-reward text. The TEXT is the payload — an ellipsised "next: po…" says nothing — so the
+	# label keeps the lion's share of that split (ratio 2.5 ⇒ ~274px, well clear of the widest string)
+	# and the meter takes the remainder (~109px) over a 76px floor that stops it collapsing on a
+	# narrower row. Splitting evenly (both EXPAND at ratio 1, meter floor 120) is what once trimmed the
+	# label to "next: po…". mechanics_tests measures both halves against the real laid-out row.
 	var bar := ProgressBar.new()
 	bar.name = "MasteryProgress"
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.show_percentage = false
 	bar.min_value = 0.0
 	bar.max_value = 1.0
-	bar.custom_minimum_size = Vector2(120, 14)
+	bar.custom_minimum_size = Vector2(76, 14)
 	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(bar)
 	_info_mastery_progress = bar
@@ -3875,6 +4053,7 @@ func _install_mastery_info_row() -> void:
 	lbl.clip_text = true
 	lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lbl.size_flags_stretch_ratio = 2.5
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.add_theme_font_size_override("font_size", _info_desc_label.get_theme_font_size("font_size"))
 	lbl.add_theme_color_override("font_color", Pal.INK)
@@ -3894,17 +4073,6 @@ func _show_mastery_info_row(line: int) -> void:
 		return
 	var rank := Mastery.rank(line)
 	var color := _line_color(line)
-	for i in range(_info_mastery_pips.size()):
-		var pip := _info_mastery_pips[i] as PanelContainer
-		if pip == null or not is_instance_valid(pip):
-			continue
-		var filled := i < rank
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = color if filled else Pal.CREAM
-		sb.border_color = color if filled else Pal.INK
-		sb.set_border_width_all(1)
-		sb.set_corner_radius_all(99)
-		pip.add_theme_stylebox_override("panel", sb)
 	if _info_mastery_progress != null and is_instance_valid(_info_mastery_progress):
 		_info_mastery_progress.value = Mastery.rank_progress(line)
 		var bg := StyleBoxFlat.new()
@@ -3922,7 +4090,7 @@ func _show_mastery_info_row(line: int) -> void:
 # Reset the info bar to its empty "tap an item" state.
 func _clear_selection() -> void:
 	_selected_cell = Vector2i(-1, -1)
-	_selected_improvement = false
+	_selection_kind = SEL_NONE
 	_hide_focus()
 	if _info_icon != null and is_instance_valid(_info_icon):
 		for c in _info_icon.get_children():
@@ -4210,13 +4378,10 @@ func _on_trash_pressed() -> void:
 	if _selected_cell.x < 0:
 		return
 	var cell := _selected_cell
-	if board.is_gen(cell):                         # the sell button only clears a REDUNDANT generator
-		if board.is_redundant_gen(cell):
-			_sell_generator(cell)
-			_clear_selection()
+	if board.is_gen(cell):
 		return
 	var code := board.item_at(cell)
-	if code <= 0 or board.is_gen(cell) or G.is_coin(code):
+	if code <= 0 or G.is_coin(code):
 		return
 	var node: Control = piece_nodes.get(cell)
 	if node == null:
@@ -4252,7 +4417,6 @@ func _open_bag_overlay() -> void:
 				_open_shop.call(),
 		"on_balance": func() -> int: return Save.diamonds(),
 		"gen_bag": board.gen_bag,
-		"gen_bag_tiers": board.gen_bag_tiers,
 		"asked_lines": G.quest_needed_lines(_open_quest_lines()).keys(),   # asked + merged-recipe base lines — needed gens breathe in the bag
 		"on_place_gen": func(id: String) -> void:
 			var cells := board.empty_ground_cells()
@@ -4353,8 +4517,8 @@ func _refresh_locked_cells() -> void:
 		old.queue_free()
 		bramble_nodes[cell] = nb
 
-func _make_generator(id: String, hl: Dictionary = {}, tier: int = 1) -> Control:
-	var gn := PieceView.make_generator(String(id), csz, hl, tier)
+func _make_generator(id: String, hl: Dictionary = {}) -> Control:
+	var gn := PieceView.make_generator(String(id), csz, hl)
 	_attach_mastery_chrome(gn, String(id))
 	return gn
 
@@ -4652,6 +4816,8 @@ func _on_release(pos: Vector2) -> void:
 		var tap := _pos_to_cell(pos)
 		if tap == _press_cell and pos.distance_to(_press_pos) <= _drag_slop_px() and _catch_pending_star_at(tap):
 			return
+		if tap == _press_cell and pos.distance_to(_press_pos) <= _drag_slop_px() and _select_sky_cell(tap):
+			return
 		if tap == _press_cell and board.is_bramble(tap):
 			_show_locked_cell_info(tap)
 		elif tap == _press_cell and board.has_improvement(tap) and board.item_at(tap) == 0:
@@ -4772,11 +4938,6 @@ func _release_gen(pos: Vector2) -> void:
 		_rebuild_all()                        # #1 move (generators are movable-only; new ones arrive via near-end reward → gen_bag)
 		_after_board_change()
 		return
-	if target != from and board.is_gen(target) and board.merge_gens(from, target):   # #8: same-line generators merge → a stronger tier (frees the source cell)
-		Audio.play("item_drop", -2.0)
-		_rebuild_all()
-		_after_board_change()
-		return
 	if Features.on("drag_swap") and target != from \
 			and board.item_at(target) > 0 and not board.is_gen(target) \
 			and board.swap_gen_with_item(from, target):
@@ -4841,9 +5002,8 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		FX.wobble(gnode)                   # full board pauses the generator for FREE
 		Audio.play("invalid_soft", -4.0)
 		return
-	# Burst-pop (§6): one tap throws a BURST, not just one item. Its odds scale with the generator's
-	# TIER (gen redesign #8 — higher tier → more multiples); a live boost swaps in the boosted per-tier
-	# odds (T64 — the top tier gains a 4th burst slot). No per-map scale-up. Bound it by what's
+	# Burst-pop (§6): one tap throws a BURST, not just one item. A live boost swaps in the boosted
+	# flat odds. No per-map scale-up. Bound it by what's
 	# affordable (energy) and what fits (open cells). Each popped item costs `G.pop_cost(lo)` off
 	# the burst's ONE mastery window, so the whole burst is priced the same — the clamp below is
 	# what keeps a burst from overdrawing the can.
@@ -4853,7 +5013,7 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# (Accumulator/treat taps never reach here — their own collect/pop paths.)
 	var burst := 1
 	if charged:
-		burst = G.gen_burst_count(board.gen_tier_at(cell), rng, board.is_gen_boosted(cell))
+		burst = G.burst_count(rng, board.is_gen_boosted(cell))
 	if charged:
 		burst = mini(burst, int(water / pop_cost))
 	burst = mini(burst, empties.size())
@@ -4929,9 +5089,6 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# §6.C a main-generator tap may also side-spawn a limited-use BONUS generator (one at a time)
 	if not _has_bonus_gen() and G.rolls_bonus_spawn(rng):
 		_spawn_bonus_gen()
-	# gen redesign #8: a tap may also self-produce a duplicate generator (the merge fuel) at GEN_SELF_DUP_RATE.
-	if G.rolls_gen_self_dup(rng):
-		_self_dup_generator(cell)
 	_after_board_change()
 	_update_water_hud()        # the pop SPENT water — the water pill sits outside the board fan-out
 
@@ -4955,19 +5112,6 @@ func _produce_due_generators() -> bool:
 		FX.celebrate_at(self, ctr, Strings.t("board.feedback.tool_arrived"), STRAW)
 	Audio.play("unlock" if Audio.has("unlock") else "level_complete", -3.0)
 	return true
-
-# Gen stranding fix — SELF-DUP (the merge fuel). The pure action spawns a duplicate at the LINE's TOP tier
-# so duplicates feed ONE lineage (no sub-tier strand) and a maxed line breeds nothing; the scene renders the
-# pop-in. Lands on a free cell, else the bag (BoardActions.self_dup_generator).
-func _self_dup_generator(src: Vector2i) -> void:
-	var out := BoardActions.self_dup_generator(board, src)
-	if out.landed.is_empty() and out.bagged.is_empty():
-		return
-	for c in out.landed:
-		_grown_cells.append(c)
-	if not out.landed.is_empty():
-		_rebuild_all()
-	_after_board_change()
 
 # #14 the special CODE crafted by dragging two DIFFERENT base lines at the SAME tier together (0 if not a
 # recipe, Core §6.G). The special pops at the ingredients' tier, then climbs its own ladder.
@@ -5413,60 +5557,142 @@ func _debug_spawn_code() -> int:
 			return code
 	return 0
 
-## Debug-only: land every growing Soil right now (the debug panel's "Pop soil" button), so a tier
-## pop can be watched without waiting out the step timer. Each soil holding a growable item has its
-## step expired; a board whose soils are all BARE gets a deterministic tier-1 item dropped on the
-## first one first, so one tap still pops instead of the button reading as dead.
+## Debug-only: the plain empty ground inside a magnet's 3×3 range — where a debug pair can land.
+## Skips the magnet's own cell and every other improved cell: an item parked on a Soil in range
+## starts growing, and the magnet rule stands down on growing cells. Board-index order, no RNG.
+func _debug_magnet_room(magnet_cell: Vector2i) -> Array:
+	var out: Array = []
+	if board == null:
+		return out
+	for raw_cell in Improvements.range_cells(board, magnet_cell):
+		var cell := Vector2i(raw_cell)
+		if cell == magnet_cell or board.has_improvement(cell):
+			continue
+		if board.is_empty_ground(cell):
+			out.append(cell)
+	return out
+
+## Debug-only: where a debug-BUILT improvement of `kind` goes — the FIRST cell in board-index order
+## that can_build_improvement() allows and that (for a Magnet) still has room for a pair in its 3×3
+## range. Deterministic on purpose: these buttons must never touch the board RNG, whose stream is
+## persisted and order-sensitive. Never overwrites a player's item, a generator or an existing
+## improvement, and never exceeds the kind's cap. (-1, -1) when the board has no room for one.
+func _debug_build_cell(kind: String) -> Vector2i:
+	if board == null or board.improvement_count(kind) >= Improvements.cap_for(kind):
+		return Vector2i(-1, -1)
+	for raw_cell in board.empty_ground_cells():
+		var cell := Vector2i(raw_cell)
+		if not board.can_build_improvement(cell):
+			continue
+		if kind == Improvements.KIND_MAGNET and _debug_magnet_room(cell).size() < 2:
+			continue
+		return cell
+	return Vector2i(-1, -1)
+
+## Debug-only feedback: put the owner's eye on the cell a debug button just changed — SELECT it (the
+## focus ring frames it and the info bar names it and its tier), bounce its piece, and shout above it.
+## One cell moving on a forty-item board is invisible otherwise, which is exactly what made these
+## buttons read as dead. Called after _after_board_change, so piece_nodes holds the rebuilt node.
+func _debug_spotlight(cell: Vector2i, shout: String) -> void:
+	if board == null or cell.x < 0:
+		return
+	if board.item_at(cell) > 0:
+		_select_item(cell)
+	elif board.has_improvement(cell):
+		_select_improvement_cell(cell)
+	if board_area == null or not is_instance_valid(board_area):
+		return
+	var node: Control = piece_nodes.get(cell)
+	if node != null and is_instance_valid(node):
+		FX.pop(node)
+	var ctr: Vector2 = board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
+	FX.celebrate_at(self, ctr, shout, STRAW)
+
+## Debug-only: land a Soil growth step right now (the debug panel's "Pop soil" button), so a tier pop
+## can be watched without waiting out the step timer. ONE press works from ANY board state: every
+## growing Soil has its step expired; a board whose soils are all BARE gets a deterministic tier-1
+## item dropped on the first one; a board with NO Soil at all gets one BUILT on the first free cell
+## first. The changed cell is then spotlighted, and every dead end prints why instead of returning
+## silently — a quiet no-op is unreadable from "the button is broken".
 ## The pop itself is left to _after_board_change's own reconcile — reconciling HERE would consume the
 ## change and leave that call with nothing to report, so the piece art would keep the old tier.
 ## No _reflect — the new tier rebuilds live and _after_board_change persists it (no scene reload).
 func debug_pop_soil() -> void:
 	if board == null or not _improvements_enabled():
+		print("[debug] Pop soil: improvements are switched off — there is nothing to pop.")
 		return
 	var now := Time.get_unix_time_from_system()
 	var soils := _improvement_cells(Improvements.KIND_SOIL)
 	if soils.is_empty():
-		return
-	var popped := false
-	for cell in soils:
-		popped = board.expire_soil_step(cell, now) or popped
-	if not popped:
+		var site := _debug_build_cell(Improvements.KIND_SOIL)
+		if site.x < 0:
+			print("[debug] Pop soil: no Soil placed and no free cell to build one on (%d/%d placed)." % [
+				board.improvement_count(Improvements.KIND_SOIL), Improvements.cap_for(Improvements.KIND_SOIL)])
+			return
+		board.build_improvement(site, Improvements.KIND_SOIL)
+		soils = [site]
+	var popped := Vector2i(-1, -1)
+	for raw_cell in soils:
+		var cell := Vector2i(raw_cell)
+		if board.expire_soil_step(cell, now) and popped.x < 0:
+			popped = cell
+	if popped.x < 0:
 		var code := _debug_spawn_code()
 		if code <= 0:
+			print("[debug] Pop soil: every producible line is quest-asked right now — nothing safe to seed.")
 			return
-		for cell in soils:
+		for raw_cell in soils:
+			var cell := Vector2i(raw_cell)
 			if board.item_at(cell) != 0:
 				continue                     # a soil holding an already-topped item cannot pop
 			board.place(cell, code)
-			popped = board.expire_soil_step(cell, now)
+			if board.expire_soil_step(cell, now):
+				popped = cell
 			break
-	if not popped:
+	if popped.x < 0:
+		print("[debug] Pop soil: every placed Soil holds an item that cannot grow any further.")
 		return
+	var was := board.item_at(popped)
 	_after_board_change()
+	_debug_spotlight(popped, "Soil pop")
+	print("[debug] Pop soil: %s grew %d -> %d." % [popped, was, board.item_at(popped)])
 
-## Debug-only: make a placed Magnet do its auto-merge right now (the debug panel's "Pop magnet"
-## button) by dropping a matching pair into its 3×3 range, so the pull can be watched on demand.
-## The pair goes on plain empty ground only — an item parked on a Soil in range starts growing, and
-## the magnet rule skips growing cells. _after_board_change runs the scan, so the merge itself takes
-## the normal path. (A cascade in flight makes the rule stand down; the pair then merges on the scan
-## that follows the chain, so the drop is never wasted.)
+## Debug-only: make a Magnet do its auto-merge right now (the debug panel's "Pop magnet" button) by
+## dropping a matching pair into its 3×3 range, so the pull can be watched on demand. ONE press works
+## from ANY board state: the first placed Magnet with two free cells in range is used; when none has
+## room — including when none is placed at all — one is BUILT on a cell that does have room.
+## The pair goes on plain empty ground only (see _debug_magnet_room). _after_board_change runs the
+## scan, so the merge itself takes the normal path. (A cascade in flight makes the rule stand down;
+## the pair then merges on the scan that follows the chain, so the drop is never wasted.) The result
+## is spotlighted, and every dead end prints why instead of returning silently.
 ## No _reflect — the pair lands and merges live, and _after_board_change persists it (no scene reload).
 func debug_pop_magnet() -> void:
 	if board == null or not _improvements_enabled():
+		print("[debug] Pop magnet: improvements are switched off — there is nothing to pop.")
 		return
-	var magnets := _improvement_cells(Improvements.KIND_MAGNET)
-	if magnets.is_empty():
-		return
-	var free_cells: Array = []
-	for raw_cell in Improvements.range_cells(board, Vector2i(magnets[0])):
-		var cell := Vector2i(raw_cell)
-		if board.is_empty_ground(cell) and not board.has_improvement(cell):
-			free_cells.append(cell)
 	var code := _debug_spawn_code()
-	if free_cells.size() < 2 or code <= 0:
+	if code <= 0:
+		print("[debug] Pop magnet: every producible line is quest-asked right now — nothing safe to seed.")
 		return
-	var a := Vector2i(free_cells[0])
-	var b := Vector2i(free_cells[1])
+	var magnet := Vector2i(-1, -1)
+	var room: Array = []
+	for raw_cell in _improvement_cells(Improvements.KIND_MAGNET):
+		var cell := Vector2i(raw_cell)
+		var free_cells := _debug_magnet_room(cell)
+		if free_cells.size() >= 2:           # a boxed-in Magnet is skipped for the next one that has room
+			magnet = cell
+			room = free_cells
+			break
+	if magnet.x < 0:
+		magnet = _debug_build_cell(Improvements.KIND_MAGNET)
+		if magnet.x < 0:
+			print("[debug] Pop magnet: no placed Magnet has two free cells in range and there is nowhere to build one (%d/%d placed)." % [
+				board.improvement_count(Improvements.KIND_MAGNET), Improvements.cap_for(Improvements.KIND_MAGNET)])
+			return
+		board.build_improvement(magnet, Improvements.KIND_MAGNET)
+		room = _debug_magnet_room(magnet)
+	var a := Vector2i(room[0])
+	var b := Vector2i(room[1])
 	board.place(a, code)
 	board.place(b, code)
 	_after_board_change()
@@ -5474,12 +5700,22 @@ func debug_pop_magnet() -> void:
 	# would sit in the model unrendered until the next rebuild — so draw it here instead. (The scan
 	# runs before that call's own _rebuild_all, so the quest set it checks is the one _debug_spawn_code
 	# filtered against; a rebuild first could refill the quests and re-ask the code mid-flight.)
-	if board.item_at(a) == code and board.item_at(b) == code:
-		if board_area != null and is_instance_valid(board_area) and not _drag_active():
-			_rebuild_all()
+	var stood_down := board.item_at(a) == code and board.item_at(b) == code
+	if stood_down and board_area != null and is_instance_valid(board_area) and not _drag_active():
+		_rebuild_all()
+	# where to point: whichever half of the pair survived the pull. Neither, when the merged result
+	# merged onward in the same scan — then the Magnet itself is the story.
+	var focus := a if board.item_at(a) > 0 else b
+	if board.item_at(focus) <= 0:
+		focus = magnet
+	_debug_spotlight(focus, "Magnet pull")
+	if stood_down:
+		print("[debug] Pop magnet: seeded a %d pair at %s/%s — a chain is running, so the Magnet at %s pulls it on the next scan." % [code, a, b, magnet])
+	else:
+		print("[debug] Pop magnet: the Magnet at %s pulled the seeded %d pair at %s/%s together." % [magnet, code, a, b])
 
 ## Debug-only: move the mastery rank of EVERY generator standing on the board by `delta` (the debug
-## panel's "Gen rank ±1" buttons), so the raised pop windows and the rank-up card can be exercised
+## panel's "Gen tier ±1" buttons), so the raised pop windows and the rank-up card can be exercised
 ## without grinding the meter. A generator on a non-base line simply no-ops inside Mastery.set_rank —
 ## only base lines carry a meter. No scene reload: _after_board_change repaints the mastery rings and
 ## the selected generator's info row in place.
@@ -5604,7 +5840,7 @@ func _collect_accumulator(cell: Vector2i) -> void:
 	var mult := 1
 	var boosted := board.is_gen_boosted(cell)
 	if boosted:
-		mult = G.burst_count(_quest_map(), G.boost_bonus(), rng)
+		mult = G.burst_count(rng, true)
 	var drops := mini(mult, board.empty_ground_cells().size())
 	if drops <= 0:
 		if gn != null:
@@ -5716,7 +5952,7 @@ func _pop_treat(cell: Vector2i) -> void:
 			FX.wobble(gnw)
 		Audio.play("invalid_soft", -6.0)
 		return
-	var burst := mini(G.burst_count(_quest_map(), 0, rng), empties.size())
+	var burst := mini(G.burst_count(rng), empties.size())
 	for _b in burst:
 		var pick: Vector2i = empties[rng.randi_range(0, empties.size() - 1)]
 		var code: int = line * 100 + BoardLogic.roll_item_tier(rng, G.merge_top(line * 100 + 1))   # §6: a SPREAD of tiers like a normal pop (was a fixed TREAT_POP_TIER head start)
@@ -6178,24 +6414,6 @@ func _dismiss_2x_offer() -> void:
 		_2x_offer.queue_free()
 	_2x_offer = null
 
-# sell ANYTHING dragged onto the cart — tier pocket change; cleanup, never income
-## Gen stranding fix — sell the selected REDUNDANT generator: the pure action removes it + credits coins;
-## the scene re-renders without it (mirrors the merge/store generator paths) and floats the coin payout.
-func _sell_generator(cell: Vector2i) -> void:
-	var out := BoardActions.sell_generator(board, cell)
-	if not bool(out.sold):
-		return
-	Audio.play("tidy_poof", -4.0, 1.1)
-	var coins := int(out.coins)
-	if coins > 0:
-		var center: Vector2 = _info_trash.get_global_rect().get_center() if (_info_trash != null and is_instance_valid(_info_trash)) else get_global_rect().get_center()
-		var done := func() -> void:
-			if is_instance_valid(self):
-				_update_hud()
-		FX.reward_arrival(self, center, "coin", coins, STRAW, coins_label, done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
-	_rebuild_all()
-	_after_board_change()
-
 # Queue one calm farewell sweep after board entry or after the level-up ceremony has closed. The queued
 # seam keeps the card out of active gestures and lets any just-refilled quest fence settle first: a check
 # that lands mid-gesture (or on a held info-tray selection) RE-QUEUES ITSELF one frame later instead of
@@ -6244,8 +6462,12 @@ func _on_farewell_card_closed(line: int, next_need: Dictionary) -> void:
 	_sweep_farewell(line, next_need)
 
 func _sweep_farewell(line: int, next_need: Dictionary) -> void:
+	var preview := BoardActions.farewell_preview(board, int(line))
+	var flights := _farewell_item_flights(int(line))
+	var keepsakes := _farewell_keepsake_nodes(preview)
 	var out := BoardActions.sweep_line(board, int(line))
 	var coins := int(out.get("coins", 0))
+	var acorns := int(out.get("acorns", 0))     # §9 ladder: the deep tiers in the line paid acorns, not coins
 	if next_need.is_empty():
 		var g := Save.grove()
 		var retired: Dictionary = g.get("retired", {})
@@ -6253,16 +6475,101 @@ func _sweep_farewell(line: int, next_need: Dictionary) -> void:
 		g["retired"] = retired
 		Save.grove_write()
 	Audio.play("tidy_poof", -4.0, 1.1)
-	if coins > 0:
-		var center: Vector2 = get_global_rect().get_center()
-		var done := func() -> void:
-			if is_instance_valid(self):
-				_update_hud()
-		FX.reward_arrival(self, center, "coin", coins, STRAW, coins_label, done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
+	for node in keepsakes:
+		FX.keepsake_fade(node)
+	# ONE-ELEMENT ARRAY, not a plain int: a GDScript lambda captures locals BY VALUE and re-seeds that
+	# copy on EVERY call, so `shown += payout` inside the closure ticks to (pre-sweep + this one item)
+	# each arrival instead of accumulating — the counter would sit near its starting value for the whole
+	# flight and then snap on the final _update_hud(). An Array is a reference, so the running total
+	# survives across arrivals. FX.fly_pieces_away's own `remaining` counter uses this same idiom.
+	var shown := [Save.coins() - coins]
+	var on_each := func(payout: int) -> void:
+		if not is_instance_valid(self):
+			return
+		if payout <= 0:
+			return
+		shown[0] = int(shown[0]) + int(payout)
+		_currency_arrival_beat(coins_label, "coin", int(payout), int(shown[0]))
+	var on_all := func() -> void:
+		if is_instance_valid(self):
+			_update_hud()
+	# The sweep flies to whichever counter the piece actually paid — a t10+ item mints ACORNS (§9), so it
+	# must not tick the coin label. Coin pieces and acorn pieces are two flights to two labels.
+	var coin_flights: Array = []
+	var acorn_flights: Array = []
+	for f_v in flights:
+		var f: Dictionary = f_v
+		if int(f.get("acorns", 0)) > 0:
+			acorn_flights.append({"node": f.get("node"), "payout": int(f.get("acorns", 0))})
+		else:
+			coin_flights.append({"node": f.get("node"), "payout": int(f.get("payout", 0))})
+	if not acorn_flights.is_empty():
+		var acorns_shown := [Save.diamonds() - acorns]
+		var on_each_acorn := func(payout: int) -> void:
+			if not is_instance_valid(self) or payout <= 0:
+				return
+			acorns_shown[0] = int(acorns_shown[0]) + int(payout)
+			_currency_arrival_beat(diamonds_label, "gem", int(payout), int(acorns_shown[0]))
+		FX.fly_pieces_away(self, acorn_flights, diamonds_label, {"fx_id": "farewell_sweep_acorn"}, on_each_acorn, on_all)
+	FX.fly_pieces_away(self, coin_flights, coins_label, {"fx_id": "farewell_sweep"}, on_each, on_all)
 	_clear_selection()
 	_rebuild_all()
-	_after_board_change(coins > 0)
+	_after_board_change(coins > 0 or acorns > 0)
 	_queue_farewell_check_after_frame()
+
+func _farewell_item_flights(line: int) -> Array:
+	var flights: Array = []
+	for i in board.items.size():
+		var code: int = board.items[i]
+		if code <= 0 or G.is_coin(code) or BoardModel.line_of(code) != int(line):
+			continue
+		var cell := BoardModel.cell_of(i)
+		var node: Control = piece_nodes.get(cell)
+		piece_nodes.erase(cell)
+		var rw := G.sell_reward(code)
+		flights.append({"node": _detach_flyaway_node(node), "payout": int(rw.x), "acorns": int(rw.y)})
+	return flights
+
+func _farewell_keepsake_nodes(preview: Dictionary) -> Array:
+	var out: Array = []
+	for cell_v in preview.get("gen_cells", []):
+		var cell := Vector2i(cell_v)
+		var node: Control = gen_nodes.get(cell)
+		gen_nodes.erase(cell)
+		var live := _detach_flyaway_node(node)
+		if live != null:
+			out.append(live)
+	return out
+
+func _detach_flyaway_node(node: Control) -> Control:
+	if node == null or not is_instance_valid(node) or node.is_queued_for_deletion():
+		return null
+	var at := node.global_position
+	var parent := node.get_parent()
+	if parent != self:
+		if parent != null:
+			parent.remove_child(node)
+		add_child(node)
+		node.global_position = at
+	node.z_index = Tuning.FX.FLY_Z
+	return node
+
+func _currency_arrival_beat(label: Label, icon_id: String, amount: int, shown_value: int) -> void:
+	if label == null or not is_instance_valid(label):
+		_update_hud()
+		return
+	var at := label.get_global_rect().get_center()
+	var pulse := _currency_pulse_target(label)
+	if pulse != null:
+		FX.breathe_once(pulse)
+	FX.floating_reward(self, at + Vector2(14, -42), icon_id, amount, FX.reward_color(icon_id))
+	FX.tick(label, shown_value)
+
+func _currency_pulse_target(label: Label) -> Control:
+	var cur: Node = label
+	while cur != null and not cur is PanelContainer:
+		cur = cur.get_parent()
+	return cur as Control if cur is Control else label
 
 func _queue_farewell_check_after_frame() -> void:
 	if not is_inside_tree():
@@ -6341,25 +6648,19 @@ func _grant_sale(code: int, node: Control) -> void:
 	if reward.y > 0:
 		Save.add_diamonds(reward.y)
 		Vault.skim(reward.y)                  # T44 SKIM-SITE 3/3 (t8-sell): the piggy bank skims a slice of the t8 premium sale (§10)
-	var target: Control = _info_trash if (_info_trash != null and is_instance_valid(_info_trash)) else null
-	var center: Vector2 = target.get_global_rect().get_center() if (target != null and is_instance_valid(target)) else get_global_rect().get_center()
-	if node != null and is_instance_valid(node):
-		var dest: Vector2 = center - board_area.get_global_transform().origin - Vector2(csz, csz) / 2.0
-		var t := node.create_tween()
-		t.set_parallel(true)
-		t.tween_property(node, "position", dest, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		t.tween_property(node, "scale", Vector2(0.35, 0.35), 0.25)
-		t.chain().tween_callback(node.queue_free)
 	if reward.y > 0:
-		var sale_gem_done := func() -> void:
+		var gem_done := func() -> void:
 			if is_instance_valid(self):
+				_currency_arrival_beat(diamonds_label, "gem", int(reward.y), Save.diamonds())
+		FX.fly_piece_to(self, node, diamonds_label, {"fx_id": "sale_payout"}, gem_done)
+		return
+	var coin_done := func() -> void:
+		if is_instance_valid(self):
+			if reward.x > 0:
+				_currency_arrival_beat(coins_label, "coin", int(reward.x), Save.coins())
+			else:
 				_update_hud()
-		FX.reward_arrival(self, center, "gem", reward.y, FX.reward_color("gem"), diamonds_label, sale_gem_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
-	elif reward.x > 0:
-		var sale_coin_done := func() -> void:
-			if is_instance_valid(self):
-				_update_hud()
-		FX.reward_arrival(self, center, "coin", reward.x, STRAW, coins_label, sale_coin_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
+	FX.fly_piece_to(self, node, coins_label, {"fx_id": "sale_payout"}, coin_done)
 
 # The real gate lives on the HOME scene now (buying a spot IS the progression step) —
 # this button is the invitation: stars suffice, go decorate.

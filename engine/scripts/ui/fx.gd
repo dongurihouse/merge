@@ -23,7 +23,7 @@ const REWARD_FX_MAX_TRAIL_COUNT := 4
 const REWARD_FX_MIN_SOURCE_SIZE := 72.0
 const REWARD_FX_MAX_SOURCE_SIZE := 148.0
 static var REWARD_FX_CONFIG_PATH := Game.kit_settings()
-const REWARD_FX_IDS := ["coin_pickup", "board_refill", "stash_to_bag", "quest_payout", "accept_2x", "map_task_reward", "sale_payout"]
+const REWARD_FX_IDS := ["coin_pickup", "board_refill", "stash_to_bag", "quest_payout", "accept_2x", "map_task_reward", "sale_payout", "farewell_sweep"]
 # The reward-FX settings live in the SAME file the ui kit reads, so the parse is cached in exactly
 # ONE place — Kit.load_config(path), invalidated by Kit.clear_config_cache(path). FX deliberately
 # keeps no private cache of its own: two caches over one file meant a workbench save through either
@@ -597,6 +597,127 @@ static func fly_to_wallet(host: Control, from_gpos: Vector2, fly_icon: Control, 
 		fly_icon.queue_free()
 		if then.is_valid():
 			then.call())
+
+## Move a live board piece out of its clipped parent, arc it to the wallet chip, then call `then`.
+static func fly_piece_to(host_value: Variant, node_value: Variant, to_chip_value: Variant,
+		opts: Dictionary = {}, then: Callable = Callable()) -> void:
+	var fx_id := String(opts.get("fx_id", ""))
+	var host := _live_control(host_value)
+	var node := _live_control(node_value)
+	var to_chip := _live_control(to_chip_value)
+	if _piece_flight_skips(host, fx_id):
+		_finish_piece_flight(node, then)
+		return
+	if node == null:
+		_call_then(then)
+		return
+	var start := node.global_position
+	var parent := node.get_parent()
+	if parent != host:
+		if parent != null:
+			parent.remove_child(node)
+		host.add_child(node)
+		node.global_position = start
+	node.z_index = Tune.FLY_Z
+	var dest := _piece_fly_dest(start, to_chip)
+	var mid := (start + dest) / 2.0 + (opts.get("arc", Tune.PIECE_FLY_ARC) as Vector2)
+	var t_up := maxf(0.0, float(opts.get("t_up", Tune.PIECE_FLY_T_UP)))
+	var t_down := maxf(0.0, float(opts.get("t_down", Tune.PIECE_FLY_T_DOWN)))
+	var scale := opts.get("scale", Tune.PIECE_FLY_SCALE) as Vector2
+	var tw := node.create_tween()
+	tw.tween_property(node, "global_position", mid, t_up).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(node, "global_position", dest, t_down).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(node, "scale", scale, t_down)
+	tw.tween_callback(func() -> void:
+		_call_then(then)
+		if node != null and is_instance_valid(node):
+			node.queue_free())
+
+## Launch many piece flights with a capped stagger. Each landing reports its own payout.
+static func fly_pieces_away(host_value: Variant, flights: Array, to_chip_value: Variant,
+		opts: Dictionary = {}, then_each: Callable = Callable(),
+		all_done: Callable = Callable()) -> void:
+	if flights.is_empty():
+		_call_then(all_done)
+		return
+	var host := _live_control(host_value)
+	var to_chip := _live_control(to_chip_value)
+	var remaining := [flights.size()]
+	var finished_one := func(payout: int) -> void:
+		if then_each.is_valid():
+			then_each.call(payout)
+		remaining[0] = int(remaining[0]) - 1
+		if int(remaining[0]) <= 0:
+			_call_then(all_done)
+	if _piece_flight_skips(host, String(opts.get("fx_id", ""))):
+		for f in flights:
+			var d := f as Dictionary
+			_finish_piece_flight(_live_control(d.get("node", null)), func() -> void:
+				finished_one.call(int(d.get("payout", 0))))
+		return
+	var host_ref: WeakRef = weakref(host)
+	var spacing: float = sweep_launch_spacing(flights.size())
+	var tree: SceneTree = host.get_tree()
+	for i in flights.size():
+		var d: Dictionary = flights[i]
+		var launch := func() -> void:
+			var live_host := _live_control(host_ref.get_ref())
+			fly_piece_to(live_host, d.get("node", null), to_chip, opts, func() -> void:
+				finished_one.call(int(d.get("payout", 0))))
+		var delay := spacing * float(i)
+		if delay <= 0.0:
+			launch.call()
+		else:
+			tree.create_timer(delay).timeout.connect(launch)
+
+static func sweep_launch_spacing(count: int) -> float:
+	return minf(Tune.SWEEP_STAGGER, Tune.SWEEP_STAGGER_CAP / maxf(1.0, float(count)))
+
+static func keepsake_fade(node_value: Variant, then: Callable = Callable()) -> void:
+	var node := _live_control(node_value)
+	if node == null:
+		_call_then(then)
+		return
+	var parent := node.get_parent()
+	var center := node.get_global_rect().get_center()
+	if parent != null and parent is Node:
+		burst(parent, center, Pal.STRAW, mini(Tune.CELEB_BURST, 12))
+	var start := node.position
+	node.pivot_offset = _center_pivot(node)
+	var tw := node.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(node, "position", start + Tune.KEEPSAKE_LIFT, Tune.KEEPSAKE_T).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(node, "scale", Tune.KEEPSAKE_SCALE, Tune.KEEPSAKE_T).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(node, "modulate:a", 0.0, Tune.KEEPSAKE_T).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.chain().tween_callback(func() -> void:
+		_call_then(then)
+		if node != null and is_instance_valid(node):
+			node.queue_free())
+
+static func _piece_flight_skips(host: Control, fx_id: String) -> bool:
+	if fx_id != "" and not reward_fx_enabled(fx_id):
+		return true
+	if not Features.on("fly_to_wallet"):
+		return true
+	return host == null or not is_instance_valid(host) or not host.is_inside_tree()
+
+static func _live_control(value: Variant) -> Control:
+	if value == null or not is_instance_valid(value):
+		return null
+	return value as Control
+
+static func _finish_piece_flight(node: Control, then: Callable) -> void:
+	_call_then(then)
+	if node != null and is_instance_valid(node):
+		node.queue_free()
+
+static func _call_then(then: Callable) -> void:
+	if then.is_valid():
+		then.call()
+
+static func _piece_fly_dest(from_gpos: Vector2, to_chip: Control) -> Vector2:
+	return to_chip.get_global_rect().get_center() \
+		if to_chip != null and is_instance_valid(to_chip) else from_gpos + Tune.FLY_FALLBACK
 
 ## The shared cozy payday spine: a source burst + icon/number floater, a main token
 ## arcing to its destination, tiny delayed companion tokens, and an arrival pulse.

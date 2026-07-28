@@ -5,7 +5,7 @@
 ##   games/grove/tools/release_screenshots.sh [OUT_DIR]
 ##
 ## OUT_DIR defaults to appstore_screenshots/ at the repo root. Run from any checkout; uses the
-## quiet capture harness (born-minimized window — never steals focus). ~2-3 min total.
+## quiet capture harness (off-screen window — never shown, never steals focus). ~2-3 min total.
 ##
 ## Sizes (App Store Connect requirements):
 ##   iPhone 6.7"  1284x2778  → OUT_DIR/01_title_splash.png · 02_restored_world.png · 03_merge_board.png

@@ -105,7 +105,7 @@ func _initialize() -> void:
 	b._rebuild_bag()
 
 	await create_timer(0.4).timeout
-	RenderingServer.force_draw()      # warm-up draw: a minimized window's FIRST read can be stale
+	RenderingServer.force_draw()      # warm-up draw: a hidden window's FIRST read can be stale
 	await create_timer(0.1).timeout
 	var err := Base.capture(self, out, ctx["args"])
 	print("MONTAGE saved=%s err=%d size=%dx%d" % [out, err, W, H])

@@ -275,19 +275,29 @@ func _ready() -> void:
 
 	BootTrace.done()                     # cold boot only: print the boot-phase timing table, then close the trace
 
-# The dev capture harness births its windows minimized + focusless via a
-# transient override.cfg (engine/tools/quiet_godot.sh). If a REAL launch ever inherits
-# those flags — a leaked file, or launching while a capture is in flight — the
+# The dev capture harness births its windows 1x1 + borderless + focusless in a screen
+# corner via a transient override.cfg (engine/tools/quiet_godot.sh). If a REAL launch ever
+# inherits that geometry — a leaked file, or launching while a capture is in flight — the
 # game self-heals at boot: restore the window, delete a leftover that is OURS.
 # Quiet runs export TU_QUIET=1 and are exempt (their windows must stay hidden).
+# The caller runs Design.fit_desktop_window() straight after, which re-sizes and re-centres
+# the healed window — so this only has to undo the FLAGS, never the geometry.
+const CAPTURE_MARKER := "window/size/no_focus=true"   # quiet_godot.sh's ownership marker line
+
 func _heal_capture_flags() -> void:
 	if OS.get_environment("TU_QUIET") == "1":
 		return
+	var inherited := false
 	if FileAccess.file_exists("res://override.cfg"):
 		var txt := FileAccess.get_file_as_string("res://override.cfg")
-		if "window/size/no_focus=true" in txt:
+		if CAPTURE_MARKER in txt:
 			DirAccess.remove_absolute(ProjectSettings.globalize_path("res://override.cfg"))
-	if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_MINIMIZED:
+			inherited = true      # the file was ours ⇒ this window was born under capture geometry
+	# A window born under a leaked file that a quiet run has SINCE deleted still carries the flags,
+	# so the flags themselves are checked too. MINIMIZED is kept from the older recipe: a window
+	# minimized at boot is never something a real launch asked for.
+	if inherited or DisplayServer.window_get_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS) \
+			or DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_MINIMIZED:
 		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, false)
 		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)

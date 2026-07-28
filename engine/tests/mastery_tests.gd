@@ -206,12 +206,18 @@ func _test_scissors_price_floor() -> void:
 	ok(G.is_valid_item_code(G.SCISSORS_LINE * 100 + 1), "the scissors code survives save-load pruning")
 	ok(G.special_kind(G.SCISSORS_LINE * 100 + 1) == "scissors", "the scissors item is registered as a tool")
 	var max_gain := -999999
+	# The comparison is in COIN-EQUIVALENTS (1 acorn = COINS_PER_ACORN): the §9 ladder pays the deep tiers
+	# in acorns, so a coins-only view of the t9→t10 boundary reads the whole piece as worthless and reports
+	# a split gain that does not exist.
+	var sell_value := func(code: int) -> int:
+		var rw: Vector2i = G.sell_reward(code)
+		return int(rw.x) + int(rw.y) * int(G.COINS_PER_ACORN)
 	for raw_line in G.LINES.keys():
 		var line := int(raw_line)
 		if G.TREAT_LINES.has(line):
 			continue
 		for tier in range(2, G.TOP_TIER + 1):
-			var gain := 2 * int(G.sell_reward(line * 100 + tier - 1).x) - int(G.sell_reward(line * 100 + tier).x)
+			var gain := 2 * int(sell_value.call(line * 100 + tier - 1)) - int(sell_value.call(line * 100 + tier))
 			max_gain = maxi(max_gain, gain)
 	ok(G.SCISSORS_COST > max_gain,
 		"scissors cost beats the best split-and-sell gain (%d > %d)" % [G.SCISSORS_COST, max_gain])

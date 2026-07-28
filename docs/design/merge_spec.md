@@ -146,7 +146,7 @@ Merging, moving, delivering, selling, collecting, and decorating are **always fr
 | | Default |
 |---|---|
 | Cap | **100** (`WATER_CAP`) |
-| Pop cost | **1 per item**; a tap pops a small **burst** — 1–3 by generator tier, a boosted top-tier generator up to 4 (`GEN_TIER_BURST_ODDS`/`_BOOST`, §6) — fewer taps, same energy/item |
+| Pop cost | **1 per item**; a tap pops a small **burst** — 1–3 from flat burst odds, with a temporary per-generator boost swapping in the boosted flat row (§6) — fewer taps, same energy/item |
 | Regen | **+1 every 120 s** (offline included) |
 | Level-up gift | **+50** |
 | Free refills | **1 per day** (a "refill" button at 0) |
@@ -221,8 +221,8 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 ## 6 · Generators & Item Lines
 
 > **⚠ THE ACTIVE-LINE WINDOW — read this box FIRST (2026-07-25).** Supersedes the *line-window* halves of
-> the 2026-06-28 and 2026-06-26 boxes below (their generator model — one gen per line, birth-on-tap, the
-> merge ladder, bonus gens, special recipes — is untouched). Implementation: `content.gd`
+> the 2026-06-28 and 2026-06-26 boxes below (their generator model — one gen per line, birth-on-tap,
+> bonus gens, special recipes — is untouched). Implementation: `content.gd`
 > (`active_lines` / `zone_window_lines` / `endgame_lines`), `quests.gd` (`refill`, `due_gen`),
 > `grove_data.gd` (`ACTIVE_LINE_WINDOW`), `grove_sim.gd`.
 >
@@ -289,26 +289,14 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 > progression and swaps only occasionally. When a line leaves the window it **retires to the Collection**;
 > its generator **retires with it — archived, no harvest payout (harvest parked, 2026-06-28)**.
 >
-> **D. Generators merge to tier 3; produce the fuel (tier-aware).** Two same-line generators **merge 2:1**
-> to the next tier (3 tiers), **freeing a cell**. **Higher tier → higher multi-item burst odds**
-> (`GEN_TIER_BURST_ODDS` by generator tier); a live temporary boost (§10 sink) swaps in
-> `GEN_TIER_BURST_ODDS_BOOST` — strictly better at every tier, and the top row adds a **4th burst slot**
-> (only a boosted tier-3 pops 4). A **below-tier-3** generator **self-produces a duplicate of its
-> own line at ~0.5%/tap** (`GEN_SELF_DUP_RATE`) — the merge fuel; the first of a line is free (B). A
-> **tier-3 (maxed)** generator **stops self-duplicating** (no further merge for itself) and instead, at the
-> same rate, **produces a tier-1 generator for another active line still below tier 3** — redirecting the
-> drip to where it helps (nothing if every active line is maxed).
+> **D. Generator rank/mastery replaces generator merge tiers.** Generators no longer merge into their own
+> tier ladder, self-produce duplicate merge fuel, or expose a redundant-generator sell path. A generator's
+> job is to be the durable per-line tool; the line's **rank/mastery** determines the item-tier pop window,
+> while the generator itself rolls the flat burst odds. A live temporary boost (§10 sink) swaps `BURST_ODDS`
+> for `BURST_ODDS_BOOST`; there is no boosted 4th burst slot.
 >
-> **D-status (owner call, 2026-07-23): self-dup is OFF** — `GEN_SELF_DUP_RATE = 0.0`. The duplicate spawned
-> at the line's **top** tier, so a sub-top leftover met a copy it could not merge with; because generator art
-> is tier-independent the pair looked identical, and the refused drop fell through to `swap_gens` and just
-> traded cells — reading as "the merge did nothing." The ladder itself (merge 2:1, tier burst odds, sell a
-> redundant gen) is untouched and still works on tiers a save already holds; there is simply **no new fuel**,
-> so generators stay at their current tier and no new leftover can strand. Re-enable by restoring `0.005`
-> once tier is legible on the board **and** a refused generator merge bounces instead of swapping.
->
-> **E. Board cap ≤ 6 generators.** At most **6 generators** on the board at once (active lines + duplicates
-> mid-merge + bonus gens, F); overflow queues in the **bag**.
+> **E. Board cap ≤ 6 generators.** At most **6 generators** on the board at once (active lines + bonus
+> gens, F); overflow queues in the **bag**.
 >
 > **F. Bonus generators (replaces real-time accrual).** The utility producers (water · coin · acorn · exp,
 > the old `ACCUMULATORS`/`habitat`) are **no longer real-time accumulators**. They become **limited-use
@@ -389,7 +377,7 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 
 ### Generators
 
-A generator emits **two item lines**. **Tap → a small burst pops** — items to free cells, **1 energy each**. Burst size stacks three ways: a **random base** (`BURST_ODDS`), a **free scale-up by map** (later generators pop bigger), and a **player upgrade** (a coin/premium **sink** — pay to grow the burst, §8/§10). All of it cuts **taps**, not the per-item energy economy, so the §3 pacing curve is unchanged. *(v1 (T25): the player upgrade is a single **board-level, global** burst level — one ladder sizing **every** live generator — bought from an **on-board pill** anchored to the generator (`board.gd` `_try_buy_burst` / `_rebuild_burst_chip`), matching §8's "board-level… independent of the hub." A **per-generator** burst level is parked. The free portion (base + per-map gift) is capped **on its own** at `BURST_FREE_MAX`; the paid level adds **on top**, so each bought level always gives +1 (`burst_count` decoupled, T25) — sim-validated, the burst sink absorbs ~64–76% of the coin faucet across seeds (the rest is the parked §8 hub sink).)* Each item is from **one of its two lines** at a tier with decaying odds (`TIER_ODDS = [0.65, 0.25, 0.09, 0.01]` for t1–t4); line and tier are **weighted toward what current givers want** (`ASK_WEIGHT = 0.6`). A full board dims the generator (popping is free while dimmed). A generator is **never sold** and **never merged** (generators do not evolve by merging — retired); it **can be moved** (dragged / swapped like any piece, §2). It leaves the board only by being **handed in at a map boundary** (a generator-grant quest, below).
+A generator emits **two item lines**. **Tap → a small burst pops** — items to free cells, **1 energy each**. Burst size is **one roll off a flat table**, clamped to `[1, BURST_MAX]`: `BURST_ODDS` normally, `BURST_ODDS_BOOST` while a temporary boost is live (the §10 coin sink) — **one seam, `G.burst_count(rng, boosted)`, for every generator-like tap** (line generators, boosted accumulator collect, treat pop, sim). There is **no per-map scale-up** and **no burst-level upgrade ladder** (both retired), and no per-generator tier row. Burst cuts **taps**, not the per-item energy economy, so the §3 pacing curve is unchanged. *(v1 (T25): the player upgrade is a single **board-level, global** burst level — one ladder sizing **every** live generator — bought from an **on-board pill** anchored to the generator (`board.gd` `_try_buy_burst` / `_rebuild_burst_chip`), matching §8's "board-level… independent of the hub." A **per-generator** burst level is parked. The free portion (base + per-map gift) is capped **on its own** at `BURST_FREE_MAX`; the paid level adds **on top**, so each bought level always gives +1 (`burst_count` decoupled, T25) — sim-validated, the burst sink absorbs ~64–76% of the coin faucet across seeds (the rest is the parked §8 hub sink).)* Each item is from **one of its two lines** at a tier with decaying odds (`TIER_ODDS = [0.65, 0.25, 0.09, 0.01]` for t1–t4); line and tier are **weighted toward what current givers want** (`ASK_WEIGHT = 0.6`). A full board dims the generator (popping is free while dimmed). A generator is **never sold** and **never merged** (generators do not evolve by merging — retired); it **can be moved** (dragged / swapped like any piece, §2). It leaves the board only by being **handed in at a map boundary** (a generator-grant quest, below).
 
 **Generators arrive per map, not by level.** Each map introduces a **fresh set**: **map 1 → 2 generators (4 lines)**, **maps 2–3 → 3 (6 lines)**, **map 4+ → 4 (8 lines)** — so every new map (even one shipped post-launch) brings up to **4 new generators / 8 new lines**. Only the **current map's set (~2–4) is ever live** — old generators are **handed in at the next boundary** (below), so the board never accumulates generators.
 
@@ -656,7 +644,7 @@ Assist features (idle hint, discovery ladder, ready-✓, sell hints, generator p
 
 **Save** (`scripts/save.gd`): versioned **JSON at `user://save.json`** (`SCHEMA_VERSION`), atomic writes (`.tmp` → verify → rename) with a `.bak` last-good fallback; loads **deep-merge over defaults** (never drop unknown keys). Persists `currencies`, board/bag/quest-done/`unlocks`(= spots bought)/variants/hints/pops/rng, and `settings`. **Spend-and-grant is one `save_now()`** so a crash can't take currency without the goods.
 
-**Build & test:** a `Makefile` wraps `run`/`editor`/`test`/`test-one`/`smoke`/`import`/`shot-*`/`ios`/`clean`. **Headless suites** run as SceneTree scripts with no window (core/board/layout/map/quest/save + smoke). **Visual checks** use a `quiet_godot.sh` wrapper — a transient `override.cfg` makes the window born **minimized + unfocusable** so captures never steal focus, render at full res, and self-clean. An **economy sim** (default + greedy bot strategies, extended to a **Monte-Carlo seed-sweep** for the generated-quest model, §7) is the load-bearing **affordability/jam safety net** — never eyeball economy; composite/measure. Beyond affordability it tracks **board occupancy/congestion** — **peak & mean cells filled** and the **full-board stall rate** (taps blocked for want of a free cell, net of the bag §5 and merchant §9 drains) across the run — so the late-game "juggle every line on one board" (§7) is validated for **space**, not just affordability: the board must stay drainable and never silently choke. *(Targets — peak-occupancy and stall-rate ceilings: a grove number, `grove_spec`.)* iOS export via an `export_presets.cfg` "iOS" preset.
+**Build & test:** a `Makefile` wraps `run`/`editor`/`test`/`test-one`/`smoke`/`import`/`shot-*`/`ios`/`clean`. **Headless suites** run as SceneTree scripts with no window (core/board/layout/map/quest/save + smoke). **Visual checks** use a `quiet_godot.sh` wrapper — a transient `override.cfg` makes the window born **1x1 + unfocusable** past the screen corner, and `shot_base.begin()` parks it off-screen, so captures are never composited on screen, never steal focus, render at full res, and self-clean (`tools/test_quiet_window.py` measures it). An **economy sim** (default + greedy bot strategies, extended to a **Monte-Carlo seed-sweep** for the generated-quest model, §7) is the load-bearing **affordability/jam safety net** — never eyeball economy; composite/measure. Beyond affordability it tracks **board occupancy/congestion** — **peak & mean cells filled** and the **full-board stall rate** (taps blocked for want of a free cell, net of the bag §5 and merchant §9 drains) across the run — so the late-game "juggle every line on one board" (§7) is validated for **space**, not just affordability: the board must stay drainable and never silently choke. *(Targets — peak-occupancy and stall-rate ceilings: a grove number, `grove_spec`.)* iOS export via an `export_presets.cfg` "iOS" preset.
 
 **Code-map pattern:** a pure rules engine for tests · a persistent board model · a live board controller + a spend-surface controller drive the loop · a content module holds item lines, generator policy, the quest-generation policy (+ authored gate/milestone quests), and map/sink data · static singletons for save/features/econ/layout/hud/shop/skin/audio/music/ambient/fx. *(The grove's instances — exact file names, sizes, current state: see `grove_spec`.)*
 

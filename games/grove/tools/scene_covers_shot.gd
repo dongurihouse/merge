@@ -1,7 +1,7 @@
 extends SceneTree
 ## Quiet proof shot for the sw cover generator: open a scene, enter zone mode, draw a zone over one
 ## primary object, generate its coverup scatter, and capture — WITHOUT saving (placements.json stays
-## put). Born minimized via quiet_godot.sh's override.cfg.
+## put). Born off-screen via quiet_godot.sh's override.cfg.
 ##   godot --path . -s res://games/grove/tools/scene_covers_shot.gd -- [SCENE] [OBJECT|auto] [OUT]
 
 const Base = preload("res://engine/tools/shot_base.gd")

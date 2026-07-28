@@ -22,10 +22,12 @@ func _initialize() -> void:
 	await _test_chain_rewards_and_chest_open_clock()
 	await _test_long_chain_rewards_upgrade_and_cap()
 	await _test_drag_guide_pads_and_generator_exclusion()
+	await _test_drag_merge_targets_are_highlighted()
 	await _test_runway_resting_outline_and_tag()
 	await _test_runway_drag_guide_strengths_use_real_input()
 	await _test_ready_outline_stays_between_slots_and_pieces_with_stale_generator_nodes()
 	await _test_ready_outline_and_flag_off()
+	_test_ribbon_covers_bends_branches_and_rings()
 	await _test_landscape_outline_uses_transposed_edges()
 	BoardScriptRef.forced_rng_seed = -1        # leave the static as we found it
 	finish()
@@ -46,7 +48,6 @@ func _blank_fixture(b: Node, placements: Dictionary) -> void:
 		b.board.items[i] = 0
 	b.board.collect_rewards = {}
 	b.board.gens = {}
-	b.board.gen_tiers = {}
 	b.board.gen_boost = {}
 	b.quests = []
 	for cell in placements:
@@ -61,7 +62,6 @@ func _clear_rendered_generators(b: Node) -> void:
 	b.gen_nodes.clear()
 	b.gen_node = null
 	b.board.gens = {}
-	b.board.gen_tiers = {}
 	b.board.gen_boost = {}
 
 func _drag_merge(b: Node, from: Vector2i, to: Vector2i) -> void:
@@ -162,6 +162,44 @@ func _outline_pad_count_by_kind(b: Node, kind: String) -> int:
 			if raw is Dictionary and String((raw as Dictionary).get("kind", "")) == kind:
 				count += 1
 	return count
+
+func _outline_pad_cells_by_kind(b: Node, kind: String) -> Array:
+	var out: Array = []
+	var o := _outline(b)
+	if o == null:
+		return out
+	var pads = o.get("ghost_pads")
+	if pads is Array:
+		for raw in pads:
+			if raw is Dictionary and String((raw as Dictionary).get("kind", "")) == kind:
+				out.append(Vector2i((raw as Dictionary).get("cell", Vector2i(-1, -1))))
+	return out
+
+func _outline_has_pad_kind_at(b: Node, kind: String, cell: Vector2i) -> bool:
+	var o := _outline(b)
+	if o == null:
+		return false
+	var pads = o.get("ghost_pads")
+	if pads is Array:
+		for raw in pads:
+			if raw is Dictionary \
+					and String((raw as Dictionary).get("kind", "")) == kind \
+					and Vector2i((raw as Dictionary).get("cell", Vector2i(-1, -1))) == cell:
+				return true
+	return false
+
+# Count only the ×n chips. The runway's needed-tier chip ("t2") is a different statement and
+# must not be mistaken for a cascade promise — that conflation is the bug this grammar fixes.
+func _outline_number_tag_count(b: Node) -> int:
+	var o := _outline(b)
+	if o == null:
+		return 0
+	var n := 0
+	for raw in o.find_children("*", "Label", true, false):
+		var lbl := raw as Label
+		if lbl != null and lbl.text.begins_with("×"):
+			n += 1
+	return n
 
 func _outline_has_tag(b: Node, text: String) -> bool:
 	var o := _outline(b)
@@ -453,7 +491,7 @@ func _test_drag_guide_pads_and_generator_exclusion() -> void:
 	b._on_press(b._cell_pos(from) + half)
 	b._begin_drag()
 	await process_frame
-	ok(_outline_pad_count(b) == 1, "beginning an item drag shows one cascade ghost pad")
+	ok(_outline_pad_count_by_kind(b, "stage") == 1, "beginning an item drag shows one staging pad on the empty cell")
 	var old_outline := _outline(b)
 	if old_outline != null:
 		b.board_area.remove_child(old_outline)
@@ -483,7 +521,7 @@ func _test_drag_guide_pads_and_generator_exclusion() -> void:
 	b._on_press(b._cell_pos(x2_from) + half)
 	b._begin_drag()
 	await process_frame
-	ok(_outline_pad_count(b) == 0, "x2-only drag placements do not show cascade ghost pads")
+	ok(_outline_pad_count_by_kind(b, "stage") == 0, "x2-only drag placements do not show staging pads")
 	b._on_release(b._cell_pos(x2_from) + half)
 
 	_blank_fixture(b, {})
@@ -495,6 +533,43 @@ func _test_drag_guide_pads_and_generator_exclusion() -> void:
 	await process_frame
 	ok(_outline_pad_count(b) == 0, "generator drags do not show cascade ghost pads")
 	b._on_release(b._cell_pos(gen_cell) + half)
+	b.queue_free()
+
+func _test_drag_merge_targets_are_highlighted() -> void:
+	var b := _open_board("cascade_drag_merge_targets")
+	await process_frame
+	var from := Vector2i(6, 6)
+	var target_a := Vector2i(2, 1)
+	var target_b := Vector2i(0, 0)
+	var placements := {}
+	placements[from] = 101
+	placements[target_a] = 101
+	placements[target_b] = 101
+	placements[Vector2i(3, 3)] = 102
+	_blank_fixture(b, placements)
+	_input_begin_drag(b, from)
+	await process_frame
+	ok(_outline_pad_count_by_kind(b, "merge") == 2,
+		"dragging an item highlights every same-code merge target")
+	var merge_cells := _outline_pad_cells_by_kind(b, "merge")
+	ok(merge_cells.has(target_a) and merge_cells.has(target_b),
+		"merge-target highlights are attached to the actual matching pieces")
+	_input_release(b, from)
+	await process_frame
+
+	var chain_target := Vector2i(3, 1)
+	placements = {}
+	placements[from] = 101
+	placements[chain_target] = 101
+	placements[Vector2i(3, 2)] = 102
+	placements[Vector2i(3, 3)] = 103
+	_blank_fixture(b, placements)
+	_input_begin_drag(b, from)
+	await process_frame
+	ok(_outline_has_pad_kind_at(b, "cascade", chain_target) and not _outline_has_pad_kind_at(b, "merge", chain_target),
+		"a merge target that starts a cascade is highlighted as chain creation, not ordinary merge")
+	_input_release(b, from)
+	await process_frame
 	b.queue_free()
 
 func _test_runway_resting_outline_and_tag() -> void:
@@ -529,12 +604,19 @@ func _test_runway_drag_guide_strengths_use_real_input() -> void:
 	var b := _open_board("cascade_runway_drag_guides")
 	await process_frame
 	var from := Vector2i(6, 6)
+	# The guide's whole grammar, on the board the player reported: t2·t3·t4 in a row.
+	#   cascade = an occupied cell you drop ONTO whose merge really runs a chain (the only ×n)
+	#   merge   = an ordinary same-code target, no number
+	#   stage   = an empty cell; placing there builds the ladder and fires nothing
+	# Holding a t2 is the payoff: ONE cascade mark on the t2 itself, and the staging cells around
+	# it are suppressed so the eye has one place to go. t1/t5 cannot merge with anything, so they
+	# only stage. t3/t4 merge but stop short of CHAIN_MIN_N, so they stay ordinary.
 	var want := {
-		1: {"ignition": 0, "extension": 3},
-		2: {"ignition": 3, "extension": 0},
-		3: {"ignition": 0, "extension": 0},
-		4: {"ignition": 0, "extension": 0},
-		5: {"ignition": 0, "extension": 3},
+		1: {"cascade": 0, "merge": 0, "stage": 3},
+		2: {"cascade": 1, "merge": 0, "stage": 0},
+		3: {"cascade": 0, "merge": 1, "stage": 0},
+		4: {"cascade": 0, "merge": 1, "stage": 0},
+		5: {"cascade": 0, "merge": 0, "stage": 3},
 	}
 	for held in [1, 2, 3, 4, 5]:
 		_blank_fixture(b, {
@@ -545,11 +627,15 @@ func _test_runway_drag_guide_strengths_use_real_input() -> void:
 		})
 		_input_begin_drag(b, from)
 		await process_frame
-		var ignition := _outline_pad_count_by_kind(b, "ignition")
-		var extension := _outline_pad_count_by_kind(b, "extension")
 		var spec: Dictionary = want[held]
-		ok(ignition == int(spec.ignition) and extension == int(spec.extension),
-			"real input drag for held t%d draws %d ignition and %d extension runway pads" % [held, int(spec.ignition), int(spec.extension)])
+		var got := {
+			"cascade": _outline_pad_count_by_kind(b, "cascade"),
+			"merge": _outline_pad_count_by_kind(b, "merge"),
+			"stage": _outline_pad_count_by_kind(b, "stage"),
+		}
+		ok(got == spec, "real input drag for held t%d draws %s (got %s)" % [held, str(spec), str(got)])
+		ok(_outline_number_tag_count(b) == int(spec.cascade),
+			"held t%d numbers exactly its cascade marks — never a staging cell" % held)
 		_input_release(b, from)
 		await process_frame
 	b.queue_free()
@@ -563,7 +649,6 @@ func _test_ready_outline_stays_between_slots_and_pieces_with_stale_generator_nod
 	for i in b.board.items.size():
 		b.board.items[i] = 0
 	b.board.gens = {}
-	b.board.gen_tiers = {}
 	b.board.gen_boost = {}
 	b.board.place(Vector2i(3, 1), 101)
 	b.board.place(Vector2i(3, 2), 101)
@@ -615,14 +700,63 @@ func _test_ready_outline_and_flag_off() -> void:
 	off.queue_free()
 	Feat.FLAGS["cascade"] = original
 
+# The ribbon's one rule has to cover every shape a run or a component can take, so pin the shapes
+# a straight-row fixture can never show: a bend, a T and a closed 2x2 ring. Each cell's endpoint
+# count IS its tile — 1 end caps, 2 opposite is a straight, 2 perpendicular is a corner, 3 is a T,
+# 4 is a cross — so asserting the counts asserts the whole tile set without an image.
+func _test_ribbon_covers_bends_branches_and_rings() -> void:
+	var outline := CascadeOutline.new()
+	outline.configure(Vector2(400, 400), 40.0, Callable(self, "_landscape_outline_pos"))
+
+	var bend := {Vector2i(1, 1): true, Vector2i(1, 2): true, Vector2i(2, 2): true}
+	var corner: Array = outline.call("_ribbon_ends", Vector2i(1, 2), bend)
+	var tail: Array = outline.call("_ribbon_ends", Vector2i(1, 1), bend)
+	var centre := Vector2(_landscape_outline_pos(Vector2i(1, 2))) + Vector2.ONE * 20.0
+	var perpendicular := false
+	if corner.size() == 2:
+		var u := (Vector2(corner[0]) - centre).normalized()
+		var v := (Vector2(corner[1]) - centre).normalized()
+		perpendicular = is_zero_approx(u.dot(v))
+	ok(corner.size() == 2 and perpendicular and tail.size() == 1, \
+		"a bent run turns a corner and caps its tail")
+
+	var tee := {Vector2i(2, 1): true, Vector2i(2, 2): true, Vector2i(2, 3): true, Vector2i(1, 2): true}
+	ok(Array(outline.call("_ribbon_ends", Vector2i(2, 2), tee)).size() == 3, \
+		"a branching component draws a T where three arms meet")
+
+	var ring := {Vector2i(1, 1): true, Vector2i(1, 2): true, Vector2i(2, 1): true, Vector2i(2, 2): true}
+	var ring_ok := true
+	for raw in ring:
+		if Array(outline.call("_ribbon_ends", Vector2i(raw), ring)).size() != 2:
+			ring_ok = false
+	ok(ring_ok, "a 2x2 block closes the ribbon into a ring with no loose ends")
+
+	var lone := {Vector2i(4, 4): true}
+	ok(Array(outline.call("_ribbon_ends", Vector2i(4, 4), lone)).is_empty(), \
+		"an isolated cell has no arms and falls back to the joint disc")
+	outline.free()
+
 func _test_landscape_outline_uses_transposed_edges() -> void:
 	var outline := CascadeOutline.new()
 	outline.configure(Vector2(240, 260), 40.0, Callable(self, "_landscape_outline_pos"))
-	var has_edges := outline.has_method("_perimeter_edge_segment")
-	var row_minus: Array = outline.call("_perimeter_edge_segment", Vector2i(3, 2), Vector2i(-1, 0)) if has_edges else []
-	var col_minus: Array = outline.call("_perimeter_edge_segment", Vector2i(3, 2), Vector2i(0, -1)) if has_edges else []
-	ok(_segment_is_vertical(row_minus) and _segment_is_horizontal(col_minus), \
-		"landscape outline maps model neighbours through the transposed cell geometry")
+	# The ribbon's endpoints are the transpose-sensitive part now: a model row-neighbour has to
+	# come out as a HORIZONTAL screen offset under the landscape transpose, not a vertical one.
+	var cells := {Vector2i(3, 2): true, Vector2i(2, 2): true, Vector2i(3, 1): true}
+	var ends: Array = outline.call("_ribbon_ends", Vector2i(3, 2), cells)
+	var centre: Vector2 = Vector2(_landscape_outline_pos(Vector2i(3, 2))) + Vector2.ONE * 20.0
+	var offs: Array = []
+	for e in ends:
+		offs.append(Vector2(e) - centre)
+	var row_off_horizontal := false
+	var col_off_vertical := false
+	for o in offs:
+		var v := Vector2(o)
+		if absf(v.x) > absf(v.y):
+			row_off_horizontal = true
+		else:
+			col_off_vertical = true
+	ok(ends.size() == 2 and row_off_horizontal and col_off_vertical, \
+		"landscape ribbon maps model neighbours through the transposed cell geometry")
 	outline.free()
 
 func _line_of(code: int) -> int:

@@ -7,7 +7,10 @@ const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const Mastery = preload("res://engine/scripts/core/mastery.gd")
+const Features = preload("res://engine/scripts/core/features.gd")
+const Strings = preload("res://engine/scripts/core/strings.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
+const Design = preload("res://engine/scripts/core/design.gd")   # the shipped canvas — read it, never re-type it
 
 ## The shipped rank-0 tier stream, CAPTURED FROM THE PRE-MASTERY IMPLEMENTATION at seed 12345
 ## (40 consecutive BoardLogic.roll_tier draws, one randf each against G.TIER_ODDS). It pins the
@@ -152,19 +155,26 @@ func _initialize() -> void:
 	stale_items[1] = 99901
 	stale_items[2] = 100 + int(G.TOP_TIER) + 1
 	stale_blob["items"] = stale_items
-	stale_blob["gens"] = [[4, 3, "gen_1", 1], [4, 4, "old_generator", 2]]
+	stale_blob["gens"] = [[4, 3, "gen_1", 3, 7], [4, 4, "old_generator", 2]]
 	stale_blob["gen_bag"] = ["gen_3", "old_generator", "acc_water", G.treat_gen_id(int(G.TREAT_LINES[0])), "treat_999"]
 	stale_blob["gen_bag_tiers"] = [1, 2, 3, 4, 5]
+	stale_blob["gen_bag_boost"] = [4, 0, 8, 0, 0]
 	var cleaned := BoardModel.new()
 	cleaned.from_dict(stale_blob)
 	ok(cleaned.item_at(BoardModel.cell_of(1)) == 0 and cleaned.item_at(BoardModel.cell_of(2)) == 0, \
 		"from_dict drops unknown/deprecated item codes from board cells")
 	ok(cleaned.gens.values().has("gen_1") and not cleaned.gens.values().has("old_generator"), \
 		"from_dict drops unknown/deprecated generator ids from board cells")
+	ok(cleaned.gen_boost_at(Vector2i(4, 3)) == 7, \
+		"from_dict keeps the generator boost from the fifth save slot")
+	ok(not cleaned.to_dict().has("gen_bag_tiers"), \
+		"to_dict stops writing retired generator bag tier metadata")
 	ok(cleaned.gen_bag.has("gen_3") and cleaned.gen_bag.has("acc_water") \
 		and cleaned.gen_bag.has(G.treat_gen_id(int(G.TREAT_LINES[0]))) \
 		and not cleaned.gen_bag.has("old_generator") and not cleaned.gen_bag.has("treat_999"), \
 		"from_dict drops unknown/deprecated generator ids from gen_bag and keeps valid bonus/treat generators")
+	ok(cleaned.gen_bag_boost.size() == cleaned.gen_bag.size() and int(cleaned.gen_bag_boost[cleaned.gen_bag.find("gen_3")]) == 4, \
+		"from_dict keeps generator bag boosts while ignoring retired bag tiers")
 
 	# #3d retired-line hygiene: a line kept in LINES only for its art but DROPPED from the live content
 	# model (no generator AND not a craftable special) is NOT a valid item code — its saved pieces +
@@ -205,75 +215,42 @@ func _initialize() -> void:
 		"loading prunes a RETIRED line's discovery (ember 6101) end-to-end, keeping live base (101) + special (7101)")
 	stale_scene.free()
 
-	# #8 generator merge ladder + tier persistence
+	# Retired generator-tier save compatibility: the saved slot remains [row, col, id, tier, boost],
+	# but the tier is ignored so the fifth-slot boost stays aligned for live saves.
 	var bm3 := BoardModel.new()
 	bm3.seed_gens(0)                                    # gen_1 at the anchor cell (4,3)
 	var c1: Vector2i = bm3.empty_ground_cells()[0]
-	bm3.place_gen("gen_1", c1)                          # a duplicate gen_1 (the merge fuel)
-	ok(bm3.gen_tier_at(Vector2i(4, 3)) == 1 and bm3.gen_tier_at(c1) == 1, "new generators start at tier 1")
-	ok(bm3.merge_gens(c1, Vector2i(4, 3)) and bm3.gen_tier_at(Vector2i(4, 3)) == 2 and not bm3.gens.has(c1), "two same-line generators merge 2:1 into a stronger tier, freeing the source")
-	ok(not bm3.merge_gens(Vector2i(4, 3), Vector2i(4, 3)), "a generator can't merge with itself")
+	bm3.place_gen("gen_1", c1)
+	bm3.arm_gen_boost(c1, 6)
+	var gen_blob := bm3.to_dict()
+	ok((gen_blob["gens"][0] as Array).size() == 5, "generator saves keep the five-slot compatibility layout")
 	var bm4 := BoardModel.new()
-	bm4.from_dict(bm3.to_dict())
-	ok(bm4.gen_tier_at(Vector2i(4, 3)) == 2, "a generator's tier survives a save round-trip")
+	bm4.from_dict({"terrain": gen_blob["terrain"], "items": gen_blob["items"], "gens": [[c1.x, c1.y, "gen_1", 3, 6]], "gen_bag": ["gen_3"], "gen_bag_tiers": [3], "gen_bag_boost": [5]})
+	ok(bm4.gen_boost_at(c1) == 6, "from_dict reads generator boost from save slot 5 after ignoring retired tier slot 4")
 
-	# #8 (cont.) the tier must travel THROUGH the gen_bag — storing then re-placing a merged generator
-	# must NOT reset it to tier 1, and store must not leave stale tier data on the vacated cell.
-	ok(bm3.store_gen(Vector2i(4, 3)) and bm3.gen_bag.has("gen_1"), "a tier-2 generator stores into the gen_bag")
-	ok(bm3.gen_tier_at(Vector2i(4, 3)) == 1, "store_gen clears the vacated cell's tier (no stale tier-2 left behind)")
+	# Stored generator boosts still travel THROUGH the gen_bag; retired bag tiers do not.
+	ok(bm3.store_gen(c1) and bm3.gen_bag.has("gen_1"), "a boosted generator stores into the gen_bag")
+	ok(bm3.gen_boost_at(c1) == 0, "store_gen clears the vacated cell's boost")
 	var gb_back: Vector2i = bm3.empty_ground_cells()[0]
-	ok(bm3.place_gen_from_bag("gen_1", gb_back) and bm3.gen_tier_at(gb_back) == 2, "place_gen_from_bag restores the stored tier (not reset to tier 1)")
-	# the bagged tier must also survive a save round-trip — gen_bag tiers serialize, not just board tiers.
+	ok(bm3.place_gen_from_bag("gen_1", gb_back) and bm3.gen_boost_at(gb_back) == 6, "place_gen_from_bag restores the stored boost")
+	# the bagged boost must also survive a save round-trip.
 	bm3.store_gen(gb_back)                               # a tier-2 gen_1 waits in the bag across the save
 	var bm5 := BoardModel.new()
 	bm5.from_dict(bm3.to_dict())
 	var gb_back2: Vector2i = bm5.empty_ground_cells()[0]
-	ok(bm5.place_gen_from_bag("gen_1", gb_back2) and bm5.gen_tier_at(gb_back2) == 2, "a bagged generator's tier survives to_dict/from_dict")
+	ok(bm5.place_gen_from_bag("gen_1", gb_back2) and bm5.gen_boost_at(gb_back2) == 6, "a bagged generator's boost survives to_dict/from_dict")
 
-	# #8 a generator that VANISHES in place (a spent bonus/treat gen) must clear its tier too — like
-	# store_gen / merge_gens / move_gen. remove_gen is the model seam for it (board.gd erased `gens` raw,
-	# leaving a stale gen_tiers entry on the now-empty cell).
+	# A generator that VANISHES in place (a spent bonus/treat gen) must clear its boost too.
 	var bm6 := BoardModel.new()
 	bm6.seed_gens(0)
-	var vanish_dup: Vector2i = bm6.empty_ground_cells()[0]
-	bm6.place_gen("gen_1", vanish_dup)
-	bm6.merge_gens(vanish_dup, Vector2i(4, 3))           # (4,3) is now a tier-2 generator
+	bm6.arm_gen_boost(Vector2i(4, 3), 3)
 	ok(bm6.remove_gen(Vector2i(4, 3)) and not bm6.gens.has(Vector2i(4, 3)), "remove_gen deletes the generator")
-	ok(not bm6.gen_tiers.has(Vector2i(4, 3)), "remove_gen clears the vacated cell's tier (no stale tier left behind)")
+	ok(bm6.gen_boost_at(Vector2i(4, 3)) == 0, "remove_gen clears the vacated cell's boost")
 	ok(not bm6.remove_gen(Vector2i(4, 3)), "remove_gen on a cell with no generator is a no-op (false)")
 
-	# #8 scene wiring: a higher-tier generator's self-dup is merge fuel for THAT tier.
-	# If the duplicate silently resets to tier 1, dragging it onto the source is refused and the
-	# generator ladder stalls at tier 2.
-	fresh("scene_gen_self_dup_tier")
-	Save.mark_board_tutorial_seen()
-	var sgen = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(sgen)
-	await process_frame
-	if sgen.board == null:
-		sgen._ready()
-	var src := Vector2i(4, 3)
-	var dup_fuel: Vector2i = sgen.board.empty_ground_cells()[0]
-	var gid: String = sgen.board.gen_id_at(src)
-	sgen.board.place_gen(gid, dup_fuel)
-	ok(sgen.board.merge_gens(dup_fuel, src) and sgen.board.gen_tier_at(src) == 2, "scene self-dup fixture starts from a tier-2 generator")
-	sgen._rebuild_all()
-	sgen._self_dup_generator(src)
-	var spawned := Vector2i(-1, -1)
-	for c in sgen.board.gens.keys():
-		if Vector2i(c) != src and sgen.board.gen_id_at(c) == gid:
-			spawned = Vector2i(c)
-			break
-	ok(spawned.x >= 0, "scene self-dup places a duplicate generator")
-	ok(sgen.board.gen_tier_at(spawned) == sgen.board.gen_tier_at(src), "scene self-dup keeps the source generator tier")
-	var gen_half: Vector2 = Vector2(sgen.csz, sgen.csz) / 2.0
-	sgen._on_press(sgen._cell_pos(spawned) + gen_half)
-	sgen._on_release(sgen._cell_pos(src) + gen_half)
-	ok(sgen.board.gen_tier_at(src) == 3 and not sgen.board.gens.has(spawned), "scene drag-drop merges self-dup back into the source tier")
-	await drop(sgen, 3)
-
-	# Mastery scene chrome: a ranked generator wears the progress ring, moves its tier into the title,
-	# shows the mastery row in the subtitle, and rank-up cards mark mastery_seen once opened.
+	# Mastery scene chrome: a ranked generator wears the progress ring, carries its MASTERY tier as a
+	# "· Tier N" badge in the title, shows the meter/next mastery row in the subtitle, and rank-up
+	# cards mark mastery_seen once opened.
 	fresh("scene_mastery_chrome")
 	Save.mark_board_tutorial_seen()
 	Save.grove()["mastery"] = {"1": 60}
@@ -293,14 +270,41 @@ func _initialize() -> void:
 	ok(ring != null and is_equal_approx(float(ring.get("progress")), Mastery.rank_progress(1)),
 		"the mastery ring uses progress within the current rank")
 	smastery._select_generator(mcell)
-	ok(String(smastery._info_label.text).contains("Tier 1"),
-		"the generator info title carries the generator tier")
+	# The title reads "<name> · Tier N" at the line's MASTERY tier. Asserted as the WHOLE string (and
+	# with N derived from Mastery, never a typed threshold) so a stray tier number from any other
+	# scale — the retired generator tier included — fails here rather than reading plausibly.
+	var mgid: String = smastery.board.gen_id_at(mcell)
+	var mbadge: String = Strings.t("mastery.info.badge") % Mastery.rank(1)
+	ok(String(smastery._info_label.text) == "%s · %s" % [G.generator_display_name(mgid), mbadge],
+		"the generator info title reads '<name> · Tier N' at the line's mastery tier (%s)" % smastery._info_label.text)
 	var mastery_row: Control = smastery._info_mastery_row
 	ok(mastery_row != null and mastery_row.visible
-		and smastery._info_mastery_pips.size() == 8
 		and is_equal_approx(float(smastery._info_mastery_progress.value), Mastery.rank_progress(1))
-		and String(smastery._info_mastery_next_label.text).contains("next: pops reach"),
-		"the generator info subtitle becomes the pips/progress/next mastery row")
+		and String(smastery._info_mastery_next_label.text).contains("next: reach"),
+		"the generator info subtitle becomes the progress/next mastery row")
+	var mrow_kids: Array = []
+	for mk in mastery_row.get_children():
+		mrow_kids.append(String(mk.name))
+	ok(mrow_kids == ["MasteryProgress", "MasteryNext"],
+		"the mastery row is just the meter and the next label — the pips are gone (%s)" % str(mrow_kids))
+
+	# The badge is gated exactly like the row: a generator OFF the base lines (a treat gen carries no
+	# meter) keeps its bare name…
+	var tgid: String = G.treat_gen_id(int(G.TREAT_LINES[0]))
+	var tcell := Vector2i(smastery.board.empty_ground_cells()[0])
+	smastery.board.place_gen(tgid, tcell)
+	smastery._rebuild_all()
+	smastery._select_generator(tcell)
+	ok(String(smastery._info_label.text) == G.generator_display_name(tgid),
+		"a non-mastery-line generator's title carries no Tier badge (%s)" % smastery._info_label.text)
+	# …and so does a mastery-line generator while the feature flag is off.
+	Features.FLAGS["mastery"] = false
+	smastery._select_generator(mcell)
+	ok(String(smastery._info_label.text) == G.generator_display_name(mgid),
+		"with the mastery flag off the generator title drops the Tier badge (%s)" % smastery._info_label.text)
+	Features.FLAGS["mastery"] = true
+	smastery._select_generator(mcell)
+
 	smastery._queue_mastery_rankups({1: 1})
 	smastery._schedule_mastery_rankup(0.25)
 	await create_timer(0.05).timeout
@@ -319,6 +323,56 @@ func _initialize() -> void:
 	ok(smastery.get_node_or_null("MasteryRankupOverlay") == null,
 		"the same seen mastery rank does not fire a second card")
 	smastery.queue_free()
+	await process_frame
+
+	# The mastery row's "next" label must READ, not ellipsise. The row is width-pinned by the info
+	# bar, so this measures the REAL laid-out label against EVERY string _mastery_next_text can
+	# produce (ranks 0..8) — a widened string or a meter that reclaims the split trims it back to
+	# "next: po…" and fails here. Mounted in a Design-sized SubViewport because the headless root
+	# viewport is wider than the shipped canvas, which would make the assert vacuous.
+	fresh("scene_mastery_row_fits")
+	Save.mark_board_tutorial_seen()
+	Save.grove()["mastery"] = {"1": 1150}
+	Save.grove()["mastery_seen"] = {}
+	Save.grove_write()
+	var mvp := SubViewport.new()
+	mvp.size = Vector2i(Design.size())
+	get_root().add_child(mvp)
+	var sfit = load("res://engine/scenes/Board.tscn").instantiate()
+	mvp.add_child(sfit)
+	await process_frame
+	if sfit.board == null:
+		sfit._ready()
+	sfit._rebuild_all()
+	sfit._select_generator(Vector2i(4, 3))
+	for _f in 3:
+		await process_frame
+	var nlbl: Label = sfit._info_mastery_next_label
+	var nfont: Font = nlbl.get_theme_font("font")
+	var nsize: int = nlbl.get_theme_font_size("font_size")
+	var widest := 0.0
+	var widest_text := ""
+	for nrank in range(0, G.MASTERY_THRESHOLDS.size() + 1):
+		var ntext: String = sfit._mastery_next_text(nrank)
+		var nw: float = nfont.get_string_size(ntext, HORIZONTAL_ALIGNMENT_LEFT, -1, nsize).x
+		if nw > widest:
+			widest = nw
+			widest_text = ntext
+	ok(widest <= nlbl.size.x,
+		"the mastery next label fits its widest string untrimmed (%.0fpx '%s' in %.0fpx)" % [widest, widest_text, nlbl.size.x])
+	# The other half of the split: the meter must keep a visible width beside the label AND take a real
+	# share of the row rather than sitting pinned at its floor (the pips used to eat that width). Both
+	# read off the REAL laid-out row, so a size_flags/ratio change that starves either half fails here.
+	ok(sfit._info_mastery_progress.size.x >= 60.0
+		and sfit._info_mastery_progress.size.x > sfit._info_mastery_progress.custom_minimum_size.x,
+		"the mastery meter keeps a visible width and takes a share of the freed row (%.0fpx meter over a %.0fpx floor, %.0fpx label)"
+			% [sfit._info_mastery_progress.size.x, sfit._info_mastery_progress.custom_minimum_size.x, nlbl.size.x])
+	ok(is_equal_approx(sfit._info_mastery_row.size.y, sfit._info_mastery_row.get_combined_minimum_size().y)
+		and sfit._info_mastery_row.size.y <= 40.0,
+		"the mastery row stays one line tall (%.0fpx)" % sfit._info_mastery_row.size.y)
+	sfit.queue_free()
+	await process_frame
+	mvp.queue_free()
 	await process_frame
 
 	# MERGE-PRIORITY DROP AREA: releasing just inside a competing neighbour still chooses the nearby
@@ -391,52 +445,36 @@ func _initialize() -> void:
 			and sdrop.board.count_of(102) == before_split_lower + 2,
 			"dragging scissors onto an eligible item splits it through the real release path")
 
-		for c in drop_cells:
-			sdrop.board.place(Vector2i(c), 0)
-			sdrop.board.remove_gen(Vector2i(c))
-		var merge_gid: String = sdrop.board.gen_id_at(Vector2i(4, 3))
-		sdrop.board.place_gen(merge_gid, drop_source, 1)
-		sdrop.board.place_gen(merge_gid, drop_target, 1)
-		sdrop.board.place_gen("gen_2", drop_decoy, 1)
-		sdrop._rebuild_all()
-		sdrop._on_press(sdrop._cell_pos(drop_source) + half)
-		sdrop._on_release(competing_release)
-		ok(sdrop.board.gen_tier_at(drop_target) == 2 and not sdrop.board.is_gen(drop_source)
-			and sdrop.board.gen_id_at(drop_decoy) == "gen_2",
-			"nearby matching generators merge instead of swapping with the competing exact cell")
 	await drop(sdrop)
 
-	# gen stranding fix: selecting a REDUNDANT (sub-top) generator surfaces the info-bar SELL button; tapping
-	# it removes the generator + credits coins, while the line's TOP generator is never sellable.
-	fresh("scene_sell_redundant_gen")
+	# Generator tiers are retired: even duplicate same-line generators do not surface the old redundant
+	# sell affordance, and the trash handler leaves them alone.
+	fresh("scene_duplicate_generator_no_sell")
 	Save.mark_board_tutorial_seen()
 	var ssell = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(ssell)
 	await process_frame
 	if ssell.board == null:
 		ssell._ready()
-	var anchor_cell := Vector2i(4, 3)                  # the seeded tier-1 anchor (gen_1)
+	var anchor_cell := Vector2i(4, 3)
 	var gid2: String = ssell.board.gen_id_at(anchor_cell)
-	var topcell: Vector2i = ssell.board.empty_ground_cells()[0]
-	ssell.board.place_gen(gid2, topcell, 3)            # a tier-3 sibling makes the anchor (tier 1) redundant
+	var dupe_cell: Vector2i = ssell.board.empty_ground_cells()[0]
+	ssell.board.place_gen(gid2, dupe_cell)
 	ssell._rebuild_all()
 	ssell._select_generator(anchor_cell)
-	ok(ssell._info_trash.visible, "selecting a redundant generator shows the sell button")
-	ok(ssell._info_trash_count.text == "%d" % G.gen_sell_coins(1), "the sell button shows the tier-1 coin payout")
+	ok(not ssell._info_trash.visible, "selecting a duplicate generator hides the retired generator sell button")
 	var coins_before := Save.coins()
-	ssell._on_trash_pressed()                          # taps the sell button (reads _selected_cell)
-	ok(not ssell.board.gens.has(anchor_cell), "selling removed the redundant generator from the board")
-	ok(ssell.board.gens.has(topcell), "the line's top (tier-3) generator survives the sale")
-	ok(Save.coins() == coins_before + G.gen_sell_coins(1), "the sale credited the generator's coin payout")
-	ssell._select_generator(topcell)
-	ok(not ssell._info_trash.visible, "the top generator of a line is not sellable (no sell button)")
+	ssell._on_trash_pressed()
+	ok(ssell.board.gens.has(anchor_cell) and ssell.board.gens.has(dupe_cell),
+		"trash does not remove generators now that redundant generator selling is retired")
+	ok(Save.coins() == coins_before, "trash on a generator does not credit old generator sell coins")
 	await drop(ssell, 3)
 
-	# --- burst-pop, the FLAT/UNTIERED burst_count family (§6, T58) — the special generators (boosted
-	# accumulator collect, treat pop) + the sim; tiered line generators roll gen_burst_count (T64, below).
+	# --- burst-pop, the ONE flat burst_count seam (§6, T58) — line generators, special generators
+	# (boosted accumulator collect, treat pop), and the sim all call G.burst_count(rng, boosted).
 	# WITHOUT a boost a tap almost always pops a SINGLE item (BURST_ODDS); a live BOOST swaps in
 	# BURST_ODDS_BOOST so multiples become the norm — the boost RAISES THE CHANCE of multiples, it does
-	# not add a flat count. Both tables top out at BURST_MAX; no per-map scale-up (the map arg is ignored). ---
+	# not add a flat count. Both tables top out at BURST_MAX; there is no per-map scale-up. ---
 	var brng := RandomNumberGenerator.new()
 	brng.seed = 7
 	var N := 4000
@@ -448,8 +486,8 @@ func _initialize() -> void:
 	var bo_min := 99
 	var floored := true
 	for _i in N:
-		var u := G.burst_count(0, 0, brng)              # no boost
-		var b := G.burst_count(0, G.BOOST_BONUS, brng)  # boost live (any positive arg = boosted)
+		var u := G.burst_count(brng)                    # no boost (the default)
+		var b := G.burst_count(brng, true)              # boost live
 		un_sum += u
 		bo_sum += b
 		un_max = maxi(un_max, u)
@@ -468,51 +506,15 @@ func _initialize() -> void:
 	ok(bo_rate > 0.60, "with a boost multiples become the norm (multiple-rate %.2f > 0.60)" % bo_rate)
 	ok(bo_rate > un_rate + 0.30, "the boost markedly RAISES the chance of multiples (%.2f vs %.2f)" % [bo_rate, un_rate])
 	ok(bo_sum > un_sum, "the boost raises the average items per tap")
-	var deep_max := 0
-	for _i in N:
-		deep_max = maxi(deep_max, G.burst_count(9, 0, brng))
-	ok(deep_max <= int(G.BURST_MAX), "a deep map does not burst beyond BURST_MAX (no per-map scale-up)")
+	# the BURST_MAX clamp is the board-flood safety net; it is inert only while the dial matches the
+	# tables' length, so pin that here (a longer odds row must raise the dial deliberately).
+	ok(int(G.BURST_MAX) == G.BURST_ODDS.size() and int(G.BURST_MAX) == G.BURST_ODDS_BOOST.size(),
+		"BURST_MAX matches both flat tables' length (the clamp is the flood net, not a silent cap)")
 	# the boost coin sink: a flat cost, the same every activation (no ladder — T57)
 	ok(G.boost_cost() > 0, "the boost has a positive coin cost")
 
-	# --- tiered boosted burst odds (T64): a live boost swaps a generator's per-tier row for the
-	# strictly-better GEN_TIER_BURST_ODDS_BOOST row; the top tier gains a 4th burst slot, so only a
-	# boosted top-tier generator ever pops 4. ---
-	for boost_tier in range(1, int(G.GEN_TOP_TIER) + 1):
-		var row_plain: Array = G.gen_burst_odds(boost_tier)
-		var row_boost: Array = G.gen_burst_odds(boost_tier, true)
-		var sum_plain := 0.0
-		var ev_plain := 0.0
-		for i in row_plain.size():
-			sum_plain += float(row_plain[i])
-			ev_plain += float(row_plain[i]) * float(i + 1)
-		var sum_boost := 0.0
-		var ev_boost := 0.0
-		for i in row_boost.size():
-			sum_boost += float(row_boost[i])
-			ev_boost += float(row_boost[i]) * float(i + 1)
-		ok(absf(sum_plain - 1.0) < 0.0001 and absf(sum_boost - 1.0) < 0.0001, "tier %d: both burst-odds rows sum to 1" % boost_tier)
-		ok(ev_boost > ev_plain, "tier %d: a boost is never a no-op (T64 guard) — boosted EV %.2f > unboosted %.2f" % [boost_tier, ev_boost, ev_plain])
-	ok(G.gen_burst_odds(1, true) == [0.20, 0.45, 0.35] and G.gen_burst_odds(2, true) == [0.20, 0.45, 0.35], 		"boosted tiers 1-2 keep the pre-T64 flat boost tuning")
-	var t3rng := RandomNumberGenerator.new()
-	t3rng.seed = 64
-	var t3_un_max := 0
-	var t3_un_sum := 0
-	var t3_bo_max := 0
-	var t3_bo_min := 99
-	var t3_bo_sum := 0
-	for _i in N:
-		var u3 := G.gen_burst_count(3, t3rng)
-		var b3 := G.gen_burst_count(3, t3rng, true)
-		t3_un_max = maxi(t3_un_max, u3)
-		t3_un_sum += u3
-		t3_bo_max = maxi(t3_bo_max, b3)
-		t3_bo_min = mini(t3_bo_min, b3)
-		t3_bo_sum += b3
-	ok(t3_un_max <= 3, "an unboosted tier-3 generator never bursts past 3")
-	ok(t3_bo_max == 4, "a boosted tier-3 generator reaches the 4th burst slot (T64)")
-	ok(t3_bo_min >= 1, "a boosted tier-3 burst is always at least 1 item")
-	ok(t3_bo_sum > t3_un_sum, "the boost raises a tier-3 generator's mean burst (was a paid no-op)")
+	ok(G.burst_odds() == G.BURST_ODDS and G.burst_odds(true) == G.BURST_ODDS_BOOST,
+		"burst odds select the flat unboosted/boosted rows — one table pair for every generator tap")
 
 	# --- §6 spawn TIER-bias: a pop's line AND tier lean toward what givers want (ASK_WEIGHT), but
 	# --- only among POPPABLE tiers (≤ TIER_ODDS range) so a generator never pops a high tier
@@ -935,19 +937,46 @@ func _initialize() -> void:
 	ok(G.buy_price(107) == Vector2i(0, 5) and G.buy_price(108) == Vector2i(0, 8) and G.buy_price(112) == Vector2i(0, 55), 		"t7 → 5, t8 → 8 … t12 → 55 acorns (Fibonacci)")
 	# (the active-lines window + due_line_gen are RETIRED; quest-driven birth-on-tap is covered by
 	#  Quests.due_gen in quest_tests.gd.)
-	# generator merge ladder (task 8 logic; additive — board wiring flips later)
-	ok(G.gen_merge_tier(1) == 2 and G.gen_merge_tier(2) == 3 and G.gen_merge_tier(3) == 3, "generators merge up to tier 3, then cap")
-	ok(G.gen_burst_odds(1) == [0.80, 0.15, 0.05] and float(G.gen_burst_odds(3)[2]) > float(G.gen_burst_odds(1)[2]), "higher generator tier pops more multiples")
-	var sdup_rng := RandomNumberGenerator.new()
-	sdup_rng.seed = 11
-	var sdups := 0
-	for i in 10000:
-		if G.rolls_gen_self_dup(sdup_rng):
-			sdups += 1
-	if G.GEN_SELF_DUP_RATE <= 0.0:
-		ok(sdups == 0, "self-dup is DISABLED (GEN_SELF_DUP_RATE = 0) — a tap never breeds a duplicate generator")
-	else:
-		ok(sdups > 15 and sdups < 130, "self-dup fires near the 0.5% rate over 10k taps")
+	ok(G.burst_odds() == [0.80, 0.15, 0.05] and G.burst_odds(true) == [0.20, 0.45, 0.35],
+		"generator burst odds are flat after retiring generator merge tiers")
+
+	# --- §9 THE SELL LADDER (docs/design/sell-economy-rework.md) — the SHAPE, so a re-tune of the three
+	# grove_data dials is checked instead of restated. Coin values double from t4; t10+ pay flat acorns. ---
+	ok(G.SELL_TIER_COINS.size() == int(G.TOP_TIER), "the authored coin ladder has one entry per tier")
+	var split_ok := true
+	for t in range(1, int(G.TOP_TIER) + 1):
+		var pays_acorns := t >= int(G.SELL_ACORN_TIER)
+		if pays_acorns != (int(G.sell_acorns(t)) > 0) or pays_acorns != (int(G.sell_tier_coins(t)) == 0):
+			split_ok = false
+	ok(split_ok, "every tier pays coins XOR acorns, split exactly at SELL_ACORN_TIER")
+	# value of a tier in COIN-EQUIVALENTS (1 acorn = COINS_PER_ACORN), on the band-1.0 anchor line
+	var tier_value := func(t: int) -> int:
+		var rw: Vector2i = G.sell_reward(100 + t)
+		return int(rw.x) + int(rw.y) * int(G.COINS_PER_ACORN)
+	var merge_keeps_value := true
+	var worst_split := 0
+	for t in range(2, int(G.TOP_TIER) + 1):
+		var gain := 2 * int(tier_value.call(t - 1)) - int(tier_value.call(t))
+		worst_split = maxi(worst_split, gain)
+		if t >= 5 and gain > 0:
+			merge_keeps_value = false
+	# t1-t4 keep the old linear 1·2·3·4, so a merge INTO t3/t4 still loses a coin or two (bounded by S2);
+	# from t5 — the first doubled tier — value never falls.
+	ok(merge_keeps_value, "S1: no merge into t5 or deeper destroys value — v(t) >= 2 x v(t-1) in coin-equivalents")
+	ok(worst_split < int(G.SCISSORS_COST),
+		"S2: the best split-and-sell gain (%d) stays under the scissors price (%d)" % [worst_split, int(G.SCISSORS_COST)])
+	var acorn_water_ok := true
+	var sells_under_buy := true
+	for raw_tier in G.SELL_ACORNS.keys():
+		var at := int(raw_tier)
+		var paid := maxi(1, int(G.SELL_ACORNS[raw_tier]))
+		if int(G.tier_clicks(at) / float(paid)) < 10 * int(G.water_a_diamond_buys()):
+			acorn_water_ok = false
+		if paid >= int(G.buy_price(100 + at).y):
+			sells_under_buy = false
+	ok(acorn_water_ok and int(G.water_to_earn_diamond()) >= 10 * int(G.water_a_diamond_buys()),
+		"S3: earning an acorn by selling costs %d💧 — at least 10x the %d💧 an acorn buys" % [int(G.water_to_earn_diamond()), int(G.water_a_diamond_buys())])
+	ok(sells_under_buy, "S4: an acorn-tier sale always pays less than buying that tier costs")
 
 	# --- §6.D temporary treat generators (per-map line / clicks / id mapping) ---
 	# Each map pops its OWN treasure line (deterministic, idea 4.1), and its icon matches.
@@ -969,7 +998,7 @@ func _initialize() -> void:
 			clicks_ok = false
 	ok(clicks_ok, "pick_treat_clicks stays within the configured budget")
 	# §6.D premium sell band — a treasure line sells above the top map band; a normal line does not
-	ok(G.sell_reward(71 * 100 + 5).x == int(round(5 * G.TREAT_SELL_BAND))
+	ok(G.sell_reward(71 * 100 + 5).x == int(round(G.sell_tier_coins(5) * G.TREAT_SELL_BAND))
 		and not G.is_treat_line(1 * 100 + 5),
 		"a treasure line sells at the premium treat band; a normal line does not")
 	# id ↔ line roundtrip + the is_treat_gen gate (a real gen id is not a treat)

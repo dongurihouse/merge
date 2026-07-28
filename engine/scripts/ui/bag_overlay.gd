@@ -29,7 +29,6 @@ extends RefCounted
 ##     on_balance: Callable,  # (optional) () -> int: the LIVE acorn balance (the shortfall is read
 ##                            #   through this, since `balance` above is only an open-time snapshot)
 ##     gen_bag: Array,        # (optional) stored generator ids — a row below the grid (game-only)
-##     gen_bag_tiers: Array,  # (optional) tiers parallel to gen_bag
 ##     on_place_gen: Callable,# (optional) (id: String) -> a generator tile was tapped: place it
 ##     on_close: Callable })  # (optional) () -> the overlay was dismissed (any path)
 ## Returns the overlay root Control (already added to host).
@@ -104,7 +103,6 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 	var on_open_shop: Callable = cfg.get("on_open_shop", Callable())
 	var on_balance: Callable = cfg.get("on_balance", Callable())
 	var gen_bag: Array = cfg.get("gen_bag", [])
-	var gen_bag_tiers: Array = cfg.get("gen_bag_tiers", [])
 	var on_place_gen: Callable = cfg.get("on_place_gen", Callable())
 
 	# the dimmed backdrop — a flat scrim that dismisses on tap (the bag is a light modal with a
@@ -189,7 +187,7 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 	# come out exactly the size of the slot cells above them.
 	if not gen_bag.is_empty():
 		opts["extra"] = func(cell_opts: Dictionary) -> Control:
-			return _gen_section(Kit, cell_opts, gen_bag, gen_bag_tiers, on_place_gen, dismiss, cfg.get("asked_lines", []))
+			return _gen_section(Kit, cell_opts, gen_bag, on_place_gen, dismiss, cfg.get("asked_lines", []))
 
 	var dialog: Control = Kit.bag_dialog(entries, balance, width, opts)
 	cc.add_child(dialog)
@@ -312,14 +310,13 @@ static func _need_more(host: Control, have: int, price: int, on_open_shop: Calla
 # bag_card surface as the slots: each tile carries the generator's sprite (sized to the fitted cell via
 # make_content) and taps to place it. `cell_opts` are the dialog's FITTED cell opts (handed over by
 # bag_dialog), so these tiles come out exactly the size of the slot cells in the grid above.
-static func _gen_section(Kit: GDScript, cell_opts: Dictionary, gen_bag: Array, gen_bag_tiers: Array, on_place_gen: Callable, dismiss: Callable, asked_lines: Array = []) -> Control:
+static func _gen_section(Kit: GDScript, cell_opts: Dictionary, gen_bag: Array, on_place_gen: Callable, dismiss: Callable, asked_lines: Array = []) -> Control:
 	# build the live generator cell dicts, then hand them to the SHARED kit row builder (the layout —
 	# label + centred row — lives in Kit.bag_generators_section, so the workbench preview matches).
 	var cells: Array = []
 	for i in gen_bag.size():
 		var gid_str := String(gen_bag[i])
-		var tier := int(gen_bag_tiers[i]) if i < gen_bag_tiers.size() else 1
-		var gtex_path: String = Game.art(G.gen_tex(gid_str, tier))
+		var gtex_path: String = Game.art(G.gen_tex(gid_str))
 		# a stored generator a live quest NEEDS (its line is asked by the open fence) breathes,
 		# mirroring the board's read: bright + pulsing = "place me".
 		var wanted: bool = asked_lines.has(int(G.gen_def(G.GENERATORS, gid_str).get("line", -1)))

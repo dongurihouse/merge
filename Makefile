@@ -8,8 +8,8 @@ RUNNER  := engine/tools/run_suites.py         # parallel runner + per-suite timi
 DEVICE  ?=                                    # desktop phone simulator for make g, e.g. DEVICE=393x852
 # Suites = every active engine check: game rules, model, economy, persistence, quest logic,
 # store/IAP and identity, PLUS the UI / FX / layout / scene-display guards (layering,
-# fx_config, action_button, modal_dismiss, scene_cells, ftue_hand_hint, palette_ssot).
-ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/tests/cascade_tests engine/tests/quest_tests engine/tests/quest_fence_tests engine/tests/sky_tests engine/tests/layering_tests engine/tests/inbox_sync_tests engine/tests/identity_tests engine/tests/build_info_tests engine/tests/store_tests engine/tests/iap_tests engine/tests/scene_warm_tests engine/tests/kit_config_cache_tests engine/tests/boot_trace_tests engine/tests/strings_tests engine/tests/bust_tests engine/tests/tuning_tests engine/tests/resident_bucket_tests engine/tests/bucket_adapter_tests engine/tests/scene_cells_tests engine/tests/hint_tests engine/tests/action_button_tests engine/tests/ftue_hand_hint_tests engine/tests/update_check_tests engine/tests/asset_size_guard_tests engine/tests/cluster_manifest_tests engine/tests/palette_ssot_tests engine/tests/modal_dismiss_tests engine/tests/resident_drag_tests engine/tests/suite_registry_tests engine/tests/fx_config_tests engine/tests/const_ssot_tests engine/tests/feature_flag_registry_tests engine/tests/save_migrate_tests engine/tests/mastery_tests engine/tests/improvements_tests
+# fx_config, fx_flight, action_button, modal_dismiss, scene_cells, ftue_hand_hint, palette_ssot).
+ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/tests/cascade_tests engine/tests/quest_tests engine/tests/quest_fence_tests engine/tests/sky_tests engine/tests/layering_tests engine/tests/inbox_sync_tests engine/tests/identity_tests engine/tests/build_info_tests engine/tests/store_tests engine/tests/iap_tests engine/tests/scene_warm_tests engine/tests/kit_config_cache_tests engine/tests/boot_trace_tests engine/tests/strings_tests engine/tests/bust_tests engine/tests/tuning_tests engine/tests/resident_bucket_tests engine/tests/bucket_adapter_tests engine/tests/scene_cells_tests engine/tests/hint_tests engine/tests/action_button_tests engine/tests/fx_flight_tests engine/tests/ftue_hand_hint_tests engine/tests/update_check_tests engine/tests/asset_size_guard_tests engine/tests/cluster_manifest_tests engine/tests/palette_ssot_tests engine/tests/modal_dismiss_tests engine/tests/resident_drag_tests engine/tests/suite_registry_tests engine/tests/fx_config_tests engine/tests/const_ssot_tests engine/tests/feature_flag_registry_tests engine/tests/save_migrate_tests engine/tests/mastery_tests engine/tests/improvements_tests
 ENGINE_TESTS_DISABLED :=
 # the grove suite was split from one 2.3k-line monolith into focused suites so they
 # parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
@@ -41,8 +41,9 @@ PY_TESTS     := tools/test_boot_splash_assets.py \
                 games/grove/tests/bake_scene_composites_tests.py \
                 games/grove/tools/tests/test_extract_meadow_ui_v2.py \
                 games/tools/test_intake_apply.py \
-                tools/sfx_synth/test_synth.py
-SH_TESTS     := tools/test_stamp_build_info.sh tools/test_xcode_cloud_ci.sh
+                tools/sfx_synth/test_synth.py \
+                tools/test_quiet_window.py
+SH_TESTS     := tools/test_stamp_build_info.sh tools/test_xcode_cloud_ci.sh tools/test_grove_shot_parse.sh
 export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
 
 .DEFAULT_GOAL := help
@@ -99,7 +100,7 @@ test-fast: ## ⚡ inner-loop check — engine + tool suites, parallel. USE THIS 
 test: test-config ## full sweep: config guards + every suite (engine + grove), parallel + per-suite timing table
 	@python3 $(RUNNER) $(TESTS)
 
-test-config: ## non-godot guards (splash, build-info stamp, Xcode Cloud hook, asset-pipeline image tools)
+test-config: ## config/tool guards (splash, build-info stamp, Xcode Cloud hook, asset pipeline, shot scripts)
 	@set -e; \
 	for t in $(PY_TESTS); do echo "== $$t"; PYTHONPATH=$(PROJECT) python3 $$t; done; \
 	for t in $(SH_TESTS); do echo "== $$t"; bash $$t; done
@@ -151,7 +152,7 @@ decor: ## process a bg/decor raw:  make decor IN=/tmp/x.png OUT=res://assets/roo
 icon: ## process an icon raw:  make icon IN=/tmp/x.png OUT=res://assets/ui/y.png SIZE=512
 	$(GODOT) --headless --path $(PROJECT) -s res://games/tools/process_icon.gd -- "$(IN)" $(OUT) $(SIZE)
 
-## --- screenshots (quiet: born minimized, never steals focus) ---------------
+## --- screenshots (quiet: the window is parked off-screen, never steals focus) ---
 shot-map: ## capture the map:  make shot-map [MODE=fresh|interior|progress|shop|settings|spirits] [OUT=/tmp/map.png]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/map_shot.gd -- $(or $(MODE),fresh) $(or $(OUT),/tmp/map.png)
 

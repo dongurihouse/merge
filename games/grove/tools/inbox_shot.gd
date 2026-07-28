@@ -3,8 +3,8 @@ extends SceneTree
 ##   quiet_godot.sh --path . -s res://games/grove/tools/inbox_shot.gd -- <out.png>
 ## Seeds a couple of inbox messages (incl. an unclaimed gift), opens InboxUI over the home
 ## map, waits a beat, and saves a PNG. Mirrors map_shot.gd's quiet-capture header (REFUSES
-## unless override.cfg exists — the born-minimized window must come from quiet_godot.sh, not
-## in-script flags, which are too late and flash/steal focus). Parallel-safe (own temp save).
+## unless override.cfg exists — the off-screen capture window must come from quiet_godot.sh, not
+## in-script flags, which are too late: the window is already composited by then). Parallel-safe (own temp save).
 
 const Base = preload("res://engine/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")

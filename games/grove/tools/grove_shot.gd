@@ -3,7 +3,7 @@ extends SceneTree
 ## in a given state.   quiet_godot.sh --path . -s res://games/grove/tools/grove_shot.gd -- <mode> <out.png>
 ## modes (a sampler; the AUTHORITATIVE list is the `modes` cfg passed to Base.begin below, which
 ## also makes an unknown mode refuse the run):
-##        fresh | played | gate | fullline | ladder | farewell | almanac | bag | level | levelup | endgame |
+##        fresh | played | gate | fullline | ladder | farewell | flyaway | almanac | bag | level | levelup | endgame |
 ##        sky_calm | sky_sunbeam | sky_rain | sky_starfall | sky_starfall_blocked |
 ##        producing (generator → ⓘ Producing dialog) | producingdrill (→ tap a line → its Tiers ladder) |
 ##        ftue (fresh ledger → the live merge-drag hand hint) | ftuegen (merge taught → the live
@@ -40,11 +40,11 @@ func _initialize() -> void:
 		# list in step when adding or removing a branch.
 		"modes": ["fresh", "ftue", "ftuegen", "ftuesoil",
 			"played", "genfade", "gate", "genpreview", "hud", "endgame", "oowater", "unlock",
-			"level", "levelup", "swap", "ladder", "farewell", "almanac", "recipe",
-			"producingearly", "producing", "producingdrill", "infosel", "infobuy", "focuscoin",
+			"level", "levelup", "swap", "ladder", "farewell", "flyaway", "almanac", "recipe",
+			"producingearly", "producing", "producingdrill", "infosel", "infobuy", "infoacorn", "focuscoin",
 			"questready", "genburst", "genburstbroke", "genboost", "watershop", "bagwell", "bag",
 			"bagbroke", "bagshop", "baggen", "dragwell", "dragwellfull", "grab", "grabgen",
-			"cascade", "fullline", "sky_calm", "sky_sunbeam", "sky_rain", "sky_starfall",
+			"cascade", "fullline", "mastery", "sky_calm", "sky_sunbeam", "sky_rain", "sky_starfall",
 			"sky_starfall_blocked"],
 		# Named for a compost-bin and a beehive generator the game no longer has; see the "fullline"
 		# branch for the full story. Anyone reaching for them wants the ladder capture instead.
@@ -67,6 +67,9 @@ func _initialize() -> void:
 		Save.data["ftue_seen"] = {"merge": true}   # merge taught — the generator tap hand is live
 	if mode == "ftuesoil":
 		Save.data["ftue_seen"] = {"merge": true, "gen_tap": true}   # L6 grant: only Soil remains live
+	if mode == "flyaway":
+		Save.mark_ftue_seen("soil")
+		Save.mark_ftue_seen("soil_seed")
 	match mode:
 		"sky_calm":
 			Ambient.forced_weather = "calm"
@@ -102,6 +105,7 @@ func _initialize() -> void:
 	current_scene = scn
 	await create_timer(0.5).timeout
 	scn.rng.seed = RNG_SEED           # re-pin so each mode's own actions start from a fixed stream
+	var custom_capture_done := false
 
 	match mode:
 		"ftuesoil":
@@ -121,7 +125,6 @@ func _initialize() -> void:
 				scn.board.items[i] = 0
 			scn.board.collect_rewards = {}
 			scn.board.gens = {}
-			scn.board.gen_tiers = {}
 			scn.board.gen_boost = {}
 			scn.quests = []
 			var ready := {}
@@ -154,10 +157,13 @@ func _initialize() -> void:
 			for n in scn.gen_nodes.values():
 				if n != null and is_instance_valid(n):
 					(n as Node).queue_free()
+			# These run AFTER the loop, unconditionally: _rebuild_all() above re-seeds
+			# generators, so the strip must happen even when gen_nodes is empty or holds
+			# only freed nodes. Nested under the validity guard they silently no-op and
+			# the capture keeps the generators this mode exists to remove.
 			scn.gen_nodes.clear()
 			scn.gen_node = null
 			scn.board.gens = {}
-			scn.board.gen_tiers = {}
 			scn.board.gen_boost = {}
 			await create_timer(0.25).timeout
 			var chalf: Vector2 = Vector2(scn.csz, scn.csz) / 2.0
@@ -211,13 +217,13 @@ func _initialize() -> void:
 			scn._on_release(scn._cell_pos(Vector2i(5, 4)) + half)
 			await create_timer(0.5).timeout
 		"sky_sunbeam", "sky_rain":
-			# The live Weather Hours patch + marker, through Board.tscn. The save has both FTUE verbs
-			# marked above, so the gift gate is open and the lane is visible.
+			# The live Weather Hours patch + in-cell glyph, through Board.tscn. The save has both FTUE
+			# verbs marked above, so the gift gate is open and the lane is visible.
 			scn.debug_refresh_weather()
 			await create_timer(0.45).timeout
 		"sky_calm":
 			# The SAME gate-open board on a Calm hour — the capture's whole point is what is MISSING:
-			# no wash, no marker, nothing outside the mat. Diff it against sky_sunbeam to see the
+			# no wash, no glyph, nothing outside the mat. Diff it against sky_sunbeam to see the
 			# lane chrome appear and nothing else move.
 			scn.debug_refresh_weather()
 			await create_timer(0.45).timeout
@@ -371,7 +377,7 @@ func _initialize() -> void:
 				await create_timer(0.1).timeout
 			var free_cells: Array = scn.board.empty_ground_cells()
 			if free_cells.size() >= 7:
-				scn.board.place_gen("gen_2", free_cells[0], 3)
+				scn.board.place_gen("gen_2", free_cells[0])
 				scn.board.arm_gen_boost(free_cells[0], 4)
 				scn.board.place_gen("gen_4", free_cells[1])
 				scn.board.place(free_cells[2], 202)
@@ -384,6 +390,10 @@ func _initialize() -> void:
 			await create_timer(0.3).timeout
 			scn._queue_farewell_check()
 			await create_timer(0.7).timeout
+		"flyaway":
+			# The item fly-away sweep itself. The clock seed uses the zone accessor (not a literal level)
+			# so the fixture follows progression retunes; phase=all saves launch/apex/arrival siblings.
+			custom_capture_done = await _capture_or_stage_flyaway(self, scn, args, out)
 		"almanac":
 			# The read-only Collection/Almanac grid: discovered dormant lines show their away/complete badges,
 			# current-producing lines stay bright, and unseen future lines remain locked.
@@ -448,10 +458,12 @@ func _initialize() -> void:
 			if mode == "producingdrill":
 				scn._open_ladder(1, 1)             # tap the Wildflower line → its tier ladder, stacked on top
 				await create_timer(0.4).timeout
-		"infosel", "infobuy":
+		"infosel", "infobuy", "infoacorn":
 			# the bottom-bar INFO BAR with an item SELECTED: place a known item, select it → the bar shows
 			# the piece + "<name> · Tier N" + the BUY chip (T55) + the sell button. Coins make the buy chip
 			# read affordable (green); "infobuy" is just the explicit alias for the buy-chip capture.
+			# "infoacorn" selects an ACORN-PAYING tier instead (§9 ladder, t >= G.SELL_ACORN_TIER), so the
+			# sell button reads its payout in acorns — the one state where BOTH chips show the acorn icon.
 			var tut: Node = scn.get_node_or_null("BoardTutorialOverlay")   # drop the first-run How-to-Play so the bar shows
 			if tut != null:
 				tut.queue_free()
@@ -459,7 +471,8 @@ func _initialize() -> void:
 			Save.add_diamonds(50)
 			var ies: Array = scn.board.empty_ground_cells()
 			var icell := Vector2i(ies[0])
-			scn.board.place(icell, 104)            # a tier-4 item (a clear name + a non-trivial buy/sell value)
+			# a tier-4 item (a clear name + a non-trivial buy/sell value), or the TOP tier for infoacorn
+			scn.board.place(icell, 100 + (int(G.TOP_TIER) if mode == "infoacorn" else 4))
 			scn._rebuild_pieces()
 			scn._update_hud()
 			await create_timer(0.3).timeout
@@ -514,6 +527,36 @@ func _initialize() -> void:
 			await create_timer(0.3).timeout
 			scn._select_generator(scn.board.gens.keys()[0])
 			await create_timer(0.3).timeout
+		"mastery":
+			# The generator INFO BAR at a given mastery rank — the "· Tier N" title badge, the
+			# within-rank progress bar and the next-tier label. `line=` picks the generator (2 = Wild
+			# Berries), `meter=` is written straight into the save, so a THRESHOLD entry lands exactly
+			# on that rank. Seeds the meter
+			# BEFORE selecting: _select_generator is what builds the row off Mastery.rank().
+			var ml := int(Base.opt(args, "line", "2"))
+			var mm := int(Base.opt(args, "meter", "1150"))
+			var mg := Save.grove()
+			mg["pops"] = 30                    # past the FTUE so the bar reads its played state
+			mg["mastery"] = {str(ml): mm}
+			Save.grove_write()
+			var mcell := Vector2i(-1, -1)
+			for c in scn.board.gens:
+				if int(G.gen_def(G.GENERATORS, String(scn.board.gens[c])).get("line", 0)) == ml:
+					mcell = c
+					break
+			if mcell.x < 0:                    # that line's generator is not on the fresh board — place it
+				var freem: Array = scn.board.empty_ground_cells()
+				if freem.is_empty():
+					print("REFUSED: no free cell to place the line-%d generator" % ml)
+					quit(2)
+					return
+				mcell = Vector2i(freem[0])
+				scn.board.place_gen(G.gen_for_line(ml), mcell)
+			scn._update_hud()
+			await create_timer(0.3).timeout
+			scn._select_generator(mcell)
+			await create_timer(0.4).timeout
+			print("MASTERY line=%d meter=%d cell=%s" % [ml, mm, str(mcell)])
 		"genboost":
 			# T57: a LIVE boost — every generator wears the sparkle + taps-left badge, the info bar reads
 			# the boost detail (+N/tap · M left), and the boost chip is FADED (no re-buy while running).
@@ -587,8 +630,10 @@ func _initialize() -> void:
 			# match the slot cells above them exactly (they share the dialog's fitted cell opts).
 			Save.add_diamonds(132)
 			scn.bag = [101, 201, 301]
-			scn.board.gen_bag = ["gen_1", "gen_2"]
-			scn.board.gen_bag_tiers = [1, 2]
+			scn.board.gen_bag = []
+			scn.board.gen_bag_boost = []
+			scn.board.bag_add("gen_1")
+			scn.board.bag_add("gen_2")
 			scn._rebuild_bag()
 			scn._open_bag_overlay()
 			await create_timer(0.6).timeout
@@ -699,11 +744,21 @@ func _initialize() -> void:
 			scn._update_hud()
 			await create_timer(0.6).timeout
 
+	if custom_capture_done:
+		print("SHOT saved=%s err=0 level=%d coins_earned=%d coins=%d brambles=%d gens=%d genbag=%d" % \
+			[out, G.level(), Save.coins_earned_lifetime(), Save.coins(), scn.board.bramble_count(),
+			scn.board.gens.size(), scn.board.gen_bag.size()])
+		quit()
+		return
 	var err := Base.capture(self, out, args)
 	# Report the LIVE clock (level + the lifetime organic coins it derives from), not the retired
 	# grove["exp"] — a capture that seeded the wrong clock used to print a plausible line and a Level-1 PNG.
-	print("SHOT saved=%s err=%d level=%d coins_earned=%d coins=%d brambles=%d" % \
-		[out, err, G.level(), Save.coins_earned_lifetime(), Save.coins(), scn.board.bramble_count()])
+	# gens/genbag report the generator state the PNG actually shows: modes that STRIP generators (cascade)
+	# or SEED the stored-generator row (baggen) render a plausible board at exit 0 when their setup silently
+	# no-ops, so tools/test_grove_shot_parse.sh asserts these counts instead of trusting the exit code.
+	print("SHOT saved=%s err=%d level=%d coins_earned=%d coins=%d brambles=%d gens=%d genbag=%d" % \
+		[out, err, G.level(), Save.coins_earned_lifetime(), Save.coins(), scn.board.bramble_count(),
+		scn.board.gens.size(), scn.board.gen_bag.size()])
 	quit()
 
 ## The lifetime-organic-coins each mode banks BEFORE the scene loads (see _initialize) — the ONLY way
@@ -719,6 +774,8 @@ static func _clock_seeds() -> Dictionary:
 		"producing": G.coins_at_level(6),
 		"producingdrill": G.coins_at_level(6),
 		"ftuesoil": G.coins_at_level(6),
+		# Flyaway is a zone-transition visual, so seed by symbolic zone unlock level.
+		"flyaway": G.coins_at_level(G.zone_unlock_level(3)),
 		# gate: the SAME 25 is also earned into the WALLET (earn_coins), because G.cluster_ready gates on
 		# the level floor AND the price — L6 · 25🪙 clears the first hollow clusters' floors and costs.
 		"gate": G.coins_at_level(6),
@@ -732,3 +789,70 @@ static func _clock_seeds() -> Dictionary:
 static func _clock_midway(level: int) -> int:
 	var base := G.coins_at_level(level)
 	return base + (G.coins_at_level(level + 1) - base) / 2
+
+static func _capture_or_stage_flyaway(tree: SceneTree, scn: Node, args: Array, out: String) -> bool:
+	_seed_flyaway_board(scn)
+	await tree.create_timer(0.25).timeout
+	scn._sweep_farewell(2, G.next_need(2, scn._quest_level()))
+	var phase := String(Base.opt(args, "phase", "apex"))
+	if phase == "all":
+		await tree.create_timer(_flyaway_phase_delay("launch")).timeout
+		var launch_path := _phase_out_path(out, "launch")
+		var launch_err := Base.capture(tree, launch_path, args)
+		await tree.create_timer(_flyaway_phase_delay("apex") - _flyaway_phase_delay("launch")).timeout
+		var apex_path := _phase_out_path(out, "apex")
+		var apex_err := Base.capture(tree, apex_path, args)
+		await tree.create_timer(_flyaway_phase_delay("arrival") - _flyaway_phase_delay("apex")).timeout
+		var arrival_path := _phase_out_path(out, "arrival")
+		var arrival_err := Base.capture(tree, arrival_path, args)
+		print("FLYAWAY frames launch=%s err=%d apex=%s err=%d arrival=%s err=%d" % \
+			[launch_path, launch_err, apex_path, apex_err, arrival_path, arrival_err])
+		return true
+	if not (phase in ["launch", "apex", "arrival"]):
+		push_warning("flyaway shot: unknown phase '%s', using apex" % phase)
+		phase = "apex"
+	await tree.create_timer(_flyaway_phase_delay(phase)).timeout
+	Engine.time_scale = 0.0
+	return false
+
+static func _seed_flyaway_board(scn: Node) -> void:
+	var g := Save.grove()
+	g["seen"] = {"201": true, "202": true, "203": true, "204": true, "205": true, "206": true}
+	Save.grove_write()
+	var BM: GDScript = load("res://engine/scripts/core/board_model.gd")
+	for r in G.ROWS:
+		for c in G.COLS:
+			var cell := Vector2i(r, c)
+			scn.board.terrain[BM.idx(cell)] = 0
+			scn.board.take(cell)
+	for cell in scn.board.gens.keys():
+		scn.board.remove_gen(cell)
+	var stale_farewell := scn.find_child("FarewellCardOverlay", true, false) as Control
+	if stale_farewell != null:
+		stale_farewell.queue_free()
+	var free_cells: Array = scn.board.empty_ground_cells()
+	if free_cells.size() < 8:
+		push_warning("flyaway shot: expected at least 8 free cells, got %d" % free_cells.size())
+		return
+	scn.board.place_gen("gen_2", free_cells[0], 3)
+	scn.board.arm_gen_boost(free_cells[0], 4)
+	for i in 6:
+		scn.board.place(free_cells[i + 1], 201 + i)
+	scn._refill_quests()
+	scn._rebuild_all()
+	scn._update_hud()
+
+static func _flyaway_phase_delay(phase: String) -> float:
+	match phase:
+		"launch":
+			return 0.08
+		"arrival":
+			return 0.78
+		_:
+			return 0.26
+
+static func _phase_out_path(out: String, phase: String) -> String:
+	var ext := out.get_extension()
+	if ext == "":
+		return "%s_%s.png" % [out, phase]
+	return "%s_%s.%s" % [out.get_basename(), phase, ext]

@@ -140,8 +140,8 @@ static func mount(host: Control) -> void:
 	if host.has_method("debug_pop_magnet"):      # board-only: feed a Magnet a pair so it auto-merges on demand
 		_action(menu, host, "Pop magnet", _act_pop_magnet)
 	if Features.on("mastery") and host.has_method("debug_bump_mastery"):   # board-only: walk every generator's mastery rank
-		_action(menu, host, "Gen rank +1", _act_mastery_up)
-		_action(menu, host, "Gen rank -1", _act_mastery_down)
+		_action(menu, host, "Gen tier +1", _act_mastery_up)
+		_action(menu, host, "Gen tier -1", _act_mastery_down)
 
 	col.position = _panel_position(host, col)
 	host.add_child(layer)
@@ -406,13 +406,17 @@ static func _act_drop_acorn(host: Control) -> void:
 		host.debug_drop_acorn()
 
 ## Board-only: finish every growing Soil's current step now, so a tier pop can be tested without
-## waiting out the timer (a board of bare soils gets one seeded first, so one tap always pops).
+## waiting out the timer. One tap always pops: a board of bare soils gets one seeded first, and a
+## board with no Soil at all gets one built. The changed cell is selected so the pop is visible, and
+## a genuine dead end prints its reason.
 ## No _reflect — the new tier rebuilds live and debug_pop_soil() persists it (no scene reload).
 static func _act_pop_soil(host: Control) -> void:
 	if host.has_method("debug_pop_soil"):
 		host.call("debug_pop_soil")
 
-## Board-only: drop a matching pair into a placed Magnet's range so its auto-merge fires on demand.
+## Board-only: drop a matching pair into a Magnet's range so its auto-merge fires on demand — a
+## Magnet is built first when none is placed (or every placed one is boxed in), so one tap always
+## pulls. The merged cell is selected, and a genuine dead end prints its reason.
 ## No _reflect — the pair lands and merges live and debug_pop_magnet() persists it (no scene reload).
 static func _act_pop_magnet(host: Control) -> void:
 	if host.has_method("debug_pop_magnet"):

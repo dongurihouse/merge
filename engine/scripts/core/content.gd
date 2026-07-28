@@ -30,14 +30,9 @@ const ZONE_BASE_LINES = D.ZONE_BASE_LINES   # §6 the new per-line zone model (g
 const ZONE_SPECIAL_LINES = D.ZONE_SPECIAL_LINES
 const ZONE_COUNT = D.ZONE_COUNT
 const ZONE_BAND = D.ZONE_BAND             # the frozen per-band zone counts (the retired 5-map layout)
-const GEN_TOP_TIER = D.GEN_TOP_TIER
 const SCENE_END_LEVEL = D.SCENE_END_LEVEL   # §8 the owner's per-scene completion levels — the pacing dial
 const ACTIVE_LINE_WINDOW = D.ACTIVE_LINE_WINDOW   # §7 how many lines the fence asks from at once (any line)
 const QUEST_GEN_CAP = D.QUEST_GEN_CAP
-const GEN_SELF_DUP_RATE = D.GEN_SELF_DUP_RATE
-const GEN_SELL_COINS = D.GEN_SELL_COINS
-const GEN_TIER_BURST_ODDS = D.GEN_TIER_BURST_ODDS
-const GEN_TIER_BURST_ODDS_BOOST = D.GEN_TIER_BURST_ODDS_BOOST
 const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = off; owner pacing dial)
 static var QUEST_CLICKS_PER_EXP: int = D.QUEST_CLICKS_PER_EXP   # OWNER DIAL — live-overridable (apply_tuning)
 const QUEST_CLICKS_PER_COIN = D.QUEST_CLICKS_PER_COIN
@@ -56,7 +51,6 @@ const EXP_PER_QUEST_EST = D.STARS_PER_QUEST_EST
 const BURST_ODDS = D.BURST_ODDS
 const BURST_ODDS_BOOST = D.BURST_ODDS_BOOST
 const BURST_MAX = D.BURST_MAX
-const BOOST_BONUS = D.BOOST_BONUS
 const BOOST_TAPS = D.BOOST_TAPS
 const BOOST_COST = D.BOOST_COST
 const SOIL_MAX = D.SOIL_MAX
@@ -77,6 +71,9 @@ const RESIDENT_BASE_COST = D.RESIDENT_BASE_COST
 const RESIDENT_PREMIUM_COST = D.RESIDENT_PREMIUM_COST
 const STARTER_ITEMS = D.STARTER_ITEMS
 const SELL_MAP_BAND = D.SELL_MAP_BAND
+const SELL_TIER_COINS = D.SELL_TIER_COINS
+const SELL_ACORN_TIER = D.SELL_ACORN_TIER
+const SELL_ACORNS = D.SELL_ACORNS
 const BUY_MARKUP = D.BUY_MARKUP
 const LEVEL_DIAMONDS = D.LEVEL_DIAMONDS
 const LEVEL_DIAMOND_EVERY = D.LEVEL_DIAMOND_EVERY
@@ -500,30 +497,22 @@ static func quest_zone_for_level(level: int) -> int:
 			break
 	return z
 
-# --- §6.D generator merge ladder (gen redesign 2026-06-28) ---------------------------------------------
-# A generator's burst odds at its tier (1..GEN_TOP_TIER); higher tier pops more multiples. A live boost
-# swaps in the strictly-better boosted table (T64).
-static func gen_burst_odds(tier: int, boosted: bool = false) -> Array:
-	var table: Array = GEN_TIER_BURST_ODDS_BOOST if boosted else GEN_TIER_BURST_ODDS
-	return table[clampi(tier, 1, GEN_TOP_TIER) - 1]
+# --- §6.D burst odds --------------------------------------------------------------------------------
+# ONE flat table pair serves EVERY generator-like tap (§6, T58): line generators, the boosted accumulator
+# collect, the treat pop and the sim. BURST_ODDS applies when no boost is live (a single item is the norm);
+# a live boost swaps in BURST_ODDS_BOOST, which RAISES THE CHANCE of multiples — never a flat add. There is
+# no per-generator tier row and no per-map scale-up: rank/mastery moves the item-TIER window, not the burst
+# row.
+static func burst_odds(boosted: bool = false) -> Array:
+	return BURST_ODDS_BOOST if boosted else BURST_ODDS
 
-# Two same-line generators merge 2:1 into the next tier (capped at GEN_TOP_TIER).
-static func gen_merge_tier(tier: int) -> int:
-	return mini(tier + 1, GEN_TOP_TIER)
-
-# Coins refunded for selling a redundant generator of `tier` (sellable tiers are 1..GEN_TOP_TIER-1 — a
-# tier-GEN_TOP_TIER generator is never redundant). Gen stranding fix.
-static func gen_sell_coins(tier: int) -> int:
-	return int(GEN_SELL_COINS[clampi(tier, 1, GEN_TOP_TIER - 1) - 1])
-
-# A below-top generator self-produces a duplicate at GEN_SELF_DUP_RATE per tap (the merge fuel).
-static func rolls_gen_self_dup(rng: RandomNumberGenerator) -> bool:
-	return rng.randf() < GEN_SELF_DUP_RATE
-
-# A generator's burst count at its tier (1..N items), rolled over its tier odds; a live boost swaps in the
-# strictly-better boosted row (the top row adds a 4th slot — only a boosted top-tier generator pops 4).
-static func gen_burst_count(tier: int, rng: RandomNumberGenerator, boosted: bool = false) -> int:
-	var odds := gen_burst_odds(tier, boosted)
+## Rolls one burst COUNT off those tables — exactly ONE randf per tap, so the RNG stream is the same for
+## boosted and unboosted taps. Clamped to [1, BURST_MAX]: BURST_MAX is the data-side ceiling dial
+## (grove_data.gd) and equals both tables' length today, so the clamp is inert — it is kept as the
+## board-flood safety net, so lengthening an odds row cannot flood the board without also raising the dial.
+## Each popped item still costs 1 energy.
+static func burst_count(rng: RandomNumberGenerator, boosted: bool = false) -> int:
+	var odds := burst_odds(boosted)
 	var n := 1
 	var roll := rng.randf()
 	var acc := 0.0
@@ -532,7 +521,7 @@ static func gen_burst_count(tier: int, rng: RandomNumberGenerator, boosted: bool
 		if roll <= acc:
 			n = i + 1
 			break
-	return clampi(n, 1, odds.size())
+	return clampi(n, 1, BURST_MAX)
 
 static func gen_def(roster: Array, id: String) -> Dictionary:
 	for g in roster:
@@ -801,33 +790,12 @@ static func active_giver_count(earned_exp: int, target_exp: int, max_givers: int
 		return 0
 	return clampi(int(ceil(need / float(EXP_PER_QUEST_EST))), 1, max_givers)
 
-## Burst-pop for the UNTIERED special-generator family (§6, T58): the boosted accumulator collect, the
-## treat pop, and the sim roll their burst COUNT here — tiered line generators roll gen_burst_count
-## instead (T64). BURST_ODDS when no boost is live (a single item is the norm), BURST_ODDS_BOOST while
-## one is (`boost_bonus > 0` marks a live boost — it RAISES THE CHANCE of multiples, never a flat add;
-## `_map` is unused — kept for call-site stability). Clamped to [1, BURST_MAX] as a board-flood safety
-## net. Each popped item still costs 1 energy.
-static func burst_count(_map: int, boost_bonus: int, rng: RandomNumberGenerator) -> int:
-	var odds: Array = BURST_ODDS_BOOST if boost_bonus > 0 else BURST_ODDS
-	var n := 1
-	var roll := rng.randf()
-	var acc := 0.0
-	for i in odds.size():
-		acc += float(odds[i])
-		if roll <= acc:
-			n = i + 1
-			break
-	return clampi(n, 1, BURST_MAX)
-
-## The temporary BOOST (§6/§10 coin sink). One activation arms BOOST_TAPS taps of +BOOST_BONUS items on ONE
-## generator, then it expires. The per-generator tap counts live in BoardModel.gen_boost (cell-keyed); this
-## module keeps only the constants. Replaces the old board-wide grove["boost_taps"] counter (T57).
+## The temporary BOOST (§6/§10 coin sink). One activation arms BOOST_TAPS taps on ONE generator, each
+## rolling BURST_ODDS_BOOST instead of BURST_ODDS (see burst_count), then it expires. The per-generator tap
+## counts live in BoardModel.gen_boost (cell-keyed); this module keeps only the constants. Replaces the old
+## board-wide grove["boost_taps"] counter (T57).
 static func boost_cost() -> int:
 	return BOOST_COST
-
-## The boost's magnitude: extra items per generator tap while it is live (the caller gates on active).
-static func boost_bonus() -> int:
-	return BOOST_BONUS
 
 # --- §1 residents: the population sub-game (welcome + auto-merge) ------------------
 # Residents are WELCOMED (bought) on a COMPLETED map; two of the same type+tier AUTO-MERGE
@@ -1284,20 +1252,43 @@ static func any_cluster_ready(unlocks: Dictionary, level: int, coins: int) -> bo
 	return cl != "" and cluster_ready(z, cl, unlocks, level, coins)
 
 # --- sell / economy formulas ------------------------------------------------------
-## What an item sells for at the merchant (§9): Vector2i(coins, premium). Option A: EVERY tier sells
-## for its tier in coins SCALED by the item's per-map band (§6 — later maps sell for more). There is NO
-## premium-sell pinnacle anymore — selling never mints acorns (acorns are milestone/IAP only), so the
-## old t8=1💎 special case + the 32× anti-arbitrage guard are retired. `premium` is always 0 here.
+## What an item sells for at the merchant (§9): Vector2i(coins, acorns). The ladder is AUTHORED, not
+## computed — G.SELL_TIER_COINS (doubling from t4, band-scaled) up to G.SELL_ACORN_TIER, then flat
+## G.SELL_ACORNS instead of coins (the deep tiers pay the premium currency; the band does NOT apply
+## there). A tier pays coins OR acorns, never both. Re-tune the three dials in grove_data, never here.
 static func sell_reward(code: int) -> Vector2i:
 	match special_kind(code):
 		"soil_seed":
 			return Vector2i(SOIL_SEED_SELL_COINS, 0)
 		"magnet_seed":
 			return Vector2i(MAGNET_SEED_SELL_COINS, 0)
-	var tier := code % 100
+	var tier := maxi(1, code % 100)
+	if tier >= SELL_ACORN_TIER:
+		return Vector2i(0, sell_acorns(tier))
 	# §6.D premium treat lines sell at a flat premium band; everything else at its per-map band.
 	var band: float = TREAT_SELL_BAND if is_treat_line(code) else sell_map_band(map_for_code(code))
-	return Vector2i(int(round(maxi(1, tier) * band)), 0)
+	return Vector2i(int(round(sell_tier_coins(tier) * band)), 0)
+
+## The AUTHORED base coin value of `tier` before the map band (G.SELL_TIER_COINS, clamped to the table;
+## 0 means the tier pays acorns instead). A tier past the table reuses the last entry.
+static func sell_tier_coins(tier: int) -> int:
+	var tbl: Array = SELL_TIER_COINS
+	if tbl.is_empty():
+		return maxi(1, tier)
+	return int(tbl[clampi(maxi(1, tier) - 1, 0, tbl.size() - 1)])
+
+## Acorns an acorn-tier sale pays (flat, no band). Tiers below SELL_ACORN_TIER pay 0; a tier past the
+## authored table reuses the deepest authored payout, so TOP_TIER can move without stranding the ladder.
+static func sell_acorns(tier: int) -> int:
+	var t := maxi(1, tier)
+	if t < SELL_ACORN_TIER:
+		return 0
+	var best := 0
+	for raw_key in SELL_ACORNS.keys():
+		var key := int(raw_key)
+		if key <= t and key >= SELL_ACORN_TIER:
+			best = maxi(best, int(SELL_ACORNS[raw_key]))
+	return maxi(1, best)
 
 ## What it costs to BUY a copy of an item via the board info bar (§10, T55) — the SPLIT ladder
 ## (owner decision 2026-07-18): shallow tiers are a COIN convenience at a steep markup, deep tiers
@@ -1326,8 +1317,17 @@ static func sell_map_band(map: int) -> float:
 		return 1.0
 	return float(SELL_MAP_BAND[clampi(map, 0, SELL_MAP_BAND.size() - 1)])
 
+## Water clicks to EARN one acorn the cheapest way the sell ladder allows — the CHEAPEST acorn tier by
+## clicks-per-acorn (tier_clicks / SELL_ACORNS[tier]), not a fixed tier: the acorn-paying tiers are the
+## only sell path that mints acorns, so this is what the sim's Y round-trip guard must measure.
 static func water_to_earn_diamond() -> int:
-	return int(pow(2, PREMIUM_TIER - 1))
+	var best := 0
+	for raw_key in SELL_ACORNS.keys():
+		var tier := int(raw_key)
+		var paid := maxi(1, int(SELL_ACORNS[raw_key]))
+		var per_acorn := int(tier_clicks(tier) / float(paid))
+		best = per_acorn if best == 0 else mini(best, per_acorn)
+	return best if best > 0 else int(pow(2, PREMIUM_TIER - 1))
 static func water_a_diamond_buys() -> int:
 	return int(WATER_CAP / float(REFILL_DIAMOND_COST))
 
@@ -1579,10 +1579,10 @@ static func accumulator_kind_of(id: String) -> String:
 
 # The generator icon for an id — the merge-generator roster first, then the accumulators. One lookup so
 # _make_generator renders both kinds of on-board "generator" from the same path.
-static func gen_tex(id: String, tier: int = 1) -> String:
+static func gen_tex(id: String) -> String:
 	var d := gen_def(GENERATORS, id)
 	if not d.is_empty():
-		return _tiered_gen_tex(String(d.get("tex", "")), tier)
+		return String(d.get("tex", ""))
 	var kind := accumulator_kind_of(id)
 	if kind != "":
 		return String(ACCUMULATORS[kind].get("tex", ""))
@@ -1590,19 +1590,6 @@ static func gen_tex(id: String, tier: int = 1) -> String:
 		var idx := TREAT_LINES.find(treat_line_of(id))
 		return String(TREAT_GEN_TEX[maxi(0, idx) % TREAT_GEN_TEX.size()])
 	return ""
-
-static func _tiered_gen_tex(tex: String, tier: int) -> String:
-	if tier <= 1 or tex == "":
-		return tex
-	var file := tex.get_file()
-	if not file.begins_with("generators_") or not file.ends_with(".png"):
-		return tex
-	var stem := file.trim_prefix("generators_").trim_suffix(".png")
-	if not stem.is_valid_int():
-		return tex
-	var upgraded := int(stem) + 17
-	var candidate := "%s/generators_%d.png" % [tex.get_base_dir(), upgraded]
-	return candidate if ResourceLoader.exists(Game.art(candidate)) else tex
 
 # --- §6.D temporary treat generators (the main generator occasionally spawns one) ---------------------
 static func rolls_treat_spawn(rng: RandomNumberGenerator) -> bool:

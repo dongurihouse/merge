@@ -149,11 +149,9 @@ const ZONE_BAND := [2, 3, 3, 2, 2]
 # The dials that move this are SCENE_END_LEVEL (below) and ZONE_BAND. The coin curve (LEVEL_BASE_COINS /
 # LEVEL_STEP_COINS) no longer has any say in where the gates fall — it only sets how long a level takes.
 
-# §6.D GENERATOR MERGE LADDER (gen redesign 2026-06-28). Two same-line generators merge 2:1 up to GEN_TOP_TIER;
-# higher tier pops more multiples (GEN_TIER_BURST_ODDS). A below-top generator self-produces a duplicate at
-# GEN_SELF_DUP_RATE per tap (the merge fuel), spawned at the line's TOP tier; a maxed line breeds nothing.
-# NOTE: self-dup is currently OFF (GEN_SELF_DUP_RATE = 0.0) — see the constant. With no fuel the ladder is
-# dormant: generators stay at the tier they already hold, and no new leftovers can strand.
+# §6.D GENERATOR MODEL. Generators are per-line tools; mastery/rank now drives pop tier windows.
+# The retired same-line generator merge ladder no longer exists, so generator burst odds are flat
+# apart from each generator's temporary boost.
 # §8 THE PACING DIAL (2026-07-26) — the owner authors the level each cover-up SCENE fully restores at;
 # clusters and zones both spread INSIDE the band this defines (content._build_cadence). Replaces the
 # old cost-derived floors (CLUSTER_LEVEL_LEAD is retired): the level clock counts QUEST coins only, but
@@ -176,7 +174,6 @@ const ZONE_BAND := [2, 3, 3, 2, 2]
 # reaches at days 3/7/12/18/25 (mean of seeds 1, 7, 42) at 3 sessions/day — measured from the running
 # sim, not re-derived from pacing_calc's model.
 const SCENE_END_LEVEL := [28, 41, 54, 64, 71]
-const GEN_TOP_TIER := 3
 # §7 THE ACTIVE-LINE WINDOW (2026-07-25). The quest fence asks from exactly this many lines at a time —
 # ANY line, base or crafted-special alike (the window slides over ZONES rows, so it advances on EVERY zone,
 # not only base zones). A special no longer needs its ingredient lines to be in the window: its ingredient
@@ -185,25 +182,6 @@ const GEN_TOP_TIER := 3
 # QUEST_GEN_CAP. Re-run grove_sim after changing this — a tighter window is a real no-strand tightening.
 const ACTIVE_LINE_WINDOW := 3
 const QUEST_GEN_CAP := 6                   # gen redesign #16 (RE-SCOPED): a QUEST-side cap — the active quests may demand at most this many DISTINCT generators (a base ask needs 1; a merge/special ask needs its 2 ingredient gens). The player's BOARD is uncapped; this just stops merge-quests forcing a huge generator count.
-const GEN_SELF_DUP_RATE := 0.0             # DISABLED (owner call 2026-07-23) — was 0.005 (0.5%/tap). The
-                                           # duplicate spawned at the LINE TOP, so a sub-top leftover met a
-                                           # top-tier copy it could not merge with — and since gen art is
-                                           # tier-independent the pair looked identical and the drop silently
-                                           # swapped (board.gd swap_gens). Re-enable by restoring 0.005 once
-                                           # tier is legible on the board and a refused merge bounces.
-# Coins refunded when SELLING a redundant generator (a sub-top leftover), indexed by tier 1..GEN_TOP_TIER-1
-# (a tier-3 is never redundant, so never sold). Small on purpose — 0.5%/tap breeding must not be a coin faucet.
-const GEN_SELL_COINS := [2, 6]             # tier 1 → 2 coins, tier 2 → 6 coins
-const GEN_TIER_BURST_ODDS := [             # burst odds [1,2,3 items] by generator tier (1..3) — higher = more multiples
-	[0.80, 0.15, 0.05],   # tier 1
-	[0.50, 0.35, 0.15],   # tier 2
-	[0.20, 0.45, 0.35],   # tier 3
-]
-const GEN_TIER_BURST_ODDS_BOOST := [       # BOOSTED burst odds by generator tier (T64) — each row must
-	[0.20, 0.45, 0.35],                    #   strictly beat its unboosted row on EV (mechanics_tests guard).
-	[0.20, 0.45, 0.35],                    #   tiers 1-2 = the pre-T64 flat boost table (live tuning preserved)
-	[0.10, 0.30, 0.40, 0.20],              #   tier 3 gains a 4th slot — only a boosted top-tier gen pops 4
-]
 const ASK_TIER_WEIGHT := 0.0             # §6 spawn TIER-bias strength — OFF by default (owner pacing
                                          # dial). At 0.6 the sim front-loads spend ~3x (parked pacing
                                          # pass); ramp here once the level curve is re-tuned on grove_sim.
@@ -229,18 +207,13 @@ const QUEST_FEATURED_COIN_BONUS := 10     # flat coin bonus on a featured quest 
 const MAX_GIVERS := 8                     # fence quest slots (§7, gen redesign #13) — up to 8 quest cards (+ the jar); metered active count caps here. The fence scrolls horizontally when these + the jar overflow the screen.
 const MAX_QUESTS_PER_LINE := 4            # per active item line; a one-line fresh game shows 4 quests, then the fence grows as level reaches more lines.
 const STARS_PER_QUEST_EST := 2            # representative ★/quest for sizing the active-giver meter
-# §6 burst-pop (T58, T64). A generator tap pops a BURST of items, each still 1 energy (burst cuts taps, not
-# the per-item energy economy). A TIERED generator rolls GEN_TIER_BURST_ODDS[tier] unboosted and
-# GEN_TIER_BURST_ODDS_BOOST[tier] while its own temporary BOOST is live — the boost RAISES THE CHANCE of
-# multiples (never a flat add), is per-generator (stackable across generators), decays one tap per charged
-# tap, then expires (one BOOST_COST activation arms BOOST_TAPS taps — the §10 coin sink, T57). The flat
-# BURST_ODDS / BURST_ODDS_BOOST tables serve the UNTIERED special generators (boosted accumulator collect,
-# treat pop) via burst_count.
+# §6 burst-pop (T58, T64 retired with the generator tier ladder). A generator tap pops a BURST of items,
+# each still 1 energy (burst cuts taps, not the per-item energy economy). A temporary per-generator BOOST
+# swaps BURST_ODDS for BURST_ODDS_BOOST, raising the chance of multiples (never a flat add), decays one tap
+# per charged tap, then expires (one BOOST_COST activation arms BOOST_TAPS taps — the §10 coin sink).
 const BURST_ODDS       := [0.80, 0.15, 0.05]   # no boost: 1 / 2 / 3 items — a single item is the norm
 const BURST_ODDS_BOOST := [0.20, 0.45, 0.35]   # boost live: 1 / 2 / 3 items — multiples are the norm
-const BURST_MAX        := 3                     # the FLAT tables' ceiling (the burst_count clamp); the tiered
-                                                # roll clamps to its own row length — a boosted top-tier bursts up to 4
-const BOOST_BONUS := 2                    # >0 marks "a boost is live" to burst_count (legacy name — no longer a flat add)
+const BURST_MAX        := 3                     # the flat tables' ceiling (the burst_count clamp)
 const BOOST_TAPS := 10                    # how many generator taps one boost lasts
 const BOOST_COST := 120                   # coins to activate one boost (the §10 coin sink)
 
@@ -313,13 +286,30 @@ const STARTER_ITEMS := {
 
 
 # §6/§9 per-map SELL COIN band — later maps' items sell for MORE coins (each map a real
-# economic step-up, not just new art). Indexed by the item's map (0-indexed, maps 1–5). A
-# t1–t7 item sells for round(tier_coins × band[map]); t8 stays the FLAT 1💎 pinnacle on every
-# map (the 32× anti-arbitrage proof, §9 — only the t1–t7 COIN reward scales, never t8→premium).
+# economic step-up, not just new art). Indexed by the item's map (0-indexed, maps 1–5). A coin-paying
+# item sells for round(SELL_TIER_COINS[tier-1] × band[map]); the ACORN tiers below ignore the band.
 # Monotonic by construction. Map 1 == 1.0 keeps the FTUE-era sell proofs exact. OWNER/SIM FEEL
 # DIAL — re-tune across the arc (grove_spec §5); the engine reads it via G.SELL_MAP_BAND in
 # content.sell_reward(). One entry per MAPS row.
 const SELL_MAP_BAND := [1.0, 1.3, 1.7, 2.2, 2.8]   # Fairy Hollow · Snowy · Oasis · Reef · Cherry-Blossom
+
+# §9 THE SELL LADDER (rework 2026-07-27, docs/design/sell-economy-rework.md). THE ONE PLACE the sell
+# payout is authored — content.sell_reward() reads only these three dials + the band above, and nothing
+# else in the engine carries a sell number. The old curve was LINEAR in tier (round(tier × band)) while
+# a tier costs EXPONENTIAL water (tier_clicks = 2^(t-1)), so a t12 paid 170x less per water click than a
+# t1 and selling was 2% of the coin faucet. The ladder DOUBLES per tier from t4 up, so value tracks the
+# water invested and a deep merge is value-neutral instead of a 2x loss.
+#   t1-t3   linear 1·2·3 — unchanged: the FTUE sell proofs and buy_price's "10x sell" rule read them.
+#   t4-t9   doubling coins, band-scaled (m1 4·8·16·32·64·128 … m5 11·22·45·90·179·358).
+#   t10-t12 ACORNS instead of coins (1·2·4), FLAT — the band does not apply and these tiers pay 0 coins.
+# Invariants pinned by content_sell_tests: no tier loses value on a merge from t4 up; splitting and
+# selling the halves never beats the whole (scissors floor); a constant 512💧 buys one acorn, 12.8x the
+# no-arbitrage floor; and an acorn sale always pays less than buy_price's acorn cost at the same tier.
+# OWNER/SIM FEEL DIAL — the coin SINKS (BOOST_COST, the expedition load-out, the cover-up ladder) are
+# NOT re-priced for this ladder yet; that is the parked §5 economy pass.
+const SELL_TIER_COINS := [1, 2, 3, 4, 8, 16, 32, 64, 128, 0, 0, 0]   # index tier-1; 0 = the tier pays acorns
+const SELL_ACORN_TIER := 10                                          # the lowest acorn-paying tier
+const SELL_ACORNS := {10: 1, 11: 2, 12: 4}                           # acorns per sale, flat across maps
 
 # BUYING a copy of an item (the §10 board info-bar buy, T55) — the SPLIT ladder (owner decision
 # 2026-07-18): t1-t3 cost COINS at 10× sell value; t4+ cost ACORNS on a Fibonacci ramp (1·2·3·5·8·

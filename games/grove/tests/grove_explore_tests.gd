@@ -12,6 +12,8 @@ const ResidentsUI = preload("res://engine/scripts/ui/residents.gd")
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
+const FxDefs = preload("res://games/grove/tools/fx_defs.gd")
+const FxWorkbenchView = preload("res://games/grove/tools/fx_workbench_view.gd")
 const Kit = preload("res://games/grove/ui_kit.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 const MapScript = preload("res://engine/scripts/scenes/map.gd")
@@ -61,6 +63,9 @@ func _initialize() -> void:
 	await _test_endgame_fence_stays_live()
 	await _test_purge_above_level_migration()
 	await _test_farewell_cards_chain()
+	await _test_grant_sale_flyaway_pays_once_with_fx_on_and_off()
+	await _test_farewell_sweep_flyaway_pays_once_with_fx_on_and_off()
+	await _test_fx_workbench_farewell_sweep_preview()
 	await _test_almanac_entries_and_info_chip()
 	await _test_farewell_check_respects_generator_selection()
 	await _test_farewell_check_resumes_after_bare_press()
@@ -92,7 +97,7 @@ func _test_farewell_cards_chain() -> void:
 		await process_frame
 	var free_cells: Array = scn.board.empty_ground_cells()
 	ok(free_cells.size() >= 6, "fixture: the board has ground for chained farewells")
-	scn.board.place_gen("gen_2", free_cells[0], 3)
+	scn.board.place_gen("gen_2", free_cells[0])
 	scn.board.arm_gen_boost(free_cells[0], 4)
 	scn.board.place_gen("gen_4", free_cells[1])
 	scn.board.place(free_cells[2], 2 * 100 + 2)
@@ -123,13 +128,127 @@ func _test_farewell_cards_chain() -> void:
 	ok(not scn.board.gens.values().has("gen_2") and not scn.board.gens.values().has("gen_4"),
 		"closing the cards sweeps the away board generators")
 	var kept: Dictionary = Save.grove().get("gen_kept", {})
-	ok(kept.get("gen_2", []) == [3, 4], "the swept upgraded generator is kept for its return")
+	ok(kept.get("gen_2", []) == [4], "the swept boosted generator keeps its boost for the line's return")
 	ok(Save.coins() > wallet_b and Save.coins_earned_lifetime() == clock_b,
 		"farewell payouts are spendable-only and never advance the clock")
 	scn._queue_farewell_check()
 	await process_frame
 	ok(scn.find_child("FarewellCardOverlay", true, false) == null, "migration is idempotent on re-entry")
 	await drop(scn)
+
+func _test_grant_sale_flyaway_pays_once_with_fx_on_and_off() -> void:
+	var old_fly := bool(Feat.FLAGS.get("fly_to_wallet", true))
+	FX.configure_reward_fx_config_for_test("user://tu_grove_sale_flyaway_fx.json")
+	Feat.FLAGS["fly_to_wallet"] = true
+	var scn = board_host()
+	await process_frame
+	await _assert_sale_flyaway_case(scn, 202, true, "enabled")
+	await _assert_sale_flyaway_case(scn, 203, false, "disabled")
+	Feat.FLAGS["fly_to_wallet"] = old_fly
+	FX.configure_reward_fx_config_for_test("")
+	await drop(scn, 3)
+
+func _assert_sale_flyaway_case(scn: Node, code: int, fx_on: bool, label: String) -> void:
+	FX.set_reward_fx_enabled("sale_payout", fx_on)
+	var reward := G.sell_reward(code)
+	var before_coins := Save.coins()
+	var before_gems := Save.diamonds()
+	var node := _make_flyaway_probe(scn, "SaleFlyaway%s" % label.capitalize(), Vector2(80, 190))
+	scn._grant_sale(code, node)
+	ok(Save.coins() == before_coins + int(reward.x) and Save.diamonds() == before_gems + int(reward.y),
+		"_grant_sale credits exactly the configured sell reward with sale_payout %s" % label)
+	await process_frame
+	if fx_on:
+		ok(is_instance_valid(node) and node.get_parent() == scn,
+			"_grant_sale reparents the sold piece above board_area while it flies with sale_payout enabled")
+	else:
+		ok(not is_instance_valid(node),
+			"_grant_sale frees the sold piece immediately when sale_payout is disabled")
+	await create_timer(0.7).timeout
+	ok(Save.coins() == before_coins + int(reward.x) and Save.diamonds() == before_gems + int(reward.y),
+		"_grant_sale does not pay a second time after sale_payout %s settles" % label)
+
+func _test_farewell_sweep_flyaway_pays_once_with_fx_on_and_off() -> void:
+	var old_fly := bool(Feat.FLAGS.get("fly_to_wallet", true))
+	FX.configure_reward_fx_config_for_test("user://tu_grove_farewell_flyaway_fx.json")
+	Feat.FLAGS["fly_to_wallet"] = true
+	var on_fix: Dictionary = await _farewell_fixture("farewell_flyaway_enabled")
+	await _assert_farewell_flyaway_case(on_fix, true, "enabled")
+	await drop(on_fix.scn, 3)
+	var off_fix: Dictionary = await _farewell_fixture("farewell_flyaway_disabled")
+	await _assert_farewell_flyaway_case(off_fix, false, "disabled")
+	await drop(off_fix.scn, 3)
+	Feat.FLAGS["fly_to_wallet"] = old_fly
+	FX.configure_reward_fx_config_for_test("")
+
+func _assert_farewell_flyaway_case(fix: Dictionary, fx_on: bool, label: String) -> void:
+	var scn = fix.scn
+	var line := 2
+	var item_cell: Vector2i = fix.item
+	var gen_cell: Vector2i = fix.gen
+	var item_node: Control = scn.piece_nodes.get(item_cell)
+	var gen_node: Control = scn.gen_nodes.get(gen_cell)
+	var preview := BoardActions.farewell_preview(scn.board, line)
+	var coins := int(preview.coins)
+	var before_coins := Save.coins()
+	FX.set_reward_fx_enabled("farewell_sweep", fx_on)
+	scn._sweep_farewell(line, G.next_need(line, scn._quest_level()))
+	ok(Save.coins() == before_coins + coins,
+		"_sweep_farewell credits exactly preview coins up front with farewell_sweep %s" % label)
+	ok(not scn.piece_nodes.has(item_cell) and not _piece_nodes_hold_line(scn, line),
+		"_sweep_farewell removes swept-line entries from piece_nodes with farewell_sweep %s" % label)
+	await process_frame
+	if fx_on:
+		ok(is_instance_valid(item_node) and item_node.get_parent() == scn,
+			"_sweep_farewell keeps swept pieces alive above the rebuilt board while they fly")
+		ok(is_instance_valid(gen_node) and gen_node.get_parent() == scn,
+			"_sweep_farewell keeps the retired generator alive above the rebuilt board for its keepsake fade")
+	else:
+		ok(not is_instance_valid(item_node),
+			"_sweep_farewell frees swept pieces immediately when farewell_sweep is disabled")
+	await create_timer(1.25).timeout
+	ok(Save.coins() == before_coins + coins,
+		"_sweep_farewell does not pay a second time after farewell_sweep %s settles" % label)
+
+func _make_flyaway_probe(scn: Node, node_name: String, pos: Vector2) -> Control:
+	var node := ColorRect.new()
+	node.name = node_name
+	node.color = Color(1.0, 0.82, 0.25, 1.0)
+	node.position = pos
+	node.size = Vector2(52, 52)
+	scn.board_area.add_child(node)
+	return node
+
+func _piece_nodes_hold_line(scn: Node, line: int) -> bool:
+	for cell_v in scn.piece_nodes.keys():
+		var cell := Vector2i(cell_v)
+		var code: int = scn.board.item_at(cell)
+		if code > 0 and not G.is_coin(code) and BoardModel.line_of(code) == int(line):
+			return true
+	return false
+
+func _test_fx_workbench_farewell_sweep_preview() -> void:
+	FX.configure_reward_fx_config_for_test("user://tu_grove_fx_workbench_farewell.json")
+	FX.set_reward_fx_enabled("farewell_sweep", true)
+	var def := FxDefs.def("farewell_sweep")
+	ok(String(def.get("source_kind", "")) == "farewell_sweep",
+		"FX workbench action table exposes the farewell_sweep batch preview")
+	var view := FxWorkbenchView.new()
+	get_root().add_child(view)
+	await process_frame
+	view.select_action("farewell_sweep")
+	await process_frame
+	var pieces := view.find_children("FarewellSweepPiece*", "Control", true, false)
+	ok(pieces.size() == 6, "farewell_sweep workbench preview spawns a batch of dummy pieces")
+	view.play_selected()
+	await process_frame
+	ok(view.find_children("FarewellSweepPiece*", "Control", true, false).size() > 0,
+		"farewell_sweep workbench preview launches the batch instead of using a single reward icon")
+	await create_timer(1.0).timeout
+	ok(view.find_children("FarewellSweepPiece*", "Control", true, false).is_empty(),
+		"farewell_sweep workbench preview frees dummy pieces after the batch finishes")
+	FX.configure_reward_fx_config_for_test("")
+	await drop(view, 2)
 
 func _test_almanac_entries_and_info_chip() -> void:
 	fresh("almanac_entries")
@@ -217,10 +336,11 @@ func _farewell_fixture(name: String) -> Dictionary:
 	var free_cells: Array = scn.board.empty_ground_cells()
 	ok(free_cells.size() >= 3, "fixture: board has room for the away generator, its item, and bare ground")
 	var gen_cell: Vector2i = free_cells[0]
-	scn.board.place_gen("gen_2", gen_cell, 2)
-	scn.board.place(free_cells[1], 2 * 100 + 1)
+	var item_cell: Vector2i = free_cells[1]
+	scn.board.place_gen("gen_2", gen_cell)
+	scn.board.place(item_cell, 2 * 100 + 1)
 	scn._rebuild_all()
-	return {"scn": scn, "gen": gen_cell, "empty": free_cells[2]}
+	return {"scn": scn, "gen": gen_cell, "item": item_cell, "empty": free_cells[2]}
 
 func _test_farewell_check_respects_generator_selection() -> void:
 	var fix: Dictionary = await _farewell_fixture("farewell_generator_focus")
@@ -709,7 +829,6 @@ func _test_purge_above_level_migration() -> void:
 	scn.board.place(c_glow, 101)             # glow-mushrooms t1 — valid (anchor)
 	scn.board.place_gen("gen_18", c_gen)     # koi generator — GATED
 	scn.board.gen_bag = ["gen_18", G.gen_for_line(ok_line)]  # a gated koi + an in-cadence generator
-	scn.board.gen_bag_tiers = [1, 1]
 	scn.board.gen_bag_boost = [0, 0]
 	scn.bag = [1801, 101]                     # a gated koi item + a valid glow item stashed
 	scn.quests = [{"line": 18, "tier": 1, "giver": 0}, {"line": 1, "tier": 1, "giver": 1}]  # koi quest (gated) + glow (valid)
@@ -730,7 +849,7 @@ func _test_purge_above_level_migration() -> void:
 	ok(not scn.board.gens.values().has("gen_18"), "migration removes the too-advanced koi generator")
 	ok(scn.board.gens.values().has("gen_1"), "migration keeps the anchor generator")
 	ok(not scn.board.gen_bag.has("gen_18") and scn.board.gen_bag.has(G.gen_for_line(ok_line)), "migration prunes the gen_bag — drops koi, keeps the in-cadence generator")
-	ok(scn.board.gen_bag.size() == scn.board.gen_bag_tiers.size() and scn.board.gen_bag.size() == scn.board.gen_bag_boost.size(), "the parallel gen_bag arrays stay aligned after the prune")
+	ok(scn.board.gen_bag.size() == scn.board.gen_bag_boost.size(), "the parallel gen_bag boost array stays aligned after the prune")
 	ok(not scn.bag.has(1801) and scn.bag.has(101), "migration prunes the item bag — drops koi, keeps glow")
 	var quest_lines: Array = []
 	for q in scn.quests:

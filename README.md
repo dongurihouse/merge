@@ -39,6 +39,8 @@ can run just the slice you touched. The authoritative list is `GROVE_TESTS` in t
 `engine/tests/suite_registry_tests.gd` fails if that list, this line and `CLAUDE.md` name
 different sets (membership, not order), and if any `*_tests.gd` / `test_*.py` / `test_*.sh`
 on disk is missing from the Makefile — a suite nothing runs looks exactly like a passing one.
+Engine FX motion checks include `engine/tests/fx_config_tests.gd` and
+`engine/tests/fx_flight_tests.gd`; run the latter when changing wallet or piece flight feedback.
 
 ## Layout
 | Path | Role |

@@ -192,17 +192,16 @@ func _test_purge() -> void:
 	var ar := SaveMigrate.purge_above_level_content(ab, [], [], 1)
 	ok(not bool(ar["changed"]) and ab.gens.has(anchor_cell), "the gen_1 ANCHOR survives the purge at L1")
 
-	# --- the stored-generator bag: the three PARALLEL arrays must stay in lockstep ---
+	# --- the stored-generator bag: ids and boosts stay in lockstep ---
 	var sb := BoardModel.new()
 	sb.gens.clear()
 	var open_gid := G.gen_for_line(open_line)
-	sb.bag_add(gated_gid, 3, 2)      # dropped
-	sb.bag_add(open_gid, 5, 7)       # kept — and its tier/boost must ride along
-	sb.bag_add(acc_id, 4, 1)         # kept (accumulator)
+	sb.bag_add(gated_gid, 2)         # dropped
+	sb.bag_add(open_gid, 7)          # kept — and its boost must ride along
+	sb.bag_add(acc_id, 1)            # kept (accumulator)
 	var sr := SaveMigrate.purge_above_level_content(sb, [], [], 1)
 	ok(bool(sr["changed"]), "a too-advanced STORED generator makes the purge report changed")
 	ok(sb.gen_bag == [open_gid, acc_id], "the gated stored generator is dropped from gen_bag")
-	ok(sb.gen_bag_tiers == [5, 4], "gen_bag_tiers stays in LOCKSTEP with the surviving ids")
 	ok(sb.gen_bag_boost == [7, 1], "gen_bag_boost stays in LOCKSTEP with the surviving ids")
 
 	# --- the item bag and the live fence ---
