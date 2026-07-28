@@ -116,7 +116,6 @@ const SPECIAL_DROP_RATE = D.SPECIAL_DROP_RATE
 const SPECIAL_DROP_WEIGHTS = D.SPECIAL_DROP_WEIGHTS
 const SPECIAL_COLLECT = D.SPECIAL_COLLECT
 const CHEST_OPEN_COINS = D.CHEST_OPEN_COINS
-const CHEST_OPEN_ACORNS = D.CHEST_OPEN_ACORNS
 const CHEST_ROLL_SKEW = D.CHEST_ROLL_SKEW
 const ACCUMULATORS = D.ACCUMULATORS
 const BONUS_SPAWN_CHANCE = D.BONUS_SPAWN_CHANCE
@@ -1439,7 +1438,7 @@ static func is_valid_generator_id(id: String) -> bool:
 static func is_collectable(code: int) -> bool:
 	return is_coin(code) or is_chest(code) or not special_collect(code).is_empty()
 
-# A chest special (tap-opened for its coins+acorns payout — see chest_open_reward).
+# A chest special (tap-opened for its COINS-ONLY payout — see chest_open_reward).
 static func is_chest(code: int) -> bool:
 	return special_kind(code) == "chest"
 
@@ -1503,25 +1502,21 @@ static func special_collect(code: int) -> Dictionary:
 		return {"kind": kind, "amount": int((SPECIAL_COLLECT[kind] as Dictionary).get(tier, 0))}
 	return {}
 
-# The BAND a chest of this tier can pay (tap-opened — no key): {coins: [lo, hi], acorns: [lo, hi]}.
-# Pure — the display/guard read. An unknown tier bands to [0, 0].
+# The BAND a chest of this tier can pay (tap-opened — no key): {coins: [lo, hi]}. A chest is a
+# COINS-ONLY reward — there is no acorn/premium band (owner call 2026-07-27), so this dictionary
+# carries exactly one key. Pure — the display/guard read. An unknown tier bands to [0, 0].
 static func chest_open_range(chest: int) -> Dictionary:
 	var ct := chest % 100
-	return {
-		"coins": (CHEST_OPEN_COINS.get(ct, [0, 0]) as Array).duplicate(),
-		"acorns": (CHEST_OPEN_ACORNS.get(ct, [0, 0]) as Array).duplicate(),
-	}
+	return {"coins": (CHEST_OPEN_COINS.get(ct, [0, 0]) as Array).duplicate()}
 
-# The rolled reward for opening a chest: {coins, acorns}, each drawn from its tier's range as
-# lo + span·randf()^CHEST_ROLL_SKEW — at skew 2 the expectation sits at 1/3 of the span, so a
-# typical open pays near the floor and the ceiling is the jackpot. ROUNDED, not floored: flooring
-# would collapse a narrow range like 0..2 acorns to almost always 0. The caller owns the rng.
+# The rolled reward for opening a chest: {coins}, drawn from its tier's range as
+# lo + span·randf()^CHEST_ROLL_SKEW — at skew 3 the expectation sits at 1/4 of the span, so a
+# typical open pays near the floor and the ceiling is the jackpot. COINS ONLY: exactly ONE randf
+# is drawn per open. ROUNDED, not floored, so the low end of a band stays reachable in both
+# directions rather than biasing down twice. The caller owns the rng.
 static func chest_open_reward(chest: int, rng: RandomNumberGenerator) -> Dictionary:
 	var band := chest_open_range(chest)
-	return {
-		"coins": _roll_chest_band(band.coins as Array, rng),
-		"acorns": _roll_chest_band(band.acorns as Array, rng),
-	}
+	return {"coins": _roll_chest_band(band.coins as Array, rng)}
 
 static func _roll_chest_band(band: Array, rng: RandomNumberGenerator) -> int:
 	var lo := float(band[0])
