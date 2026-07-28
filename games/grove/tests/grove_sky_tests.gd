@@ -119,6 +119,19 @@ func _test_marker_patch_and_info_bar() -> void:
 			and String(sun._info_desc_label.text).find("Sunbeam") != -1 \
 			and String(sun._info_desc_label.text).find("drop coins") != -1, \
 			"focusing an item on a powered Sunbeam cell keeps the item focus and adds the weather explanation")
+		# The regression: a focused EMPTY sky cell has no item/gen/soil, so the periodic water tick's
+		# re-derivation used to fall through to _clear_selection() and defocus it ~0.7s after the tap.
+		sun.board.place(sun_cell, 0)
+		sun._clear_selection()
+		sun._rebuild_all()
+		await process_frame
+		_tap_board_with_duplicate_events(sun, sun._cell_pos(sun_cell) + Vector2(sun.csz, sun.csz) / 2.0)
+		await process_frame
+		sun._tick_water()
+		await process_frame
+		ok(sun._selected_cell == sun_cell \
+			and String(sun._info_label.text).find("Sunbeam") != -1, \
+			"a focused empty Sunbeam cell survives the water tick instead of reverting to the empty info bar")
 	sun._rebuild_all()
 	await process_frame
 	ok(sun.board_area.find_child("SkyPatch", true, false) != null \
@@ -766,19 +779,5 @@ func _sky_cell_glyph_matches(board_scene, glyph: TextureRect, cell: Vector2i) ->
 		and glyph.get_rect().get_center().distance_to(expected) <= 2.0
 	return ok_match
 
-func _call_sky_icon_cell(board_scene) -> Vector2i:
-	if not board_scene.has_method("_sky_icon_cell"):
-		return Vector2i(-1, -1)
-	return board_scene.call("_sky_icon_cell")
-
-func _prepare_weather_focus_cell(board_scene) -> Vector2i:
-	var cell := _call_sky_icon_cell(board_scene)
-	if cell.x < 0:
-		return cell
-	if not board_scene.board.is_open(cell):
-		board_scene.board.terrain[BoardModel.idx(cell)] = 0
-	if not board_scene.board.is_gen(cell):
-		board_scene.board.place(cell, 0)
-		board_scene._rebuild_all()
-		cell = _call_sky_icon_cell(board_scene)
-	return cell
+# _call_sky_icon_cell / _prepare_weather_focus_cell now live in grove_test_base.gd — the improvements
+# suite's selection-kind sweep needs the same powered-cell setup.
