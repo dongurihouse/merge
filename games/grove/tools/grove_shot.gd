@@ -123,9 +123,9 @@ func _initialize() -> void:
 			for i in scn.board.items.size():
 				scn.board.terrain[i] = 0
 				scn.board.items[i] = 0
-				scn.board.collect_rewards = {}
-				scn.board.gens = {}
-				scn.board.gen_boost = {}
+			scn.board.collect_rewards = {}
+			scn.board.gens = {}
+			scn.board.gen_boost = {}
 			scn.quests = []
 			var ready := {}
 			if phase == "runway":
@@ -157,10 +157,14 @@ func _initialize() -> void:
 			for n in scn.gen_nodes.values():
 				if n != null and is_instance_valid(n):
 					(n as Node).queue_free()
-				scn.gen_nodes.clear()
-				scn.gen_node = null
-				scn.board.gens = {}
-				scn.board.gen_boost = {}
+			# These run AFTER the loop, unconditionally: _rebuild_all() above re-seeds
+			# generators, so the strip must happen even when gen_nodes is empty or holds
+			# only freed nodes. Nested under the validity guard they silently no-op and
+			# the capture keeps the generators this mode exists to remove.
+			scn.gen_nodes.clear()
+			scn.gen_node = null
+			scn.board.gens = {}
+			scn.board.gen_boost = {}
 			await create_timer(0.25).timeout
 			var chalf: Vector2 = Vector2(scn.csz, scn.csz) / 2.0
 			if phase == "runway":
@@ -737,15 +741,20 @@ func _initialize() -> void:
 			await create_timer(0.6).timeout
 
 	if custom_capture_done:
-		print("SHOT saved=%s err=0 level=%d coins_earned=%d coins=%d brambles=%d" % \
-			[out, G.level(), Save.coins_earned_lifetime(), Save.coins(), scn.board.bramble_count()])
+		print("SHOT saved=%s err=0 level=%d coins_earned=%d coins=%d brambles=%d gens=%d genbag=%d" % \
+			[out, G.level(), Save.coins_earned_lifetime(), Save.coins(), scn.board.bramble_count(),
+			scn.board.gens.size(), scn.board.gen_bag.size()])
 		quit()
 		return
 	var err := Base.capture(self, out, args)
 	# Report the LIVE clock (level + the lifetime organic coins it derives from), not the retired
 	# grove["exp"] — a capture that seeded the wrong clock used to print a plausible line and a Level-1 PNG.
-	print("SHOT saved=%s err=%d level=%d coins_earned=%d coins=%d brambles=%d" % \
-		[out, err, G.level(), Save.coins_earned_lifetime(), Save.coins(), scn.board.bramble_count()])
+	# gens/genbag report the generator state the PNG actually shows: modes that STRIP generators (cascade)
+	# or SEED the stored-generator row (baggen) render a plausible board at exit 0 when their setup silently
+	# no-ops, so tools/test_grove_shot_parse.sh asserts these counts instead of trusting the exit code.
+	print("SHOT saved=%s err=%d level=%d coins_earned=%d coins=%d brambles=%d gens=%d genbag=%d" % \
+		[out, err, G.level(), Save.coins_earned_lifetime(), Save.coins(), scn.board.bramble_count(),
+		scn.board.gens.size(), scn.board.gen_bag.size()])
 	quit()
 
 ## The lifetime-organic-coins each mode banks BEFORE the scene loads (see _initialize) — the ONLY way
