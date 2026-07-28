@@ -24,6 +24,7 @@ func _initialize() -> void:
 	await _test_drag_guide_pads_and_generator_exclusion()
 	await _test_drag_merge_targets_are_highlighted()
 	await _test_runway_resting_outline_and_tag()
+	await _test_one_tag_per_cell_when_marks_collide()
 	await _test_runway_drag_guide_strengths_use_real_input()
 	await _test_ready_outline_stays_between_slots_and_pieces_with_stale_generator_nodes()
 	await _test_ready_outline_and_flag_off()
@@ -604,6 +605,41 @@ func _test_runway_resting_outline_and_tag() -> void:
 	})
 	ok(_outline_ladder_count(b) == 1 and _outline_runway_count(b) == 0 and _outline_has_tag(b, "×3") and not _outline_has_tag(b, "t2"),
 		"an armed ladder keeps the stronger xN mark instead of the runway tag")
+	b.queue_free()
+
+# Two Labels at one position overprint into gibberish. A runway anchors its needed-tier chip on the
+# exact cell that becomes the drop target the moment you pick that tier up, so the ordinary case
+# stacked "t2" behind "×3" and rendered "t×3".
+func _test_one_tag_per_cell_when_marks_collide() -> void:
+	var b := _open_board("cascade_tag_collision")
+	await process_frame
+	var from := Vector2i(6, 6)
+	_blank_fixture(b, {
+		Vector2i(3, 1): 102,
+		Vector2i(3, 2): 103,
+		Vector2i(3, 3): 104,
+		from: 102,                      # holding exactly what the runway is waiting for
+	})
+	_input_begin_drag(b, from)
+	await process_frame
+	var o := _outline(b)
+	var seen := {}
+	var collisions := 0
+	var texts: Array = []
+	for raw in o.find_children("*", "Label", true, false):
+		var lbl := raw as Label
+		if lbl == null:
+			continue
+		texts.append(lbl.text)
+		var key := "%d,%d" % [int(lbl.position.x), int(lbl.position.y)]
+		if seen.has(key):
+			collisions += 1
+		seen[key] = true
+	ok(collisions == 0, "no two cascade tags share a cell (tags: %s)" % str(texts))
+	ok(texts.has("×3") and not texts.has("t2"), \
+		"the actionable ×n wins the cell; the runway's needed-tier chip yields (tags: %s)" % str(texts))
+	_input_release(b, from)
+	await process_frame
 	b.queue_free()
 
 func _test_runway_drag_guide_strengths_use_real_input() -> void:
