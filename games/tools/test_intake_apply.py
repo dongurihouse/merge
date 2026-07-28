@@ -126,6 +126,21 @@ class ArgTests(unittest.TestCase):
         with self.assertRaises(ia.PlanError):
             ia.parse_post("icon:512:top")
 
+    def test_parse_post_icon_despill(self):
+        self.assertEqual(ia.parse_post("icon:512:despill"), {"size": 512, "despill": True})
+
+    def test_parse_post_flags_are_an_unordered_set(self):
+        self.assertEqual(ia.parse_post("icon:512:bottom:despill"),
+                         {"size": 512, "anchor": "bottom", "despill": True})
+        self.assertEqual(ia.parse_post("icon:512:despill:bottom"),
+                         {"size": 512, "anchor": "bottom", "despill": True})
+
+    def test_icon_args_despill_flag(self):
+        self.assertEqual(ia.icon_args("/a.png", "/b.png", {"size": 512, "despill": True}),
+                         ["/a.png", "/b.png", "512", "--despill"])
+        self.assertEqual(ia.icon_args("/a.png", "/b.png", {"size": 512}),
+                         ["/a.png", "/b.png", "512"])
+
     def test_matte_bright_uses_cutout_bg(self):
         tool, args = ia.matte_tool_and_args("/k.png", {"min_area": 800})
         self.assertEqual(tool, ia.TOOLS["matte"])
@@ -140,6 +155,25 @@ class ArgTests(unittest.TestCase):
         tool, args = ia.matte_tool_and_args("/k.png", {"key": "#41C7F2"})
         self.assertEqual(tool, ia.CHROMA_TOOL)
         self.assertEqual(args, ["/k.png", "key=#41C7F2", "tol=0.18"])
+
+    def test_matte_passes_single_by_default(self):
+        self.assertEqual(ia.matte_passes("/k.png", {"key": "#FF00FF"}),
+                         [(ia.CHROMA_TOOL, ["/k.png", "key=#FF00FF", "tol=0.18"])])
+        self.assertEqual(ia.matte_passes("/k.png", {"min_area": 800}),
+                         [(ia.TOOLS["matte"], ["/k.png", "min=800"])])
+
+    def test_matte_passes_key_then_hue(self):
+        # both asked for: the distance pass runs FIRST (it reaches enclosed pockets), then the
+        # hue ramp + despill cleans the anti-aliased band the distance cut left tinted.
+        self.assertEqual(
+            ia.matte_passes("/k.png", {"key": "#FF00FF", "tol": 0.22, "hue": True,
+                                       "soft": 30, "hard": 110}),
+            [(ia.CHROMA_TOOL, ["/k.png", "key=#FF00FF", "tol=0.22"]),
+             (ia.CHROMA_TOOL, ["/k.png", "hue=1", "soft=30", "hard=110"])])
+
+    def test_matte_passes_hue_alone_stays_one_pass(self):
+        self.assertEqual(ia.matte_passes("/k.png", {"hue": True}),
+                         [(ia.CHROMA_TOOL, ["/k.png", "hue=1", "soft=55", "hard=100"])])
 
 
 class FileMoveTests(unittest.TestCase):
