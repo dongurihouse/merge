@@ -380,11 +380,17 @@ static func action_role_fill(role: String, tints: Dictionary = ACTION_TINT_DEFAU
 ## derives the px values for a whole row so the taller ACTIVE tile still matches its neighbours):
 ##   caption / caption_font_px / caption_baseline_px — a bold white caption under the glyph;
 ##   glyph_box_px / glyph_center_frac — the glyph shrinks and rides high once a caption shares the tile;
-##   active / rim_px — the raised current tab's cream rim, drawn OUTSIDE the fill;
+##   active / rim_px / rim_fill — the raised current tab's rim, drawn OUTSIDE the fill (`rim_fill`
+##                    defaults to Pal.CREAM, so every existing caller keeps the cream rim);
 ##   bleed_bottom — px the PAPER extends below the button rect (a tab bled off the screen edge rounds
 ##                  only its top corners); the button's own rect, and its hit area, stay on-screen.
 ##   caption_shadow — the caption's own shadow stack (defaults to the glyph's GLYPH_SHADOW); a caller
 ##                    whose tile is PALE overrides it so white type keeps its local contrast.
+##   glyph_shadow — the ICON's shadow stack (defaults to GLYPH_SHADOW, so the board's Home/Bag wells and
+##                    every other action_button caller are untouched). Each layer is {dy, a} plus an
+##                    optional `grow`: the copy is drawn `grow` × the icon box larger, split evenly on
+##                    every side, which turns the straight-down smear into a pool AROUND the glyph.
+##                    `grow` defaults to 0 → a layer without it renders exactly as it always did.
 ## (The nav row's smooth corners and its rimless plain tiles are NOT separate flags: it zeroes `deckle_amp`
 ## and `rim_width` through the ordinary cut-paper knob set in NavBar.tab_cp, like every per-row tuning.)
 static func action_button(role: String, size: Vector2, action: Callable, opts: Dictionary = {}) -> Button:
@@ -420,7 +426,7 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 	var bleed := maxf(0.0, float(opts.get("bleed_bottom", 0.0)))
 	# (no behind-tile drop shadow: the cut-paper edge carries its own edge shadow; the only shadow this
 	# button wears is the ICON's, gated by `icon_shadow` below.)
-	# the ACTIVE tab's cream rim: the SAME edge, one rim thickness bigger on every side, drawn UNDER the
+	# the ACTIVE tab's rim: the SAME edge, one rim thickness bigger on every side, drawn UNDER the
 	# face so it shows as a rim around it. Added FIRST so it sits behind the face among the behind-parent
 	# children (the face's own edge shadow then separates the two sheets, as with the paper backer).
 	if bool(opts.get("active", false)):
@@ -428,9 +434,17 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 		if rim_px > 0.0:
 			var rim_cp: Dictionary = cp.duplicate()
 			rim_cp["corner"] = corner + rim_px
-			# the rim is a hairline of cream, not a sheet: a slab bevel on it would eat its whole width and
-			# read as a muddy border. It keeps the face's ambient halo (that is what lands on the art behind).
+			# the rim is a hairline, not a sheet: a slab bevel on it would eat its whole width and read as a
+			# muddy border. It keeps the face's ambient halo — the RIM is the outer sheet, so the rim is what
+			# casts onto the art behind the tab, at the full reach.
 			rim_cp["bevel_px"] = 0.0
+			# …and the FACE gives that reach up, because what sits behind the FACE is not the art, it is this
+			# rim. An ambient halo reaching several rim-widths out paints the whole rim into shadow: measured
+			# on the render, a WHITE rim came back at 0.68× — a mid grey, and the active tab stopped reading.
+			# The face keeps the contact darkness (halo_strength is the alpha AT the edge, so it is unchanged)
+			# over a short reach: the two sheets still separate, and the rim's outer half stays the fill it
+			# was given. Scoped to `active` — the only caller that draws a rim at all is the nav row.
+			cp["halo_reach"] = minf(float(cp.get("halo_reach", 0.0)), rim_px * 0.45)
 			var rim: Control = load(CUT_PAPER).new()
 			rim.name = "ActionButtonActiveRim"
 			rim.show_behind_parent = true
@@ -440,7 +454,7 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 			rim.offset_top = -rim_px
 			rim.offset_right = rim_px
 			rim.offset_bottom = bleed + rim_px
-			rim.configure(rim_cp, Pal.CREAM, null, cut_paper_tile())
+			rim.configure(rim_cp, opts.get("rim_fill", Pal.CREAM), null, cut_paper_tile())
 			rim.corner = float(rim_cp["corner"])
 			b.add_child(rim)
 	# the code-drawn rugged edge — the ONE shared applier
@@ -499,7 +513,8 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 		var stack := Control.new()
 		stack.custom_minimum_size = Vector2(icon_px, icon_px)
 		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		for layer in (GLYPH_SHADOW if bool(opts.get("icon_shadow", true)) else []):
+		var glyph_shadow: Array = opts.get("glyph_shadow", GLYPH_SHADOW) as Array
+		for layer in (glyph_shadow if bool(opts.get("icon_shadow", true)) else []):
 			var sh := TextureRect.new()
 			sh.texture = glyph_tex
 			sh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -507,6 +522,15 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 			sh.modulate = Look.shadow_color(float(layer["a"]))
 			sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			sh.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			# `grow` (0 by default → every existing caller renders unchanged): the copy is drawn this much
+			# larger than the glyph box, split evenly on all four sides, so the layer reads as a pool AROUND
+			# the icon rather than a smear under it. STRETCH_KEEP_ASPECT_CENTERED scales the silhouette into
+			# the bigger rect about its own centre.
+			var grow := icon_px * maxf(0.0, float(layer.get("grow", 0.0))) * 0.5
+			sh.offset_left -= grow
+			sh.offset_right += grow
+			sh.offset_top -= grow
+			sh.offset_bottom += grow
 			sh.offset_top += icon_px * float(layer["dy"])
 			sh.offset_bottom += icon_px * float(layer["dy"])
 			stack.add_child(sh)

@@ -1194,7 +1194,10 @@ func _test_bottom_bar_tab_geometry() -> void:
 		# …and it fits inside the tile: the longest live caption ("Residents") must not clip or wrap
 		if cap != null:
 			var f: Font = Kit.bold_font()
-			var fsz: int = cap.get_theme_font_size("font")
+			# the override key is `font_size` (Kit._kit_label) — asking for "font" misses it and falls back
+			# to the THEME default (40 against the caption's real 32), so this assert used to measure a font
+			# the row never draws and cleared the tile by 1.5px by luck.
+			var fsz: int = cap.get_theme_font_size("font_size")
 			ok(cap.get_line_count() == 1, "%s keeps its caption on one line" % tile_name)
 			ok(f == null or f.get_string_size(cap.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fsz).x < btn.size.x,
 				"%s caption fits the tile width" % tile_name)
@@ -1266,6 +1269,27 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 		if is_active:
 			ok(float(panel.get("rim_width")) > 0.0,
 				"%s is the active tab and keeps its rim (%.1f px)" % [tile_name, panel.get("rim_width")])
+			# …and that rim is WHITE. It is the one mark that says which destination you are on, and it has
+			# to carry against the chalked GOLD tile inside it and the busy dark map art outside it at once.
+			# The shared Pal.CREAM rim rendered at 1.65:1 against the art — and DARKER than its own tile, so
+			# it read as the tile's shadow, not as a mark.
+			var rim_sheet2 := btn.find_child("ActionButtonActiveRim", true, false) as Control
+			var rim_w := -rim_sheet2.position.x        # the rim sheet is inset by its own thickness
+			var rim_fill: Color = rim_sheet2.get("paper_color")
+			ok(rim_fill.v >= 0.98 and rim_fill.s <= 0.02,
+				"%s rim is white (v %.2f, s %.2f) — NavBar.ACTIVE_RIM_FILL" % [tile_name, rim_fill.v, rim_fill.s])
+			ok(rim_fill.v > Color(Pal.CREAM).v and rim_fill.s < Color(Pal.CREAM).s,
+				"…measurably brighter and cleaner than the shared cream it replaced")
+			# the FACE gives up its long ambient halo on the active tab, because what sits behind the FACE is
+			# this rim, not the art. At the shared reach (0.11 W ≈ 3× the rim) the halo painted the whole rim
+			# into shadow and a white rim came back a mid grey. The RIM keeps the full reach outward, so the
+			# halo the row casts on the map art is unchanged.
+			ok(float(panel.get("halo_reach")) <= rim_w * 0.5,
+				"%s face casts only a CONTACT shadow onto its own rim (%.1f px ≤ half the %.1f px rim)"
+					% [tile_name, panel.get("halo_reach"), rim_w])
+			ok(float(rim_sheet2.get("halo_reach")) > float(panel.get("halo_reach")) * 2.0,
+				"…while the rim still casts the row's full halo onto the art (%.1f px)"
+					% [rim_sheet2.get("halo_reach")])
 		else:
 			ok(is_equal_approx(float(panel.get("rim_width")), 0.0),
 				"%s is an inactive tab and draws NO rim (%.1f px)" % [tile_name, panel.get("rim_width")])
@@ -1276,6 +1300,37 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 		ok(pc.s <= NavBarKit.CHALK_SAT_MAX + 0.001 and pc.v >= 0.70 and pc.v <= NavBarKit.CHALK_VALUE_MAX + 0.001,
 			"%s wears a chalked tint (s %.2f ≤ %.2f, v %.2f in 0.70..%.2f)"
 				% [tile_name, pc.s, NavBarKit.CHALK_SAT_MAX, pc.v, NavBarKit.CHALK_VALUE_MAX])
+		# THE GLYPH'S DROP SHADOW is the row's OWN stack (NavBar.GLYPH_SHADOW), far heavier than the shared
+		# Kit.GLYPH_SHADOW. The shared one offsets its copies straight DOWN, so it has no lateral reach at
+		# all — measured on the render, 0.03 darkening one pixel out of the icon's side, i.e. nothing — and
+		# the icons read as stickers lying flat on the paper. Every layer here also GROWS, which is what puts
+		# a pool all round the glyph; the mock's own icons darken their tile by ~0.40 one pixel out.
+		var shadow_layers: Array = btn.find_children("*", "TextureRect", true, false).filter(
+			func(tr: TextureRect) -> bool: return tr.modulate.a < 0.999)
+		ok(shadow_layers.size() == NavBarKit.GLYPH_SHADOW.size(),
+			"%s glyph wears the row's %d-layer shadow (found %d)"
+				% [tile_name, NavBarKit.GLYPH_SHADOW.size(), shadow_layers.size()])
+		ok(shadow_layers.size() > Kit.GLYPH_SHADOW.size(),
+			"…deeper than the shared stack every other action button keeps (%d vs %d layers)"
+				% [shadow_layers.size(), Kit.GLYPH_SHADOW.size()])
+		var peak_a := 0.0
+		var widest_grow := 0.0
+		for tr in shadow_layers:
+			peak_a = maxf(peak_a, (tr as TextureRect).modulate.a)
+			# `grow` is applied as a symmetric offset patch, so it is readable without a layout pass
+			widest_grow = maxf(widest_grow, -(tr as TextureRect).offset_left)
+			ok((tr as TextureRect).offset_left < 0.0 and (tr as TextureRect).offset_right > 0.0,
+				"%s shadow layer reaches OUT past the glyph, not only down (%.1f px each side)"
+					% [tile_name, -(tr as TextureRect).offset_left])
+		var kit_peak := 0.0
+		for layer in Kit.GLYPH_SHADOW:
+			kit_peak = maxf(kit_peak, float(layer["a"]))
+		ok(peak_a >= 0.25 and peak_a > kit_peak,
+			"%s glyph shadow lands harder at the contact (a %.2f ≥ 0.25, shared %.2f)"
+				% [tile_name, peak_a, kit_peak])
+		ok(widest_grow > panel.size.x * 0.04,
+			"%s glyph shadow skirts a real distance out (%.1f px on a %.0f px tile)"
+				% [tile_name, widest_grow, panel.size.x])
 		# the drawn outline, tear and all — the sheet runs from the tile's top edge to BELOW the screen
 		var pts: PackedVector2Array = panel.call("_deckle_polygon", panel.size, panel.corner)
 		ok(pts.size() > 8, "%s draws a real sheet outline (%d points)" % [tile_name, pts.size()])
@@ -1315,15 +1370,53 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 		ok(on_screen.x > -0.5 and on_screen.y < btn.size.x + 0.5,
 			"%s stays inside its own hit area (paper %.1f..%.1f of 0..%.1f)"
 				% [tile_name, on_screen.x, on_screen.y, btn.size.x])
-		spans.append({"name": tile_name, "lo": org + on_screen.x, "hi": org + on_screen.y})
+		# THE WIDEST SHEET the tab puts on screen is not always its face: the ACTIVE tab draws its rim
+		# OUTSIDE the fill, so the rim is what a neighbour would collide with. Measuring the face alone hid
+		# a 0.7px miss between Mail and the Board tab's rim — the row was one rounding away from touching.
+		var lo := org + on_screen.x
+		var hi := org + on_screen.y
+		var rim_sheet := btn.find_child("ActionButtonActiveRim", true, false) as Control
+		if rim_sheet != null and rim_sheet.size.x > 0.0:
+			var rorg := btn.global_position.x + rim_sheet.position.x
+			var rpts: PackedVector2Array = rim_sheet.call("_deckle_polygon", rim_sheet.size, rim_sheet.corner)
+			var rspan := _span_x(rpts, 0.0, btn.size.y - rim_sheet.position.y)
+			lo = minf(lo, rorg + rspan.x)
+			hi = maxf(hi, rorg + rspan.y)
+			ok(rorg + rspan.x < org + on_screen.x and rorg + rspan.y > org + on_screen.y,
+				"%s rim is drawn OUTSIDE its face on both sides" % tile_name)
+		spans.append({"name": tile_name, "lo": lo, "hi": hi})
 	# NEIGHBOURS DO NOT COLLIDE — compared at the WIDEST point (the bottom), which is what these global
-	# extremes are, so a flared row can never touch however hard it flares.
+	# extremes are, so a flared row can never touch however hard it flares. And they do not merely clear
+	# each other: the row is laid out on the tiles' DRAWN sheets (NavBar.drawn_w), so the cut between every
+	# pair is the SAME NavBar.gap_px — the raised tab's overhang and rim come out of the row's own width,
+	# not out of its neighbour's gap.
+	var view_w: float = hx.get_viewport_rect().size.x
+	var want_gap := NavBarKit.gap_px(view_w)
 	spans.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["lo"]) < float(b["lo"]))
+	var cuts: Array = []
 	for i in maxi(0, spans.size() - 1):
 		var l: Dictionary = spans[i]
 		var r: Dictionary = spans[i + 1]
-		ok(float(l["hi"]) < float(r["lo"]),
-			"%s and %s keep a clear gap (%.1f px)" % [l["name"], r["name"], float(r["lo"]) - float(l["hi"])])
+		var cut := float(r["lo"]) - float(l["hi"])
+		ok(cut > 0.0, "%s and %s keep a clear gap (%.2f px)" % [l["name"], r["name"], cut])
+		cuts.append(cut)
+	if not cuts.is_empty():
+		var lo_cut: float = cuts.min()
+		var hi_cut: float = cuts.max()
+		# ONE RHYTHM: the raised tab's overhang and its rim come out of the row's own width, not out of its
+		# neighbour's gap. On the old even-slot pitch the cut beside the Board tab measured 0.7px against
+		# 13px everywhere else — the row was one rounding away from touching, and ANY tighter gap collided.
+		ok(hi_cut - lo_cut < 0.6,
+			"every pair of tabs is cut by the same %.2f px (spread %.2f)" % [lo_cut, hi_cut - lo_cut])
+		# the visible cut at the screen bottom is the row's gap plus what the flare has not yet closed — so
+		# the row's own gap is its floor…
+		ok(lo_cut >= want_gap - 0.01,
+			"…never tighter than NavBar.gap_px itself (%.2f ≥ %.2f)" % [lo_cut, want_gap])
+		# …and TIGHTER than the row used to sit. Matching the mock's own ~0.011 W at the bottom edge would
+		# overshoot it: ours also flares (the cut opens by another ~12px toward the top) and casts a halo
+		# INTO the gap, neither of which the mock's flat tiles do.
+		ok(hi_cut < view_w * 0.012,
+			"…and tighter than the row used to sit (%.2f px, was ~%.2f)" % [hi_cut, view_w * 0.012])
 	# …and the knobs that do all this are OFF by default, so NO other cut-paper surface changed: a plain
 	# action button (the board wells, the workbench preview) draws the flat rounded sheet it always did.
 	var plainb := Kit.action_button("map", Vector2(120, 120), Callable())
@@ -1347,6 +1440,37 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 	ok(plain_panel != null and is_equal_approx(float(plain_panel.get("edge_feather")), 0.0),
 		"…and an ordinary torn sheet still draws ONE flat polygon, unfeathered (%.2f)"
 			% [0.0 if plain_panel == null else plain_panel.get("edge_feather")])
+	# the GLYPH SHADOW is the row's own too. `glyph_shadow` defaults to the shared Kit.GLYPH_SHADOW, so the
+	# board's Home/Bag wells and the workbench preview keep the three straight-down copies they always had —
+	# no `grow` on any of them, which is what would have leaked a pool onto every action button in the game.
+	var plain_shadows: Array = plainb.find_children("*", "TextureRect", true, false).filter(
+		func(tr: TextureRect) -> bool: return tr.modulate.a < 0.999)
+	ok(plain_shadows.size() == Kit.GLYPH_SHADOW.size(),
+		"an ordinary action button keeps the shared %d-layer glyph shadow (found %d)"
+			% [Kit.GLYPH_SHADOW.size(), plain_shadows.size()])
+	var plain_grew := false
+	var plain_alphas: Array = []
+	for tr in plain_shadows:
+		plain_alphas.append(snappedf((tr as TextureRect).modulate.a, 0.001))
+		if not is_equal_approx((tr as TextureRect).offset_left, 0.0) or not is_equal_approx((tr as TextureRect).offset_right, 0.0):
+			plain_grew = true
+	ok(not plain_grew, "…drawn straight DOWN, not grown — `grow` is inert off the nav row")
+	var want_alphas: Array = []
+	for layer in Kit.GLYPH_SHADOW:
+		want_alphas.append(snappedf(float(layer["a"]), 0.001))
+	plain_alphas.sort()
+	want_alphas.sort()
+	ok(plain_alphas == want_alphas,
+		"…at exactly the shared alphas %s (found %s)" % [str(want_alphas), str(plain_alphas)])
+	# …and the ACTIVE rim's fill is the row's own too: an action button that asks for a rim without naming a
+	# fill still gets the shared cream, so nothing but the nav row moved to white.
+	var rimmed := Kit.action_button("map", Vector2(120, 120), Callable(), {"active": true, "rim_px": 6.0})
+	var default_rim := rimmed.find_child("ActionButtonActiveRim", true, false) as Control
+	ok(default_rim != null and is_equal_approx(Color(default_rim.get("paper_color")).v, Color(Pal.CREAM).v)
+		and is_equal_approx(Color(default_rim.get("paper_color")).s, Color(Pal.CREAM).s),
+		"…and `rim_fill` defaults to the shared cream off the row (%s)"
+			% ["-" if default_rim == null else str(default_rim.get("paper_color"))])
+	rimmed.queue_free()
 	# the CHALK is the row's own too: the shared paper ROLES keep their fills, so no dialog, pill, board or
 	# shop surface moves. Compare the untouched role fill against what the row would have chalked it to.
 	var gold: Color = Kit.action_role_fill("play", {"play": "gold"})

@@ -2210,16 +2210,17 @@ func _build_settings_gear() -> void:
 	_chrome_nodes.append(b)
 	_gear = b
 
-# The bottom-bar tile SLOT width: the row fills the width between the safe-area insets, so the slot is
-# a pure function of the tile COUNT. Every other nav-tab metric (height, corner, caption, glyph, the
-# active tab's growth) is a fraction of THIS — see NavBar.
+# The bottom-bar PLAIN tile width: the row fills the width between the safe-area insets, so it is a pure
+# function of the tile COUNT. Every other nav-tab metric (height, corner, caption, glyph, the active tab's
+# growth) is a fraction of THIS — see NavBar. The solve is on the tiles' DRAWN sheets, not on n equal
+# slots: the row always carries exactly one ACTIVE tab, which is wider than a plain tile and wears a rim
+# outside its fill, so an even-slot pitch spends its neighbour's whole gap on that overhang.
 func _bottom_bar_tile_px(n: int) -> float:
 	if n <= 0:
 		return 0.0
 	var view := _view_size()
 	var side := _hud_edge_margin_px()
-	var gap := clampf(view.x * 0.012, 6.0, 16.0)
-	return (view.x - side * 2.0 - gap * (float(n) - 1.0)) / float(n)
+	return NavBar.tile_px(view.x - side * 2.0, n, NavBar.gap_px(view.x))
 
 # THE band the bottom row occupies, measured UP from the bottom of the screen: the safe-area inset the
 # row sits on plus the ACTIVE tab's height (the tallest tile — a plain tile is shorter). Everything that
@@ -2235,8 +2236,10 @@ func _bottom_bar_band_px(n: int) -> float:
 # a bold caption — sized so the row fills the width between the safe-area insets exactly. The row is a
 # TAB BAR bled to the screen edge: each tile SITS on the safe-area inset and its paper runs off the
 # bottom of the screen, so only its top corners read as round. The tile named `active` is the raised
-# current tab — it grows up and outward from its own slot centre and wears a cream rim, and because it
-# is placed (not flowed) its neighbours keep their slots. Tiles parent to `parent` (the home screen uses
+# current tab — it grows up and outward and wears a white rim, and the row is laid out on the tiles'
+# DRAWN sheets (NavBar.drawn_w), so that growth is paid for out of the row's own width rather than out of
+# its neighbour's gap: the visible cut between two tabs is the SAME `gap` all the way along the row, and
+# the raised tab can never close on the tile beside it. Tiles parent to `parent` (the home screen uses
 # `self`; the gallery passes `content` so a page rebuild frees them). When `track` they join
 # `_chrome_nodes`, so `_set_map_chrome_visible` toggles them with the map.
 func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dictionary:
@@ -2246,7 +2249,7 @@ func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dict
 	var Kit: GDScript = Game.kit_script()
 	var view := _view_size()
 	var side := _hud_edge_margin_px()
-	var gap := clampf(view.x * 0.012, 6.0, 16.0)
+	var gap := NavBar.gap_px(view.x)          # the ONE accessor — the slot metric above reads it too
 	var tile_w := _bottom_bar_tile_px(specs.size())
 	# the row's baseline: the bottom of the tile BOXES. It sits on the safe-area inset (a caption must not
 	# hide under a home indicator) while the paper bleeds THROUGH that inset and off the screen edge.
@@ -2258,6 +2261,9 @@ func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dict
 	# the shared action-button opts, built ONCE from the saved config (the same call the workbench
 	# action_button preview makes, so the two render identically off one source) — duplicated per tile below.
 	var action_opts: Dictionary = Kit.action_button_opts_from_config(Game.kit_config()) if Kit != null else {}
+	# the row walks left to right over the tiles' DRAWN widths, laying one `gap` between each pair of
+	# sheets — so the active tab's overhang and its rim come out of the row's own width, not the gap.
+	var cursor := side
 	for i in specs.size():
 		var spec: Dictionary = specs[i]
 		var b: Button
@@ -2293,9 +2299,12 @@ func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dict
 			b.custom_minimum_size = box
 			b.pressed.connect(spec.action)
 		b.name = String(spec.name)
-		# centred on its OWN slot: a plain tile fills it, the active tab overhangs it evenly on both sides.
-		b.position = Vector2(side + float(i) * (tile_w + gap) + (tile_w - box.x) * 0.5, base_y - box.y)
+		# centred on its own DRAWN extent: a plain tile fills it exactly, the raised tab is inset by the rim
+		# it draws outside its fill, so both sheets start one `gap` from their neighbour's.
+		var drawn := NavBar.drawn_w(tile_w, active)
+		b.position = Vector2(cursor + (drawn - box.x) * 0.5, base_y - box.y)
 		b.size = box
+		cursor += drawn + gap
 		parent.add_child(b)
 		if track:
 			_chrome_nodes.append(b)
