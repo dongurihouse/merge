@@ -3458,6 +3458,17 @@ func _magnet_pair_pending() -> bool:
 			return true
 	return false
 
+func _magnet_ghosts_live() -> bool:
+	if board_area == null or not is_instance_valid(board_area):
+		return false
+	for child in board_area.get_children():
+		if child.has_meta("magnet_ghost") and not child.is_queued_for_deletion():
+			return true
+	return false
+
+func _magnet_fx_busy() -> bool:
+	return _magnet_fx_armed or _magnet_beat_armed or not _magnet_fx.is_empty() or _magnet_ghosts_live()
+
 func _after_magnet_merge(out: Dictionary, render := true) -> void:
 	var target := Vector2i(out.get("to", Vector2i(-1, -1)))
 	if target.x < 0:
@@ -5807,6 +5818,27 @@ func _debug_spotlight(cell: Vector2i, shout: String) -> void:
 	var ctr: Vector2 = board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
 	FX.celebrate_at(self, ctr, shout, STRAW)
 
+func _debug_render_piece_cell(cell: Vector2i) -> void:
+	if board == null or board_area == null or not is_instance_valid(board_area):
+		return
+	var code := board.item_at(cell)
+	if code <= 0:
+		return
+	var old: Control = piece_nodes.get(cell)
+	if old != null and is_instance_valid(old):
+		old.queue_free()
+	var ghost_seat := -1
+	for child in board_area.get_children():
+		if child.has_meta("magnet_ghost") and not child.is_queued_for_deletion():
+			ghost_seat = child.get_index()
+			break
+	var n := _make_piece(code, csz)
+	n.position = _cell_pos(cell)
+	board_area.add_child(n)
+	if ghost_seat >= 0:
+		board_area.move_child(n, ghost_seat)
+	piece_nodes[cell] = n
+
 ## Debug-only: land a Soil growth step right now (the debug panel's "Pop soil" button), so a tier pop
 ## can be watched without waiting out the step timer. ONE press works from ANY board state: every
 ## growing Soil has its step expired; a board whose soils are all BARE gets a deterministic tier-1
@@ -5892,8 +5924,22 @@ func debug_pop_magnet() -> void:
 		room = _debug_magnet_room(magnet)
 	var a := Vector2i(room[0])
 	var b := Vector2i(room[1])
+	var queue_behind_magnet := _magnet_fx_busy()
 	board.place(a, code)
 	board.place(b, code)
+	if queue_behind_magnet:
+		_debug_render_piece_cell(a)
+		_debug_render_piece_cell(b)
+		_persist()
+		_update_hud()
+		_refresh_giver_lights()
+		_refresh_cascade_outline()
+		_refresh_mastery_chrome()
+		_maybe_hand_hint()
+		_schedule_magnet_beat()
+		_debug_spotlight(a, "Magnet pull")
+		print("[debug] Pop magnet: seeded a %d pair at %s/%s — the Magnet at %s pulls it after the current slide." % [code, a, b, magnet])
+		return
 	_after_board_change()
 	# _after_board_change rebuilds only when something CHANGED. If the magnet stood down, the pair
 	# would sit in the model unrendered until the next rebuild — so draw it here instead. (The scan

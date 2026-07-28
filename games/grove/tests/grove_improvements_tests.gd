@@ -47,6 +47,7 @@ func _initialize() -> void:
 	await _test_debug_pop_soil_builds_the_missing_soil()
 	await _test_debug_pop_magnet_merges_a_seeded_pair()
 	await _test_debug_pop_magnet_builds_the_missing_magnet()
+	await _test_debug_pop_magnet_quick_press_waits_for_in_flight_slide()
 	await _test_debug_pop_magnet_skips_a_boxed_in_magnet()
 	await _test_debug_pop_magnet_builds_past_a_boxed_in_magnet()
 	await _test_debug_pop_on_a_full_board_changes_nothing()
@@ -1337,6 +1338,32 @@ func _test_debug_pop_magnet_builds_the_missing_magnet() -> void:
 		ok(BoardModel.tier_of(code) == 2, "the built Magnet merged the seeded t1 pair up a tier (got %d)" % code)
 		ok(scn.board.count_of(code - 1) == 0, "no half of the seeded pair is left behind anywhere on the board")
 		ok(scn._selected_cell == merged, "the merged cell (%s) is SELECTED, so the info bar names what moved" % merged)
+	scn.queue_free()
+
+func _test_debug_pop_magnet_quick_press_waits_for_in_flight_slide() -> void:
+	fresh("improve_debug_pop_magnet_double")
+	Save.mark_board_tutorial_seen()
+	var scn := _open_board()
+	await _settle()
+	_clear_board_model(scn.board)
+	var magnet := Vector2i(4, 4)
+	ok(scn.board.build_improvement(magnet, Improvements.KIND_MAGNET), "fixture installs a Magnet under %s" % magnet)
+	scn._rebuild_all()
+	await _settle()
+	var code: int = scn._debug_spawn_code()
+	scn.debug_pop_magnet()
+	await process_frame
+	ok(_magnet_ghosts(scn).size() == 2, "first Pop magnet is mid-slide before the second press")
+
+	scn.debug_pop_magnet()
+	ok(_magnet_ghosts(scn).size() == 2, "a quick second Pop magnet does not rebuild away the first slide")
+	ok(scn.board.count_of(code) == 2, "the quick second press leaves its seeded pair waiting for the next Magnet beat")
+	ok(scn.get("_magnet_beat_armed") == true, "the queued debug pair keeps the Magnet beat armed")
+
+	await create_timer(0.55).timeout
+	await process_frame
+	ok(scn.board.count_of(code) == 0, "the queued debug pair merges on a later beat")
+	ok(_magnet_ghosts(scn).is_empty(), "the queued merge finishes its own slide")
 	scn.queue_free()
 
 # A placed Magnet with no room in its range is not a dead end: the next placed Magnet that DOES have
