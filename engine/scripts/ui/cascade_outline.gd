@@ -39,6 +39,7 @@ static func paper_grain() -> ImageTexture:
 
 var ladders: Array = []
 var runways: Array = []
+var drag_ladders: Array = []
 var ghost_pads: Array = []
 var cell_size := 86.0
 var cell_pos_fn: Callable
@@ -71,39 +72,49 @@ func set_runways(data: Array) -> void:
 	_rebuild_tags()
 	queue_redraw()
 
+func set_drag_ladders(data: Array) -> void:
+	drag_ladders = data.duplicate(true)
+	_rebuild_tags()
+	queue_redraw()
+
 func set_ghost_pads(data: Array) -> void:
 	ghost_pads = data.duplicate(true)
 	_rebuild_tags()
 	queue_redraw()
 
 func clear_guides() -> void:
-	if ghost_pads.is_empty():
+	if ghost_pads.is_empty() and drag_ladders.is_empty():
 		return
 	ghost_pads = []
+	drag_ladders = []
 	_rebuild_tags()
 	queue_redraw()
 
 func _draw() -> void:
 	if cell_size <= 0.0 or not cell_pos_fn.is_valid():
 		return
-	for entry in runways:
-		if entry is Dictionary:
-			_draw_runway(entry as Dictionary)
-	for entry in ladders:
+	if drag_ladders.is_empty():
+		for entry in runways:
+			if entry is Dictionary:
+				_draw_runway(entry as Dictionary)
+	for entry in _active_ladders():
 		if entry is Dictionary:
 			_draw_ladder(entry as Dictionary)
 	for entry in ghost_pads:
 		if entry is Dictionary:
 			_draw_ghost_pad(entry as Dictionary)
 
+func _active_ladders() -> Array:
+	return drag_ladders if not drag_ladders.is_empty() else ladders
+
 func _draw_ladder(entry: Dictionary) -> void:
 	_draw_ribbon(_ribbon_cells(entry), G.line_color(int(entry.get("line", 0))),
-		cell_size * RIBBON_WIDTH_FRAC, 1.0)
+		cell_size * RIBBON_WIDTH_FRAC, 1.0, not Array(entry.get("run", [])).is_empty())
 
 func _draw_runway(entry: Dictionary) -> void:
 	# A runway is the same ribbon, quieter: it is not going to fire until its piece arrives.
 	_draw_ribbon(_ribbon_cells(entry), G.line_color(int(entry.get("line", 0))),
-		cell_size * RIBBON_WIDTH_FRAC * 0.78, 0.5)
+		cell_size * RIBBON_WIDTH_FRAC * 0.78, 0.5, not Array(entry.get("run", [])).is_empty())
 
 # The ribbon follows `run` — the cells the cascade walks — not `cells`, which is a same-LINE
 # flood fill with no tier condition. A t4 touching a t6 lands in one component while neither can
@@ -112,19 +123,17 @@ func _ribbon_cells(entry: Dictionary) -> Array:
 	var run := Array(entry.get("run", []))
 	return run if not run.is_empty() else Array(entry.get("cells", []))
 
-# The chain drawn as one continuous strip of cut paper: from each marked cell's centre out to the
-# midpoint of every edge it shares with another marked cell, joints rounded, ends capped. That one
-# rule covers every shape a run or a component can take — straight, bend, zigzag, T, cross, even a
-# closed ring round a 2x2 block — and the strip meets itself exactly at the cell edges, so nothing
-# can misalign. Neighbour directions come from _cell_pos, never from the model delta: _cell_pos
-# owns the landscape transpose, and hardcoding portrait here is what once drew rungs instead of a
-# border on a wide screen.
-func _draw_ribbon(raw_cells: Array, base: Color, width: float, strength: float) -> void:
+# The chain drawn as one continuous strip of cut paper. Real run paths link only consecutive
+# cells, so a snaking ladder cannot sprout false rungs when non-consecutive cells touch. Fallback
+# component marks still link shared edges for T/ring shapes. Endpoints come from _cell_pos, never
+# from model deltas: _cell_pos owns the landscape transpose, and hardcoding portrait here is what
+# once drew rungs instead of a border on a wide screen.
+func _draw_ribbon(raw_cells: Array, base: Color, width: float, strength: float, ordered_path := true) -> void:
 	if raw_cells.is_empty() or width <= 0.5:
 		return
-	var cells := {}
-	for raw in raw_cells:
-		cells[Vector2i(raw)] = true
+	var links := _ribbon_links(raw_cells, ordered_path)
+	if links.is_empty():
+		return
 	# Pull the line colour toward cream first. Full-saturation line colour reads as a new game
 	# object competing with the pieces; the group mark has to stay quieter than the drop target
 	# it sits under, so this is tape laid on the board, not a painted stripe.
@@ -132,18 +141,18 @@ func _draw_ribbon(raw_cells: Array, base: Color, width: float, strength: float) 
 	var lift := maxf(1.5, cell_size * 0.035)
 	# Cut-paper stack, bottom to top: contact shadow, the warm cut edge the fill sits inside,
 	# the grained face, then a light top plane along the upper side.
-	_ribbon_pass(cells, width * 1.02, Color(Pal.INK, 0.20 * strength), Vector2(0.0, lift), null)
-	_ribbon_pass(cells, width * 1.14, Color(tape.darkened(0.26), 0.80 * strength), Vector2.ZERO, null)
-	_ribbon_pass(cells, width, Color(tape, 0.88 * strength), Vector2.ZERO, paper_grain())
-	_ribbon_pass(cells, width * 0.42, Color(tape.lightened(0.30), 0.40 * strength),
+	_ribbon_pass(links, width * 1.02, Color(Pal.INK, 0.20 * strength), Vector2(0.0, lift), null)
+	_ribbon_pass(links, width * 1.14, Color(tape.darkened(0.26), 0.80 * strength), Vector2.ZERO, null)
+	_ribbon_pass(links, width, Color(tape, 0.88 * strength), Vector2.ZERO, paper_grain())
+	_ribbon_pass(links, width * 0.42, Color(tape.lightened(0.30), 0.40 * strength),
 		Vector2(0.0, -width * 0.24), null)
 
-func _ribbon_pass(cells: Dictionary, width: float, colour: Color, offset: Vector2, tex: Texture2D) -> void:
+func _ribbon_pass(links: Dictionary, width: float, colour: Color, offset: Vector2, tex: Texture2D) -> void:
 	var half := width * 0.5
-	for raw_cell in cells:
+	for raw_cell in links:
 		var cell := Vector2i(raw_cell)
 		var centre := _cell_pos(cell) + Vector2.ONE * (cell_size * 0.5) + offset
-		var ends := _ribbon_ends(cell, cells)
+		var ends := _ribbon_ends(cell, links)
 		for end_pt in ends:
 			var b := Vector2(end_pt) + offset
 			var dir := (b - centre)
@@ -153,15 +162,47 @@ func _ribbon_pass(cells: Dictionary, width: float, colour: Color, offset: Vector
 			_poly([centre + nrm, b + nrm, b - nrm, centre - nrm], colour, tex)
 		_disc(centre, half, colour, tex)          # rounds the joint AND caps a lone end
 
-# Screen-space endpoints of the strip inside `cell`: the midpoint of each shared edge.
-func _ribbon_ends(cell: Vector2i, cells: Dictionary) -> Array:
+func _ribbon_links(raw_cells: Array, ordered_path := true) -> Dictionary:
+	var links := {}
+	var ordered: Array = []
+	for raw in raw_cells:
+		var c := Vector2i(raw)
+		if links.has(c):
+			continue
+		links[c] = []
+		ordered.append(c)
+	if not ordered_path:
+		for raw_cell in ordered:
+			var cell := Vector2i(raw_cell)
+			for raw_d in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
+				var nb := cell + Vector2i(raw_d)
+				if links.has(nb):
+					_link_ribbon_cells(links, cell, nb)
+		return links
+	for i in maxi(0, ordered.size() - 1):
+		var a := Vector2i(ordered[i])
+		var b := Vector2i(ordered[i + 1])
+		if absi(a.x - b.x) + absi(a.y - b.y) == 1:
+			_link_ribbon_cells(links, a, b)
+	return links
+
+func _link_ribbon_cells(links: Dictionary, a: Vector2i, b: Vector2i) -> void:
+	var a_links := Array(links.get(a, []))
+	if not a_links.has(b):
+		a_links.append(b)
+		links[a] = a_links
+	var b_links := Array(links.get(b, []))
+	if not b_links.has(a):
+		b_links.append(a)
+		links[b] = b_links
+
+# Screen-space endpoints of the strip inside `cell`: the midpoint of each linked edge.
+func _ribbon_ends(cell: Vector2i, links: Dictionary) -> Array:
 	var out: Array = []
 	var centre := _cell_pos(cell) + Vector2.ONE * (cell_size * 0.5)
-	for raw_d in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
-		var d := Vector2i(raw_d)
-		if not cells.has(cell + d):
-			continue
-		out.append(centre + (_cell_pos(cell + d) - _cell_pos(cell)) * 0.5)
+	for raw_nb in Array(links.get(cell, [])):
+		var nb := Vector2i(raw_nb)
+		out.append(centre + (_cell_pos(nb) - _cell_pos(cell)) * 0.5)
 	return out
 
 func _poly(pts: Array, colour: Color, tex: Texture2D) -> void:
@@ -254,43 +295,55 @@ func _rebuild_tags() -> void:
 	# Order is the order of authority: what you can do NOW, then what is armed, then what is merely
 	# wanted. The runway's "needs a t2" is redundant anyway while you are holding the t2.
 	var taken := {}
-	for entry in ghost_pads:
-		if not (entry is Dictionary) or String((entry as Dictionary).get("kind", "stage")) != "cascade":
-			continue
-		var cell := Vector2i((entry as Dictionary).get("cell", Vector2i(-1, -1)))
-		if cell.x < 0 or taken.has(cell):
-			continue
-		taken[cell] = true
-		var pn := int((entry as Dictionary).get("n", 2))
-		_add_tag(cell, "×%d" % pn, pn, false)
-	for entry in ladders:
-		if not (entry is Dictionary):
-			continue
-		var top_cell := Vector2i((entry as Dictionary).get("top_cell", Vector2i(-1, -1)))
-		if top_cell.x < 0 or taken.has(top_cell):
-			continue
-		taken[top_cell] = true
-		var n := int((entry as Dictionary).get("n", 2))
-		_add_tag(top_cell, "×%d" % n, n, false)
-	for entry in runways:
-		if not (entry is Dictionary):
-			continue
-		var need := int((entry as Dictionary).get("needs_code", 0))
-		if need <= 0:
-			continue
-		# Anchor on the ribbon's own first cell, not the component's: cells[0] is row-major over the
-		# whole same-line blob, which can be a stray the ribbon deliberately does not cover — the tag
-		# then floats on a cell with no mark under it.
-		var anchor: Array = Array((entry as Dictionary).get("run", []))
-		if anchor.is_empty():
-			anchor = Array((entry as Dictionary).get("cells", []))
-		if anchor.is_empty():
-			continue
-		var at := Vector2i(anchor[0])
-		if taken.has(at):
-			continue
-		taken[at] = true
-		_add_tag(at, "t%d" % (need % 100), int((entry as Dictionary).get("would_be_n", 3)), true)
+	if drag_ladders.is_empty():
+		for entry in ghost_pads:
+			if not (entry is Dictionary) or String((entry as Dictionary).get("kind", "stage")) != "cascade":
+				continue
+			var cell := Vector2i((entry as Dictionary).get("cell", Vector2i(-1, -1)))
+			if cell.x < 0 or taken.has(cell):
+				continue
+			taken[cell] = true
+			var pn := int((entry as Dictionary).get("n", 2))
+			_add_tag(cell, "×%d" % pn, pn, false)
+	else:
+		for entry in drag_ladders:
+			if not (entry is Dictionary):
+				continue
+			var cell := Vector2i((entry as Dictionary).get("top_cell", Vector2i(-1, -1)))
+			if cell.x < 0 or taken.has(cell):
+				continue
+			taken[cell] = true
+			var pn := int((entry as Dictionary).get("n", 2))
+			_add_tag(cell, "×%d" % pn, pn, false)
+	if drag_ladders.is_empty():
+		for entry in ladders:
+			if not (entry is Dictionary):
+				continue
+			var top_cell := Vector2i((entry as Dictionary).get("top_cell", Vector2i(-1, -1)))
+			if top_cell.x < 0 or taken.has(top_cell):
+				continue
+			taken[top_cell] = true
+			var n := int((entry as Dictionary).get("n", 2))
+			_add_tag(top_cell, "×%d" % n, n, false)
+		for entry in runways:
+			if not (entry is Dictionary):
+				continue
+			var need := int((entry as Dictionary).get("needs_code", 0))
+			if need <= 0:
+				continue
+			# Anchor on the ribbon's own first cell, not the component's: cells[0] is row-major over the
+			# whole same-line blob, which can be a stray the ribbon deliberately does not cover — the tag
+			# then floats on a cell with no mark under it.
+			var anchor: Array = Array((entry as Dictionary).get("run", []))
+			if anchor.is_empty():
+				anchor = Array((entry as Dictionary).get("cells", []))
+			if anchor.is_empty():
+				continue
+			var at := Vector2i(anchor[0])
+			if taken.has(at):
+				continue
+			taken[at] = true
+			_add_tag(at, "t%d" % (need % 100), int((entry as Dictionary).get("would_be_n", 3)), true)
 
 func _add_tag(cell: Vector2i, text: String, n: int, weak: bool) -> void:
 	var chip := Label.new()
@@ -331,4 +384,3 @@ func _tag_font_size(n: int, weak := false) -> int:
 
 func _edge_key(cell: Vector2i, d: Vector2i) -> int:
 	return cell.x * 1009 + cell.y * 917 + (d.x + 2) * 37 + (d.y + 2) * 53
-

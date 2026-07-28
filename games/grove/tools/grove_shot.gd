@@ -134,7 +134,17 @@ func _initialize() -> void:
 			scn.board.gen_boost = {}
 			scn.quests = []
 			var ready := {}
-			if phase == "runway":
+			if phase == "dragfocus":
+				ready = {
+					Vector2i(3, 1): 201,
+					Vector2i(2, 1): 201,
+					Vector2i(2, 2): 202,
+					Vector2i(1, 1): 203,
+					Vector2i(1, 2): 203,
+					Vector2i(1, 3): 204,
+					Vector2i(2, 3): 205,
+				}
+			elif phase == "runway":
 				ready = {
 					Vector2i(3, 1): 102,
 					Vector2i(3, 2): 103,
@@ -173,7 +183,19 @@ func _initialize() -> void:
 			scn.board.gen_boost = {}
 			await create_timer(0.25).timeout
 			var chalf: Vector2 = Vector2(scn.csz, scn.csz) / 2.0
-			if phase == "runway":
+			if phase == "dragfocus":
+				var held_focus := Vector2i(1, 1)
+				var start_focus: Vector2 = scn._cell_pos(held_focus) + chalf
+				var down_focus := InputEventMouseButton.new()
+				down_focus.button_index = MOUSE_BUTTON_LEFT
+				down_focus.pressed = true
+				down_focus.position = start_focus
+				scn._on_board_input(down_focus)
+				var move_focus := InputEventMouseMotion.new()
+				move_focus.position = scn._cell_pos(Vector2i(1, 2)) + chalf + Vector2(18.0, -24.0)
+				scn._on_board_input(move_focus)
+				await create_timer(0.35).timeout
+			elif phase == "runway":
 				if hold_tier > 0:
 					var held_runway := Vector2i(6, 6)
 					var start: Vector2 = scn._cell_pos(held_runway) + chalf

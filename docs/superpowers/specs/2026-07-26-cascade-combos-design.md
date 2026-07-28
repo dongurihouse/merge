@@ -148,13 +148,13 @@ vacated — always free, synchronously, before the lucky rolls.
   queued-for-deletion nodes from the computation because `queue_free` is deferred; the guard is
   `grove_cascade_tests.gd`'s stack assertion with stale generator nodes present. Template:
   `focus_ring.gd` (`@tool`, `@export` knobs, `_draw`).
-- Per armed `ready_ladders` component: a **paper ribbon** threading the run. For each marked
-  cell, stroke from the cell centre to the midpoint of every edge it shares with another marked
-  cell; round the joint, cap a lone end (`_ribbon_ends`). That one rule covers every shape a run
-  or component can take — straight, bend, zigzag, T, cross, and the closed ring a 2×2 block makes
-  — and the strip meets itself exactly on cell edges, so no configuration can misalign.
-  `grove_cascade_tests` pins the bend, T, ring and isolated cases by endpoint count. Redraw only
-  on recompute — in `_after_board_change()` and after `_rebuild_all`.
+- Per armed `ready_ladders` component: a **paper ribbon** threading the run. Entries with `run`
+  data link only consecutive path cells; touching cells that are not consecutive chain steps do
+  not draw false rungs. Fallback component data links each shared edge, so T/cross/ring shapes
+  remain supported for non-ordered callers. Round the joint and cap a lone end (`_ribbon_ends`);
+  `grove_cascade_tests` pins ordered bends, unordered T/ring fallback, isolated cells, and
+  landscape endpoint mapping. Redraw only on recompute — in `_after_board_change()` and after
+  `_rebuild_all`.
 - Material: cut-paper stack, bottom to top — contact shadow, warm cut edge, grained face, light
   top plane. The grain is a seeded 64² `ImageTexture` (`PAPER_SEED`) drawn with board-space UVs
   so it runs unbroken along the strip; seeded because `make shot` compares captures byte for
@@ -192,10 +192,13 @@ occupied piece. The pool is warmed ~60 % toward gold — it shows through the pi
 margins, so a saturated line colour tints the art itself rather than reading as light. Never a
 `modulate` brighten: that clamps to nothing on art this bright.
 
-- **A ×n appears only on a cell you can drop onto that really runs a chain.** A number on an
-  empty cell advertises a cascade the drop does not perform.
+- **A ×n appears only for a drop that really runs a chain.** During drag focus it anchors on the
+  focused run's top cell so the lifted piece cannot cover it; empty staging cells never carry ×n.
 - **`stage` marks are suppressed whenever a `cascade` mark exists** — when a firing move is
   available it is the answer, and the staging cells around it compete with it.
+- When a held item has a `cascade` target, the outline uses a drag-focused ladder built from
+  `[target] + BoardLogic.chain_path(board, from, target)`. Resting ready/runway ribbons and their
+  tags are hidden until release, so the guide describes the chain the held item will create.
 - Nothing draws when the held piece neither merges nor builds.
 
 ## 9 · Flags & save
@@ -228,11 +231,14 @@ margins, so a saturated line colour tints the art itself rather than reading as 
   - Rewards: ×3 chest `1001` is the first reward; ×4 upgrades that cell to `1002`; wallet and
     `coins_earned` unchanged until chest-open; open credits `add_coins` only.
   - Guide pads on `_begin_drag`, cleared on release; generator drag → none.
+  - A mixed component with a lower-tier `×5` at rest focuses to the held item's `×3` run while
+    dragging; ordered ribbon links do not connect touching non-consecutive path cells.
   - Outline present iff an armed ladder exists; tag text ×n; stack index above mat/slots and below
     live items, with stale queued-for-deletion generator nodes present.
   - Flag OFF → no chain, no outline, no pads.
 - **Visual gate:** quiet-godot `cascade` captures — lit ladder (stitches + tag), `phase=guide`
-  ghost pads under a lifted piece, a mid-run step with floater — looked at before done.
+  ghost pads under a lifted piece, `phase=dragfocus` for a mixed-component held-path guide, and
+  a mid-run step with floater — looked at before done.
   `phase=guide` needs a ×3-capable fixture; ×2 placements exit 0 with a bare board because the
   scene filters out pads that would not arm a cascade.
 - `make test` green.
