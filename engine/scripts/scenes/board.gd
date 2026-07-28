@@ -5785,10 +5785,11 @@ func _collect_special(cell: Vector2i, node: Control) -> void:
 	_update_water_hud()
 
 # §6.B open a chest with a second TAP (the key line is retired): consume it and credit its
-# coins+acorns payout — ROLLED low-biased from the chest tier's range — DIRECTLY to the wallet
-# (like every other tap-collect). Coins are ORGANIC
-# (add_coins — spendable, but the clock is quests only); acorns skim the piggy bank like other premium earns. (The old
-# face-value item spawn died with the 12-tier coin ladder — 3-tier coins can't carry the payout.)
+# COINS-ONLY payout — ROLLED low-biased from the chest tier's range — DIRECTLY to the wallet
+# (like every other tap-collect). A chest is a board PICKUP: its coins are spendable but never
+# clock-advancing (add_coins, not earn_coins — the clock is quests only, 2026-07-25). It pays no
+# acorns and no premium at all (owner call 2026-07-27). (The old face-value item spawn died with
+# the 12-tier coin ladder — 3-tier coins can't carry the payout.)
 func _open_chest(target: Vector2i, node: Control) -> void:
 	var reward := G.chest_open_reward(board.item_at(target), rng)
 	board.take(target)
@@ -5797,14 +5798,9 @@ func _open_chest(target: Vector2i, node: Control) -> void:
 		node.queue_free()
 	var at := board_area.get_global_transform().origin + _cell_pos(target) + Vector2(csz, csz) / 2.0
 	var got_coins := int(reward.coins)
-	var got_acorns := int(reward.acorns)
 	if got_coins > 0:
 		Save.add_coins(got_coins)            # spendable only — the clock is quests only (2026-07-25)
 		FX.reward_arrival(self, at, "coin", got_coins, STRAW, coins_label, Callable(), FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "chest_open")
-	if got_acorns > 0:
-		Save.add_diamonds(got_acorns)
-		Vault.skim(got_acorns)               # premium earned in play skims the piggy bank (T44)
-		FX.floating_reward(self, at + Vector2(0, 40), "gem", got_acorns, Color("#BFE6F2"), FS.HEADING)
 	Audio.play("level_complete", -4.0, 1.15)
 	_after_board_change()
 

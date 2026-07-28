@@ -176,8 +176,8 @@ Every beat lands without a word: the **parents' faces + gestures**; the **easing
 > *(The Farm lines 61–66 — hearth embers … flower boxes — are reserve premium treat content, art-ready,
 > assigned to a map when the world grows past map 4.)*
 >
-> **Special drop items — SHIPPED (Core §6.B):** chest · key (drag a key onto a chest → coins+acorns) ·
-> water · acorn · exp (tap-collect) · coins. *(The brainstorm's tool item was cut; the wildcard was cut
+> **Special drop items — SHIPPED (Core §6.B):** chest (second tap opens it → **coins only**; the key
+> line is retired) · water · acorn · exp (tap-collect) · coins. *(The brainstorm's tool item was cut; the wildcard was cut
 > 2026-07-17 — there are no wildcards.)* **Utility accumulators — SHIPPED (Core
 > §6.C):** water · coin · exp · acorn — capped accumulators, no energy cost, tap-collect, bag-stowable.
 >

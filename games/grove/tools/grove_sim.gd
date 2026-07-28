@@ -141,10 +141,8 @@ var _bonus_kind := ""         # §6.C the live bonus generator's kind on the boa
 var _bonus_clicks := 0        # its remaining tap budget; drained one tap per main-gen tap, then it vanishes
 var drop_water := 0          # §6.B special-item drops on merge (collected at t1)
 var drop_acorn := 0
-var drop_open_coins := 0     # §6.B tap-opened chest → coins + acorns
-var drop_open_acorns := 0
+var drop_open_coins := 0     # §6.B tap-opened chest → coins ONLY (a chest pays no acorns)
 var cascade_reward_coins := 0
-var cascade_reward_acorns := 0
 var cascade_reward_chests := 0
 var cascade_auto_merges := 0
 var treat_coins := 0         # §6.D treat-gen premium-line sells + its special drops
@@ -355,9 +353,11 @@ func _initialize() -> void:
 	# pinch check now. Reported as tuning signals (WARN, not hard fails — the §7 tuning pass owns the dials). ---
 	var new_water := bonus_water + drop_water + treat_water
 	var new_coins := bonus_coins + treat_coins + drop_open_coins + cascade_reward_coins
-	var new_acorn := bonus_acorn + drop_acorn + treat_acorn + drop_open_acorns + cascade_reward_acorns
-	print("  -- §6+cascade faucets --  water +%d💧 (bonus %d·drop %d·treat %d) · coins +%d🪙 (bonus %d·treat %d·drop-chest %d·cascade %d) · acorn +%d🌰 (cascade %d)" % \
-		[new_water, bonus_water, drop_water, treat_water, new_coins, bonus_coins, treat_coins, drop_open_coins, cascade_reward_coins, new_acorn, cascade_reward_acorns])
+	# CHESTS PAY NO ACORNS (owner call 2026-07-27) — the acorn faucets here are the bonus gens, the
+	# §6.B acorn drop line and the treat gens; the chest terms are coins only.
+	var new_acorn := bonus_acorn + drop_acorn + treat_acorn
+	print("  -- §6+cascade faucets --  water +%d💧 (bonus %d·drop %d·treat %d) · coins +%d🪙 (bonus %d·treat %d·drop-chest %d·cascade %d) · acorn +%d🌰 (bonus %d·drop %d·treat %d)" % \
+		[new_water, bonus_water, drop_water, treat_water, new_coins, bonus_coins, treat_coins, drop_open_coins, cascade_reward_coins, new_acorn, bonus_acorn, drop_acorn, treat_acorn])
 	print("                 over %d merges (%d cascade auto-steps, %d cascade chests) · %d bonus-gens · %d treat-gens — non-quest faucets supply %.0f%% of all coins earned (the rest is quests + sells)" % \
 		[merges, cascade_auto_merges, cascade_reward_chests, bonus_gens, treat_gens, 100.0 * float(new_coins) / float(maxi(1, coins_earned))])
 	# WATER self-sustain: gift + the §6 water faucets vs total spend. I2 guards the GIFT alone at <30%; these
@@ -682,7 +682,7 @@ func _tick_bonus_gen() -> void:
 
 # A §6.B special item shaken loose by a merge (or a treat tap). Modeled at its t1 collect value — a
 # conservative FLOOR (real play merges drops up first). water → extends the session pop-budget; exp → the
-# exp faucet (levels up); acorn → premium. chest+key pair and OPEN for coins+acorns (paired across drops).
+# exp faucet (levels up); acorn → premium. A chest is banked and OPENED for its coins-only payout.
 func _credit_special_drop(code: int, src: String = "drop") -> void:
 	var seed_kind := Improvements.kind_for_seed(code)
 	if seed_kind != "" and not Features.on("improvements"):
@@ -713,16 +713,14 @@ func _credit_special_drop(code: int, src: String = "drop") -> void:
 		_:
 			pass
 
-# Open a banked chest for coins+acorns (t1 — conservative). Models the §6.B tap-open chest
-# (the key line is retired) without board placement.
+# Open a banked chest for its COINS-ONLY payout (t1 — conservative). Models the §6.B tap-open
+# chest (the key line is retired) without board placement.
 func _try_open_chest() -> void:
 	while _pending_chests >= 1:
 		_pending_chests -= 1
 		var rw := G.chest_open_reward(G.CHEST_LINE * 100 + 1, rng)
 		_gain_coins(int(rw.coins))
 		drop_open_coins += int(rw.coins)
-		acorns += int(rw.acorns)
-		drop_open_acorns += int(rw.acorns)
 
 func _credit_cascade_reward(code: int) -> void:
 	if code <= 0:
@@ -735,8 +733,6 @@ func _credit_cascade_reward(code: int) -> void:
 		var rw := G.chest_open_reward(code, rng)
 		_gain_coins(int(rw.coins))
 		cascade_reward_coins += int(rw.coins)
-		acorns += int(rw.acorns)
-		cascade_reward_acorns += int(rw.acorns)
 		cascade_reward_chests += 1
 
 # §6.D a temporary treat generator: TREAT_CLICKS taps, each popping the map's treasure line at the

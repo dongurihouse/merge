@@ -464,8 +464,9 @@ func _test_chain_rewards_and_chest_open_clock() -> void:
 	var got_acorns := Save.diamonds() - acorns0
 	ok(got_coins >= int((chest_range.coins as Array)[0]) and got_coins <= int((chest_range.coins as Array)[1]),
 		"opening the cascade chest credits spendable coins from its tier range (%d)" % got_coins)
-	ok(got_acorns >= maxi(0, int((chest_range.acorns as Array)[0])) and got_acorns <= int((chest_range.acorns as Array)[1]),
-		"opening the cascade chest credits acorns from its tier range (%d)" % got_acorns)
+	# COINS ONLY (owner call 2026-07-27): the chest acorn payout is DELETED — an open must leave
+	# the premium wallet exactly where it was.
+	ok(got_acorns == 0, "opening a cascade chest does NOT move the premium wallet (delta %d)" % got_acorns)
 	ok(Save.coins_earned_lifetime() == clock0, "opening a cascade chest does not move the quest coin clock")
 	b4.queue_free()
 
