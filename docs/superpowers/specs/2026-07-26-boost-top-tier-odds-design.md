@@ -2,6 +2,9 @@
 
 Date: 2026-07-26 (T64)
 
+> **Historical note (2026-07-27):** superseded by the removal of generator merge tiers. Generator bursts
+> now use the flat `BURST_ODDS` / `BURST_ODDS_BOOST` rows; there is no top-tier generator or 4th burst slot.
+
 ## Problem
 
 The temporary per-generator boost rolls the flat `BURST_ODDS_BOOST = [0.20, 0.45, 0.35]`

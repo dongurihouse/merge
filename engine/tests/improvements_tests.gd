@@ -15,7 +15,6 @@ func save_prefix() -> String:
 
 func _clear_board(board: BoardModel) -> void:
 	board.gens = {}
-	board.gen_tiers = {}
 	board.gen_boost = {}
 	board.collect_rewards = {}
 	board.improvements = {}

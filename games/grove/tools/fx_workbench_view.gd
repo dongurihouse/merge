@@ -314,7 +314,7 @@ func _add_farewell_sweep_sources(grid: Control) -> void:
 		_sweep_sources.append({"node": piece, "payout": int(G.sell_reward(int(SWEEP_SAMPLE_CODES[i])).x)})
 		if _source == null:
 			_source = piece
-	var gen := PieceView.make_generator("gen_2", px, {}, 2)
+	var gen := PieceView.make_generator("gen_2", px, {})
 	gen.name = "FarewellSweepGenerator"
 	gen.position = Vector2(grid.size.x * 0.46, grid.size.y * 0.78) - Vector2(px, px) / 2.0
 	gen.mouse_filter = Control.MOUSE_FILTER_STOP

@@ -123,10 +123,9 @@ func _initialize() -> void:
 			for i in scn.board.items.size():
 				scn.board.terrain[i] = 0
 				scn.board.items[i] = 0
-			scn.board.collect_rewards = {}
-			scn.board.gens = {}
-			scn.board.gen_tiers = {}
-			scn.board.gen_boost = {}
+				scn.board.collect_rewards = {}
+				scn.board.gens = {}
+				scn.board.gen_boost = {}
 			scn.quests = []
 			var ready := {}
 			if phase == "runway":
@@ -158,11 +157,10 @@ func _initialize() -> void:
 			for n in scn.gen_nodes.values():
 				if n != null and is_instance_valid(n):
 					(n as Node).queue_free()
-			scn.gen_nodes.clear()
-			scn.gen_node = null
-			scn.board.gens = {}
-			scn.board.gen_tiers = {}
-			scn.board.gen_boost = {}
+				scn.gen_nodes.clear()
+				scn.gen_node = null
+				scn.board.gens = {}
+				scn.board.gen_boost = {}
 			await create_timer(0.25).timeout
 			var chalf: Vector2 = Vector2(scn.csz, scn.csz) / 2.0
 			if phase == "runway":
@@ -375,7 +373,7 @@ func _initialize() -> void:
 				await create_timer(0.1).timeout
 			var free_cells: Array = scn.board.empty_ground_cells()
 			if free_cells.size() >= 7:
-				scn.board.place_gen("gen_2", free_cells[0], 3)
+				scn.board.place_gen("gen_2", free_cells[0])
 				scn.board.arm_gen_boost(free_cells[0], 4)
 				scn.board.place_gen("gen_4", free_cells[1])
 				scn.board.place(free_cells[2], 202)
@@ -624,8 +622,10 @@ func _initialize() -> void:
 			# match the slot cells above them exactly (they share the dialog's fitted cell opts).
 			Save.add_diamonds(132)
 			scn.bag = [101, 201, 301]
-			scn.board.gen_bag = ["gen_1", "gen_2"]
-			scn.board.gen_bag_tiers = [1, 2]
+			scn.board.gen_bag = []
+			scn.board.gen_bag_boost = []
+			scn.board.bag_add("gen_1")
+			scn.board.bag_add("gen_2")
 			scn._rebuild_bag()
 			scn._open_bag_overlay()
 			await create_timer(0.6).timeout

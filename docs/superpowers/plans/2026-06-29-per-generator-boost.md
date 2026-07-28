@@ -1,5 +1,9 @@
 # Per-generator boost Implementation Plan
 
+> **Historical note (2026-07-27):** this plan predates the removal of generator merge tiers.
+> Current generator boosts ride through `gen_boost` / `gen_bag_boost`; generator merge/sell,
+> `gen_tiers`, and `gen_bag_tiers` steps below are no longer active implementation guidance.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the temporary generator boost apply to a single chosen generator (stackable across generators), instead of the whole board.

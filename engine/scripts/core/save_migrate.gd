@@ -115,9 +115,8 @@ static func purge_above_level_content(board: BoardModel, bag: Array, quests: Arr
 		if not G.is_accumulator(gid) and G.line_gated_out(int(G.gen_def(G.GENERATORS, gid).get("line", 0)), lvl):
 			board.remove_gen(cell)
 			changed = true
-	# stored generators — filter the PARALLEL bag arrays (ids ∥ tiers ∥ boost) in lockstep
+	# stored generators — filter the PARALLEL bag arrays (ids ∥ boost) in lockstep
 	var kept_ids: Array = []
-	var kept_tiers: Array = []
 	var kept_boost: Array = []
 	for i in board.gen_bag.size():
 		var gid := String(board.gen_bag[i])
@@ -125,10 +124,8 @@ static func purge_above_level_content(board: BoardModel, bag: Array, quests: Arr
 			changed = true
 			continue
 		kept_ids.append(board.gen_bag[i])
-		kept_tiers.append(board.gen_bag_tiers[i] if i < board.gen_bag_tiers.size() else 1)
 		kept_boost.append(board.gen_bag_boost[i] if i < board.gen_bag_boost.size() else 0)
 	board.gen_bag = kept_ids
-	board.gen_bag_tiers = kept_tiers
 	board.gen_bag_boost = kept_boost
 	# stashed items in the item bag. `bag_kept` is the SURVIVING INDICES into the incoming bag, so a
 	# caller can filter its own PARALLEL arrays (the scene's bag_seed_ranks) in lockstep without
