@@ -4351,7 +4351,7 @@ func _on_trash_pressed() -> void:
 	if board.is_gen(cell):
 		return
 	var code := board.item_at(cell)
-	if code <= 0 or board.is_gen(cell) or G.is_coin(code):
+	if code <= 0 or G.is_coin(code):
 		return
 	var node: Control = piece_nodes.get(cell)
 	if node == null:
@@ -4983,7 +4983,7 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# (Accumulator/treat taps never reach here — their own collect/pop paths.)
 	var burst := 1
 	if charged:
-		burst = G.gen_burst_count(rng, board.is_gen_boosted(cell))
+		burst = G.burst_count(rng, board.is_gen_boosted(cell))
 	if charged:
 		burst = mini(burst, int(water / pop_cost))
 	burst = mini(burst, empties.size())
@@ -5810,7 +5810,7 @@ func _collect_accumulator(cell: Vector2i) -> void:
 	var mult := 1
 	var boosted := board.is_gen_boosted(cell)
 	if boosted:
-		mult = G.burst_count(_quest_map(), G.boost_bonus(), rng)
+		mult = G.burst_count(rng, true)
 	var drops := mini(mult, board.empty_ground_cells().size())
 	if drops <= 0:
 		if gn != null:
@@ -5922,7 +5922,7 @@ func _pop_treat(cell: Vector2i) -> void:
 			FX.wobble(gnw)
 		Audio.play("invalid_soft", -6.0)
 		return
-	var burst := mini(G.burst_count(_quest_map(), 0, rng), empties.size())
+	var burst := mini(G.burst_count(rng), empties.size())
 	for _b in burst:
 		var pick: Vector2i = empties[rng.randi_range(0, empties.size() - 1)]
 		var code: int = line * 100 + BoardLogic.roll_item_tier(rng, G.merge_top(line * 100 + 1))   # §6: a SPREAD of tiers like a normal pop (was a fixed TREAT_POP_TIER head start)

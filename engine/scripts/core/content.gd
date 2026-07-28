@@ -495,14 +495,22 @@ static func quest_zone_for_level(level: int) -> int:
 			break
 	return z
 
-# --- §6.D generator burst odds --------------------------------------------------------------------------
-# Line generators use the same flat burst tables as special generators. A live boost swaps in the boosted
-# row; rank/mastery affects the item tier window, not the generator's burst row.
-static func gen_burst_odds(boosted: bool = false) -> Array:
+# --- §6.D burst odds --------------------------------------------------------------------------------
+# ONE flat table pair serves EVERY generator-like tap (§6, T58): line generators, the boosted accumulator
+# collect, the treat pop and the sim. BURST_ODDS applies when no boost is live (a single item is the norm);
+# a live boost swaps in BURST_ODDS_BOOST, which RAISES THE CHANCE of multiples — never a flat add. There is
+# no per-generator tier row and no per-map scale-up: rank/mastery moves the item-TIER window, not the burst
+# row.
+static func burst_odds(boosted: bool = false) -> Array:
 	return BURST_ODDS_BOOST if boosted else BURST_ODDS
 
-static func gen_burst_count(rng: RandomNumberGenerator, boosted: bool = false) -> int:
-	var odds := gen_burst_odds(boosted)
+## Rolls one burst COUNT off those tables — exactly ONE randf per tap, so the RNG stream is the same for
+## boosted and unboosted taps. Clamped to [1, BURST_MAX]: BURST_MAX is the data-side ceiling dial
+## (grove_data.gd) and equals both tables' length today, so the clamp is inert — it is kept as the
+## board-flood safety net, so lengthening an odds row cannot flood the board without also raising the dial.
+## Each popped item still costs 1 energy.
+static func burst_count(rng: RandomNumberGenerator, boosted: bool = false) -> int:
+	var odds := burst_odds(boosted)
 	var n := 1
 	var roll := rng.randf()
 	var acc := 0.0
@@ -511,7 +519,7 @@ static func gen_burst_count(rng: RandomNumberGenerator, boosted: bool = false) -
 		if roll <= acc:
 			n = i + 1
 			break
-	return clampi(n, 1, odds.size())
+	return clampi(n, 1, BURST_MAX)
 
 static func gen_def(roster: Array, id: String) -> Dictionary:
 	for g in roster:
@@ -780,31 +788,15 @@ static func active_giver_count(earned_exp: int, target_exp: int, max_givers: int
 		return 0
 	return clampi(int(ceil(need / float(EXP_PER_QUEST_EST))), 1, max_givers)
 
-	## Burst-pop for all generator-like taps (§6, T58): line generators, boosted accumulator collect, the
-	## treat pop, and the sim roll their burst COUNT from the flat BURST_ODDS tables. BURST_ODDS applies
-	## when no boost is live (a single item is the norm), BURST_ODDS_BOOST while one is (`boost_bonus > 0`
-	## marks a live boost — it RAISES THE CHANCE of multiples, never a flat add;
-## `_map` is unused — kept for call-site stability). Clamped to [1, BURST_MAX] as a board-flood safety
-## net. Each popped item still costs 1 energy.
-static func burst_count(_map: int, boost_bonus: int, rng: RandomNumberGenerator) -> int:
-	var odds: Array = BURST_ODDS_BOOST if boost_bonus > 0 else BURST_ODDS
-	var n := 1
-	var roll := rng.randf()
-	var acc := 0.0
-	for i in odds.size():
-		acc += float(odds[i])
-		if roll <= acc:
-			n = i + 1
-			break
-	return clampi(n, 1, BURST_MAX)
-
-## The temporary BOOST (§6/§10 coin sink). One activation arms BOOST_TAPS taps of +BOOST_BONUS items on ONE
-## generator, then it expires. The per-generator tap counts live in BoardModel.gen_boost (cell-keyed); this
-## module keeps only the constants. Replaces the old board-wide grove["boost_taps"] counter (T57).
+## The temporary BOOST (§6/§10 coin sink). One activation arms BOOST_TAPS taps on ONE generator, each
+## rolling BURST_ODDS_BOOST instead of BURST_ODDS (see burst_count), then it expires. The per-generator tap
+## counts live in BoardModel.gen_boost (cell-keyed); this module keeps only the constants. Replaces the old
+## board-wide grove["boost_taps"] counter (T57).
 static func boost_cost() -> int:
 	return BOOST_COST
 
-## The boost's magnitude: extra items per generator tap while it is live (the caller gates on active).
+## Legacy dial: the boost's old flat +items magnitude. The boost is an ODDS SWAP now (burst_count takes a
+## bool), so nothing reads this — kept only so the BOOST_BONUS data dial keeps a named accessor.
 static func boost_bonus() -> int:
 	return BOOST_BONUS
 

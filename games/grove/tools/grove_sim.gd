@@ -1169,15 +1169,16 @@ func _play_session() -> Dictionary:
 			_merge_pair_with_cascade(pair)
 			continue
 
-		# 6. pop — one tap throws a BURST (§6): burst_count items (scales with map + the live boost),
-		# each costing G.pop_cost(window low) — G.POP_COST for an unmastered line, more once mastery
+		# 6. pop — one tap throws a BURST (§6): burst_count items (flat odds, no per-map scale-up; a live
+		# boost swaps in the boosted row), each costing G.pop_cost(window low) — G.POP_COST for an
+		# unmastered line, more once mastery
 		# raises the line's pop window (§3 tier-scaled cost). A charged tap spends one boost tap (the
 		# boost is global and decays one tap at a time, then lapses).
 		# pop only with working ROOM — a real player never bursts into a near-full board (that just floods it
 		# into a singleton lockout). Leave a 2-cell margin; surplus water the board can't absorb is left
 		# UNSPENT (a realistic "energy I can't use right now"), never forced into a jam.
 		if water >= G.POP_COST and board.empty_ground_cells().size() > 3 and not _book_done():
-			var burst: int = G.burst_count(map, G.BOOST_BONUS if boost_taps > 0 else 0, rng)
+			var burst: int = G.burst_count(rng, boost_taps > 0)
 			_saw_gen_tap = true                # FTUE proxy: the "gen_tap" verb is now seen (see _sky_gate_open)
 			if boost_taps > 0:
 				boost_taps -= 1
