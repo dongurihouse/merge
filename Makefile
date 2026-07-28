@@ -41,7 +41,8 @@ PY_TESTS     := tools/test_boot_splash_assets.py \
                 games/grove/tests/bake_scene_composites_tests.py \
                 games/grove/tools/tests/test_extract_meadow_ui_v2.py \
                 games/tools/test_intake_apply.py \
-                tools/sfx_synth/test_synth.py
+                tools/sfx_synth/test_synth.py \
+                tools/test_quiet_window.py
 SH_TESTS     := tools/test_stamp_build_info.sh tools/test_xcode_cloud_ci.sh tools/test_grove_shot_parse.sh
 export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
 
@@ -151,7 +152,7 @@ decor: ## process a bg/decor raw:  make decor IN=/tmp/x.png OUT=res://assets/roo
 icon: ## process an icon raw:  make icon IN=/tmp/x.png OUT=res://assets/ui/y.png SIZE=512
 	$(GODOT) --headless --path $(PROJECT) -s res://games/tools/process_icon.gd -- "$(IN)" $(OUT) $(SIZE)
 
-## --- screenshots (quiet: born minimized, never steals focus) ---------------
+## --- screenshots (quiet: the window is parked off-screen, never steals focus) ---
 shot-map: ## capture the map:  make shot-map [MODE=fresh|interior|progress|shop|settings|spirits] [OUT=/tmp/map.png]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/map_shot.gd -- $(or $(MODE),fresh) $(or $(OUT),/tmp/map.png)
 

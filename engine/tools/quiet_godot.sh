@@ -2,12 +2,23 @@
 ## Run godot WITHOUT stealing focus or showing a window — for screenshot/visual tools.
 ##   engine/tools/quiet_godot.sh --path . -s res://games/grove/tools/grove_shot.gd -- hud /tmp/x.png
 ##
-## How: drops a temporary override.cfg so the window is BORN minimized + no-focus
-## (flags applied at window creation — setting them from script code is too late,
-## the window has already flashed and grabbed focus by then). Verified: the app
-## never becomes frontmost; captures render fine from the minimized window and
-## come out at full project resolution (no screen clamping). Only trace: a brief
-## Dock icon. Removes override.cfg when done.
+## How: drops a temporary override.cfg so the window is BORN 1x1, borderless, no-focus,
+## and pinned to the far corner — geometry applied at window creation, because script
+## code runs ~460 ms after the window is already composited. Godot CLAMPS a birth
+## position into the screen's usable rect, so the corner is the furthest out a window
+## can be born; at 1x1 borderless that clamp lands it one pixel PAST the screen edge,
+## i.e. never composited at all. shot_base.begin() then moves it to (-32000, -32000)
+## (window_set_position is NOT clamped) and sizes it there. Removes override.cfg when done.
+##
+## MEASURED (CGWindowListCopyWindowInfo, .optionOnScreenOnly, 40 ms sampling, filtered to
+## the capture pid, intersected with the real display rects): every capture tool now shows
+## ZERO on-screen frames. The previous born-minimized recipe showed ~1000 ms of a full-size
+## window per capture — ~460 ms of engine boot plus ~560 ms of macOS's SYNCHRONOUS minimize
+## animation. `window/size/mode=1` never worked: window_get_mode() read WINDOWED at script
+## entry, so the old "quiet" was really the in-script minimize, and it was only ever
+## verified against FOCUS (lsappinfo front), never against visibility.
+## tools/test_quiet_window.py is the guard that keeps this honest (it re-measures on every
+## `make test-config`, and it FAILS on the old recipe).
 ##
 ## Cleanup is robust: INT/TERM/HUP are trapped (a timed-out/killed run still
 ## removes the file), and a leftover override.cfg from a SIGKILL'd run is
@@ -17,7 +28,8 @@
 ## Quiet runs are serial by law, so always-owning the file is safe.
 ##
 ## Caveat: if you launch the game normally WHILE a quiet run is in flight, your
-## window starts minimized too — just click it in the Dock.
+## window starts as a 1x1 borderless speck off the corner of the screen — the game
+## self-heals it at boot (map.gd `_heal_capture_flags` + Design.fit_desktop_window).
 ##
 ## AUDIO: debug runs are SILENT (--audio-driver Dummy) — no taps/poofs through the
 ## owner's speakers. Testing sound specifically? WITH_AUDIO=1 engine/tools/quiet_godot.sh …
@@ -40,7 +52,16 @@ if [ -f "$OVR" ] && ! grep -q 'window/size/no_focus=true' "$OVR"; then
   exit 2
 fi
 # Create fresh — or reclaim a stale leftover from a killed run. Either way it's ours.
-printf '[display]\nwindow/size/no_focus=true\nwindow/size/mode=1\n' > "$OVR"
+# no_focus doubles as the OWNERSHIP MARKER (grepped above, and by map.gd's boot self-heal),
+# so it must stay on its own line and stay first.
+printf '%s\n' \
+  '[display]' \
+  'window/size/no_focus=true' \
+  'window/size/borderless=true' \
+  'window/size/initial_position_type=0' \
+  'window/size/initial_position=Vector2i(30000, 30000)' \
+  'window/size/window_width_override=1' \
+  'window/size/window_height_override=1' > "$OVR"
 GPID=""
 cleanup() { rm -f "$OVR"; }
 on_sig() {

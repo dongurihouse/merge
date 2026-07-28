@@ -309,5 +309,5 @@ godot --headless --path . -s res://engine/tests/smoke.gd
 # plus the suite relevant to the wave (quest_tests, gate_unveil_tests, …)
 ```
 
-Visual gates use the project's minimized real-renderer composite capture
+Visual gates use the project's off-screen real-renderer composite capture
 (`override.cfg` no-focus trick), comparing before/after — not a human glance.
