@@ -253,7 +253,13 @@ func _rebuild_tags() -> void:
 		var need := int((entry as Dictionary).get("needs_code", 0))
 		if need <= 0:
 			continue
-		_add_tag(Vector2i(cells[0]), "t%d" % (need % 100), int((entry as Dictionary).get("would_be_n", 3)), true)
+		# Anchor on the ribbon's own first cell, not the component's: cells[0] is row-major over the
+		# whole same-line blob, which can be a stray the ribbon deliberately does not cover — the tag
+		# then floats on a cell with no mark under it.
+		var anchor: Array = Array((entry as Dictionary).get("run", []))
+		if anchor.is_empty():
+			anchor = cells
+		_add_tag(Vector2i(anchor[0]), "t%d" % (need % 100), int((entry as Dictionary).get("would_be_n", 3)), true)
 	for entry in ghost_pads:
 		if not (entry is Dictionary) or String((entry as Dictionary).get("kind", "stage")) != "cascade":
 			continue

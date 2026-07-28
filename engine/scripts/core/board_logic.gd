@@ -433,23 +433,25 @@ static func _run_cells(tip: Dictionary) -> Array:
 		out.append(Vector2i(raw))
 	return out
 
-# The rungs of a runway: from its lowest tier, step to a neighbour exactly one tier up, as far as
-# that keeps going. A gap in the ladder (t4 beside t6) ends the walk, which is the whole point —
-# those two can never be part of one chain.
+# The rungs of a runway: the LONGEST run of cells stepping up exactly one tier at a time. A gap in
+# the ladder (t4 beside t6) ends a walk, which is the point — those two can never be one chain.
+#
+# Every cell is tried as a start. Picking one start (say the lowest tier) collapses the moment the
+# component holds a stray at or below the ladder's foot: on a played board same-line pieces of
+# assorted tiers touch constantly, and a t2 dead-ending into a t7 made the walk return that single
+# cell, so the ribbon shrank to a dot and the guide read as GONE. Cost is a component-sized walk
+# per start, and components are small.
 static func _runway_rungs(board: BoardModel, cells: Array) -> Array:
 	var in_set := {}
-	var lowest := 9999
-	var start := Vector2i(-1, -1)
+	for raw in cells:
+		in_set[Vector2i(raw)] = true
+	var best: Array = []
 	for raw in cells:
 		var c := Vector2i(raw)
-		in_set[c] = true
-		var t := BoardModel.tier_of(board.item_at(c))
-		if t < lowest or (t == lowest and BoardModel.idx(c) < BoardModel.idx(start)):
-			lowest = t
-			start = c
-	if start.x < 0:
-		return []
-	return _ascend(board, in_set, start, lowest)
+		var walk := _ascend(board, in_set, c, BoardModel.tier_of(board.item_at(c)))
+		if walk.size() > best.size():
+			best = walk
+	return best
 
 static func _ascend(board: BoardModel, in_set: Dictionary, at: Vector2i, tier: int) -> Array:
 	var best: Array = []
