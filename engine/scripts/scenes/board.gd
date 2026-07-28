@@ -226,7 +226,16 @@ var _farewell_check_queued := false
 # the bottom-bar INFO BAR: tapping a board item selects it here (its name + an info button that opens the
 # Tiers ladder + a trashcan that sells it for coins when it's a deletable, non-generator item).
 var _selected_cell := Vector2i(-1, -1)
-var _selected_improvement := false  # true when the info bar is showing an empty improved cell, not an item/generator
+# WHAT the info bar is showing, stored rather than re-derived from the board. Two kinds live on cells the
+# board reports as EMPTY — an improved-but-empty cell and a powered sky cell answer 0/false to item_at(),
+# is_gen() and is_growing() — so any if/elif chain that re-derives the kind ends in "none of the above"
+# and destroys the selection. Every _select_* entry point sets this; _restore_selected_info() switches on it.
+const SEL_NONE := 0
+const SEL_ITEM := 1         # a board item, including a seed growing on soil (same entry point: _select_item)
+const SEL_GENERATOR := 2    # generators live in board.gens, never board.items — item_at() reads 0 on their cell
+const SEL_IMPROVEMENT := 3  # an EMPTY improved cell (soil/magnet/…) — the improvement itself is the subject
+const SEL_SKY := 4          # a powered Sunbeam/Rain cell — an empty cell whose subject is the weather
+var _selection_kind := SEL_NONE
 var _focus_ring: Control = null      # the corner-bracket frame drawn on the selected cell (lazily built in board_area)
 var _split_preview: Control = null   # scissors hover preview: dashed target + twin ghosts
 var _info_icon: CenterContainer      # the selected piece preview
@@ -859,14 +868,14 @@ func _select_sky_cell(cell: Vector2i) -> bool:
 	if not _is_weather_focus_cell(cell):
 		return false
 	_selected_cell = cell
-	_selected_improvement = false
+	_selection_kind = SEL_SKY
 	_show_focus(cell)
 	_write_sky_info_bar()
 	return true
 
 func _on_sky_marker_pressed() -> void:
 	_selected_cell = Vector2i(-1, -1)
-	_selected_improvement = false
+	_selection_kind = SEL_NONE
 	_hide_focus()
 	_write_sky_info_bar()
 
@@ -1878,7 +1887,7 @@ func _tick_water() -> void:
 			_rebuild_all()
 	else:
 		_rebuild_soil_overlays()
-	_refresh_selected_soil_info()
+	_refresh_selected_info()
 	_update_water_hud()
 	if water != before or changed:
 		_persist()
@@ -3137,7 +3146,7 @@ func _select_improvement_cell(cell: Vector2i) -> void:
 		_clear_selection()
 		return
 	_selected_cell = cell
-	_selected_improvement = true
+	_selection_kind = SEL_IMPROVEMENT
 	_show_focus(cell)
 	if _info_burst != null and is_instance_valid(_info_burst):
 		_info_burst.visible = false
@@ -3218,7 +3227,7 @@ func _water_soil(cell: Vector2i, now: float = -1.0) -> bool:
 	water -= int(G.SOIL_WATER_COST)
 	_update_water_hud()
 	_after_board_change()
-	_refresh_selected_soil_info()
+	_refresh_selected_info()
 	return true
 
 func _on_soil_water() -> void:
@@ -3379,7 +3388,6 @@ func _rebuild_action_bar_row(row: HBoxContainer, bottom_btn_px: float, action_op
 	if row == null:
 		return
 	var prior_selection := _selected_cell
-	var prior_improvement := _selected_improvement
 	for child in row.get_children():
 		row.remove_child(child)
 		child.queue_free()
@@ -3394,12 +3402,7 @@ func _rebuild_action_bar_row(row: HBoxContainer, bottom_btn_px: float, action_op
 		float(action_opts.get("info_x_frac", 0.0)), "ActionBarInfoOffset"))
 	row.add_child(_build_bag_box(bottom_btn_px, action_opts))   # right: the Bag tile, OUTSIDE the info tray
 	if preserve_selection and prior_selection.x >= 0 and board != null:
-		if prior_improvement and board.has_improvement(prior_selection) and board.item_at(prior_selection) == 0:
-			_select_improvement_cell(prior_selection)
-		elif board.is_gen(prior_selection):
-			_select_generator(prior_selection)
-		else:
-			_select_item(prior_selection)
+		_restore_selected_info(true)                   # kind-driven: the tray's widgets were just re-made
 	else:
 		_clear_selection()                             # the info bar starts in its empty "tap an item" state
 
@@ -3753,30 +3756,64 @@ func _refresh_soil_chips(cell: Vector2i) -> void:
 	var water_ready := water >= int(G.SOIL_WATER_COST) and not watered
 	_set_action_chip(_info_soil_water, _info_soil_water_sb, _info_soil_water_coin, _info_soil_water_count, "water", "%d" % int(G.SOIL_WATER_COST), water_ready)
 
-func _refresh_selected_soil_info() -> void:
+## The ONE place that re-shows the info bar for whatever is selected. Both callers reach it — the water
+## regen tick (_tick_water / _water_soil, via _refresh_selected_info) and the action-bar rebuild
+## (_rebuild_action_bar_row, with rebuild = true, after it has freed and re-made the tray's widgets).
+##
+## It switches on the STORED _selection_kind instead of re-deriving the kind from the board. Both callers
+## used to run their own if/elif chain over item_at()/is_gen()/has_improvement() and end in an `else` that
+## cleared the selection — and two kinds sit on cells the board calls empty (an improved-but-empty cell,
+## a powered sky cell), so they matched nothing and were silently defocused ~0.7s after the tap. The
+## default branch below therefore HOLDS the selection: a kind this dispatch does not know must degrade to
+## a stale-but-focused info bar, never a destroyed one. Clearing happens ONLY from a per-kind validity
+## check that failed (the item merged away, the generator sold, the sky hour rolled the patch elsewhere).
+func _restore_selected_info(rebuild: bool) -> void:
 	if _selected_cell.x < 0 or _info_label == null or not is_instance_valid(_info_label):
 		return
 	if board == null:
 		return
-	if _selected_improvement and board.has_improvement(_selected_cell):
-		_select_improvement_cell(_selected_cell)
-		return
-	# A GENERATOR lives in board.gens, never in board.items — item_at() reads 0 on its cell, so without
-	# this branch the tray for a just-tapped generator fell through to _clear_selection() below and the
-	# next water tick silently defocused it (~0.7s after the tap). Nothing the generator tray shows reads
-	# `water` — the title/tier/boost detail, the mastery row and the burst chip are driven by coins, boost
-	# charges and pops — and each of those has its own refresh hook (_refresh_selected_generator_mastery()
-	# from _after_board_change, the pop path's own relabel). So this HOLDS the selection rather than
-	# rebuilding it: re-running _select_generator() every regen tick would just churn the preview sprite.
-	if board.is_gen(_selected_cell):
-		return
-	if board.is_growing(_selected_cell):
-		_info_label.text = _soil_info_title(_selected_cell)
-		_refresh_soil_chips(_selected_cell)
-	elif board.item_at(_selected_cell) > 0:
-		_select_item(_selected_cell)
-	else:
-		_clear_selection()
+	var cell := _selected_cell
+	match _selection_kind:
+		SEL_SKY:
+			if not _is_weather_focus_cell(cell):   # the hour can roll the patch off this cell
+				_clear_selection()
+				return
+			_select_sky_cell(cell)
+		SEL_IMPROVEMENT:
+			if not board.has_improvement(cell) or board.item_at(cell) > 0:
+				_clear_selection()
+				return
+			_select_improvement_cell(cell)
+		SEL_GENERATOR:
+			if not board.is_gen(cell):
+				_clear_selection()
+				return
+			# Nothing the generator tray shows reads `water` — the title/tier/boost detail, the mastery
+			# row and the burst chip are driven by coins, boost charges and pops, and each of those has
+			# its own refresh hook (_refresh_selected_generator_mastery() from _after_board_change, the
+			# pop path's own relabel). So a tick HOLDS the selection rather than rebuilding it: re-running
+			# _select_generator() every regen tick would just churn the preview sprite. A rebuild has no
+			# choice — the widgets it would refresh were just freed.
+			if rebuild:
+				_select_generator(cell)
+		SEL_ITEM:
+			if board.is_growing(cell):
+				if rebuild:
+					_select_item(cell)
+				else:
+					_info_label.text = _soil_info_title(cell)
+					_refresh_soil_chips(cell)
+				return
+			if board.item_at(cell) <= 0:
+				_clear_selection()
+				return
+			_select_item(cell)
+		_:
+			return   # unknown kind: hold the focus + whatever the bar already says
+
+## The water regen tick's hook into the dispatch above: refresh in place, keep every widget that exists.
+func _refresh_selected_info() -> void:
+	_restore_selected_info(false)
 
 func _build_almanac_chip(opts: Dictionary, row: Control) -> void:
 	var KitA: GDScript = KIT
@@ -3800,7 +3837,7 @@ func _select_item(cell: Vector2i) -> void:
 		_clear_selection()
 		return
 	_selected_cell = cell
-	_selected_improvement = false
+	_selection_kind = SEL_ITEM
 	_show_focus(cell)                          # the corner-bracket frame makes the focus visible on the board
 	if _info_burst != null and is_instance_valid(_info_burst):
 		_info_burst.visible = false           # the burst chip is a GENERATOR action (see _select_generator)
@@ -3875,7 +3912,7 @@ func _select_generator(cell: Vector2i) -> void:
 		_clear_selection()
 		return
 	_selected_cell = cell
-	_selected_improvement = false
+	_selection_kind = SEL_GENERATOR
 	_show_focus(cell)                          # the corner-bracket frame makes the focus visible on the board
 	var gid := board.gen_id_at(cell)
 	_place_info_button(false)
@@ -4060,7 +4097,7 @@ func _show_mastery_info_row(line: int) -> void:
 # Reset the info bar to its empty "tap an item" state.
 func _clear_selection() -> void:
 	_selected_cell = Vector2i(-1, -1)
-	_selected_improvement = false
+	_selection_kind = SEL_NONE
 	_hide_focus()
 	if _info_icon != null and is_instance_valid(_info_icon):
 		for c in _info_icon.get_children():

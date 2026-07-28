@@ -3,6 +3,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ##   godot --headless --path . -s res://games/grove/tests/grove_improvements_tests.gd
 
 const Improvements = preload("res://engine/scripts/core/improvements.gd")
+const Ambient = preload("res://engine/scripts/ui/ambient.gd")   # the selection-kind sweep pins the hour's sky
 
 func _initialize() -> void:
 	begin("grove · cell improvements")
@@ -24,6 +25,7 @@ func _initialize() -> void:
 	await _test_water_tick_keeps_tapped_generator_selected()
 	await _test_water_tick_keeps_tapped_item_selected()
 	await _test_water_tick_clears_a_stale_selection()
+	await _test_every_selection_kind_survives_tick_and_reflow()
 	await _test_soil_completion_wakes_magnet_and_opens_bramble()
 	await _test_soil_ftue_grants_seed_once()
 	await _test_soil_ftue_hand_follows_moved_seed()
@@ -576,6 +578,82 @@ func _test_water_tick_clears_a_stale_selection() -> void:
 	scn._tick_water()
 	ok(scn._selected_cell.x < 0, "a water regen tick still clears a selection whose subject left the board")
 	scn.queue_free()
+
+# The class guard behind the two one-off bugs above. board.gd stores WHAT is selected (_selection_kind);
+# the two paths that re-show the info bar — the water regen tick and the action-bar reflow — dispatch on
+# that stored kind. They used to re-DERIVE it with an if/elif chain over item_at()/is_gen()/has_improvement()
+# whose `else` cleared the selection, so every kind that sits on a cell the board calls EMPTY (an improved
+# but unplanted cell; a powered Sunbeam/Rain cell) was silently defocused ~0.7s after the tap. Generators
+# were the first casualty and got a one-off early return; sky was the second. This sweeps EVERY kind
+# through BOTH paths so a third cannot arrive unnoticed.
+func _test_every_selection_kind_survives_tick_and_reflow() -> void:
+	for kind in ["item", "generator", "improvement", "growing", "sky"]:
+		await _assert_selection_kind_survives(String(kind))
+
+func _assert_selection_kind_survives(kind: String) -> void:
+	fresh("improve_kind_%s" % kind)
+	Save.mark_board_tutorial_seen()
+	Save.mark_ftue_seen("merge")
+	Save.mark_ftue_seen("gen_tap")
+	var was_weather: bool = bool(Feat.FLAGS.get("weather_hours", true))
+	var was_forced: String = Ambient.forced_weather
+	Feat.FLAGS["weather_hours"] = true
+	# Pin the hour: Sunbeam for the sky case, Calm for every other kind — a live lane rolling over the
+	# test's cell would otherwise let the sky branch win the tap and make the sweep hour-dependent.
+	Ambient.forced_weather = "sunbeam" if kind == "sky" else "calm"
+	var scn := _open_board()
+	await _settle()
+	var cell := Vector2i(2, 2)
+	var mark := ""            # the substring the info-bar title must still carry after each refresh
+	match kind:
+		"item":
+			_clear_board_model(scn.board)
+			scn.board.place(cell, 101)
+			mark = String(tr(G.item_display_name(101)))
+		"generator":
+			_clear_board_model(scn.board)
+			scn.board.place_gen("gen_1", cell)
+			mark = G.generator_display_name("gen_1")
+		"improvement":
+			_clear_board_model(scn.board)
+			scn.board.build_improvement(cell, Improvements.KIND_SOIL)
+			mark = "Soil rank"
+		"growing":
+			_clear_board_model(scn.board)
+			scn.board.build_improvement(cell, Improvements.KIND_SOIL)
+			scn.board.place(cell, 107)
+			var row: Dictionary = scn.board.improvement_at(cell)
+			row["code"] = 107
+			row["ends_at"] = Time.get_unix_time_from_system() + 3600.0
+			scn.board.improvements[cell] = row
+			mark = "Growing to t"     # the rest of the title is a live countdown
+		"sky":
+			cell = _prepare_weather_focus_cell(scn)
+			mark = "Sunbeam"
+	scn._rebuild_all()
+	await _settle()
+	if cell.x < 0:
+		ok(false, "test setup found a powered %s cell to focus" % kind)
+		scn.queue_free()
+		Feat.FLAGS["weather_hours"] = was_weather
+		Ambient.forced_weather = was_forced
+		return
+	_board_touch(scn, cell, true)
+	_board_touch(scn, cell, false)
+	await _settle()
+	ok(scn._selected_cell == cell and String(scn._info_label.text).find(mark) != -1, \
+		"test setup selects a %s through the real touch path (info bar: %s)" % [kind, scn._info_label.text])
+	scn._tick_water()
+	await _settle()
+	ok(scn._selected_cell == cell and String(scn._info_label.text).find(mark) != -1, \
+		"a water regen tick keeps the %s selection and its info title (info bar: %s)" % [kind, scn._info_label.text])
+	scn._relayout_action_bar()      # the REAL reflow entry point — it rebuilds the tray preserving selection
+	await _settle()
+	ok(scn._selected_cell == cell and String(scn._info_label.text).find(mark) != -1, \
+		"an action-bar reflow keeps the %s selection and its info title (info bar: %s)" % [kind, scn._info_label.text])
+	scn.queue_free()
+	Feat.FLAGS["weather_hours"] = was_weather
+	Ambient.forced_weather = was_forced
 
 func _test_soil_completion_wakes_magnet_and_opens_bramble() -> void:
 	fresh("improve_soil_magnet_tick")

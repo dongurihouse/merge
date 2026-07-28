@@ -189,6 +189,27 @@ func _panel_count(area: Control) -> int:
 			n += 1
 	return n
 
+# The cell a weather-hour board powers (Sunbeam/Rain lane center), or (-1,-1) when the hour has none.
+func _call_sky_icon_cell(board_scene) -> Vector2i:
+	if not board_scene.has_method("_sky_icon_cell"):
+		return Vector2i(-1, -1)
+	return board_scene.call("_sky_icon_cell")
+
+# …the same cell made TAPPABLE-as-sky: opened if sealed and emptied of its item, so a tap selects the
+# weather rather than a tile. Returns the (possibly re-derived) powered cell. Shared by the sky suite and
+# the selection-kind sweep in the improvements suite.
+func _prepare_weather_focus_cell(board_scene) -> Vector2i:
+	var cell := _call_sky_icon_cell(board_scene)
+	if cell.x < 0:
+		return cell
+	if not board_scene.board.is_open(cell):
+		board_scene.board.terrain[BoardModel.idx(cell)] = 0
+	if not board_scene.board.is_gen(cell):
+		board_scene.board.place(cell, 0)
+		board_scene._rebuild_all()
+		cell = _call_sky_icon_cell(board_scene)
+	return cell
+
 # The grove suites' own user:// save-dir tree — kept distinct from the engine suites'
 # so the parallel runner can never let two suites clobber each other's saves.
 func save_prefix() -> String:
