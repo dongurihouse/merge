@@ -1,0 +1,74 @@
+Generate an image (do not write code). Do not read any skills.
+
+Save the PNG into: /Users/xup/dh/wt-chest12/games/grove/assets/_new
+Name it: chest_12tier_asset.png
+Report the absolute path when done.
+
+Use case: production game asset. Asset type: 12-tier merge-line sprite sheet.
+
+Input images:
+- Image 1 is the FORMAT and MATERIAL authority: an approved sheet from this same game. Match its
+  sheet layout, its matte hand-cut cardstock material, its cut-edge treatment, its per-cell scale
+  discipline and its detail budget EXACTLY. Do NOT copy its subject (tea cups) or its cherry-blossom
+  motif.
+- Image 2 is the PALETTE authority: the fixed Meadow Sky role palette. Take colour relationships from
+  it only. Do NOT copy its layout, UI or content.
+
+Primary request: a 12-tier merge-line sheet for the Chest line — a treasure-chest ladder that grows
+from a humble woven basket to a regal ceremonial coffer.
+
+Canvas: exact 1024x1536 PNG, 3 columns x 4 rows, generous gutters. Background: solid flat #FF00FF only,
+edge to edge, no gradient, no texture, no vignette.
+
+Sizing: all 12 chests share the same visual footprint and fill the same amount of their cell; early
+tiers are simpler but NOT smaller. Center every chest in its own cell with clear magenta gutter visible
+on ALL FOUR sides of every chest. No chest may touch or cross a cell boundary.
+
+Camera: every chest at the identical gentle three-quarter view — front face and the right side both
+visible, lid closed, seen slightly from above. Same angle for all twelve, no rotation variation.
+
+One clean cutout-friendly chest per cell, row-major tier 1 -> 12:
+  TIER 01: small woven straw basket with a flat woven lid, warm cream and straw, a simple rope loop clasp.
+  TIER 02: plain pine plank crate, flat lid, one rope band around it, visible plank seams.
+  TIER 03: flat-lid wooden box, two dark iron straps over the lid, a small round iron keyhole plate.
+  TIER 04: barrel-domed wooden chest, iron corner brackets, iron keyhole plate on the front.
+  TIER 05: slate-blue painted chest with warm cream banding, low domed lid, simple pale clasp.
+  TIER 06: garden-green chest with one carved leaf panel on the front face and cream straps.
+  TIER 07: coral-red chest with cream strapwork, rounded domed lid, small cream lock plate.
+  TIER 08: deep structural-slate chest with reward-gold corner brackets and a gold lock plate.
+  TIER 09: warm-cream chest with an arched domed lid and full reward-gold strapwork and gold feet.
+  TIER 10: reward-gold chest, arched domed lid, ONE bold acorn emblem as the central lock plate.
+  TIER 11: slate-blue and reward-gold chest, taller arched dome, scrolled gold corner mounts, ONE
+           larger acorn emblem centred on the front.
+  TIER 12: regal cream-and-gold ceremonial coffer, high arched dome, sparse rare-purple accent panels,
+           ONE bold acorn emblem crest centred on the front as the single hero motif.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Palette roles to draw from: warm cream #F6EBDD, structural slate #3F6D7D, garden green #5F9B6D,
+coral #D87865, reward gold #D6A94C, rare purple #8677A3 (sparse, tier 12 only), ink #243B4B for the
+deepest local edge only. Gold is meaningful — do not use it before tier 08. Keep purple rare.
+
+Constraints: one connected object per cell — a single closed chest, nothing spilling out, no coins,
+gems, keys, ribbons or loose treasure anywhere; lids stay shut. Broad attached details only: avoid
+tiny studs, hairline filigree, thin dangling straps, and micro-ornament. Make tiers 10-12 premium
+through silhouette, material and palette plus the one bold central acorn emblem — never through
+effects. No shadows of any kind, no grounding plane, no glow, no sparkles, no detached FX, no text,
+no labels, no numerals, no watermark. Output only the image sheet.
+
+BACKGROUND HANDLING — IMPORTANT: do NOT key the background out and do NOT save a transparent PNG.
+A downstream deterministic slicer does the keying and needs the solid flat #FF00FF field intact.
+Save the sheet with its opaque magenta background exactly as generated.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is
+already approved. Do NOT offer a visual companion or read any skills. Generate the
+image NOW with your built-in image generation and save it to the path above, keeping the
+opaque flat #FF00FF background. Then report the saved path.
