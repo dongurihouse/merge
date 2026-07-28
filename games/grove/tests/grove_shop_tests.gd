@@ -435,7 +435,7 @@ func _initialize() -> void:
 	ok(Save.coins() == wallet1, "dragging a coin does not pocket it")
 
 	# Opening a chest is a second TAP (the key line is retired): the focused chest opens and
-	# credits its coins+acorns payout DIRECTLY to the wallet — coins organically (the clock moves).
+	# credits its COINS-ONLY payout DIRECTLY to the wallet (spendable — the quest clock does not move).
 	for ci in bd.board.items.size():
 		bd.board.items[ci] = 0
 	var chest_spots: Array = bd.board.empty_ground_cells()
@@ -446,7 +446,7 @@ func _initialize() -> void:
 	var chest_wallet := Save.coins()
 	var chest_clock := Save.coins_earned_lifetime()
 	var chest_acorns := Save.diamonds()
-	var expected_chest_reward := G.chest_open_reward(1003)
+	var chest_range := G.chest_open_range(1003)   # the payout is ROLLED — assert range membership, not a number
 	var chest_pos: Vector2 = bd._cell_pos(chest_cell) + chalf
 	bd._on_press(chest_pos)
 	bd._on_release(chest_pos)               # first tap: focus only
@@ -455,11 +455,16 @@ func _initialize() -> void:
 	bd._on_release(chest_pos)               # second tap: OPEN
 	await create_timer(0.1).timeout
 	ok(bd.board.item_at(chest_cell) == 0, "the second tap opens (consumes) the chest — no key needed")
-	ok(Save.coins() == chest_wallet + int(expected_chest_reward.coins), "the open credits the chest-tier coins to the wallet")
+	var opened_coins := Save.coins() - chest_wallet
+	ok(opened_coins >= maxi(0, int((chest_range.coins as Array)[0])) and opened_coins <= int((chest_range.coins as Array)[1]),
+		"the open credits coins rolled from the chest tier's range (%d)" % opened_coins)
 	# THE CLOCK IS QUESTS ONLY (owner call 2026-07-25): a chest is a board pickup, so its coins are fully
 	# spendable but must NOT advance progression. Only delivering a quest moves the level clock.
 	ok(Save.coins_earned_lifetime() == chest_clock, "chest coins are SPENDABLE-ONLY — the level clock does not advance (quests only)")
-	ok(Save.diamonds() == chest_acorns + int(expected_chest_reward.acorns), "the open credits the chest-tier acorns")
+	# COINS ONLY (owner call 2026-07-27): the chest acorn payout is DELETED — an open must leave
+	# the premium wallet exactly where it was.
+	var opened_acorns := Save.diamonds() - chest_acorns
+	ok(opened_acorns == 0, "opening a chest does NOT move the premium wallet (delta %d)" % opened_acorns)
 	# nothing is left behind: the open credits the wallet directly (the old face-value item spawn
 	# died with the 12-tier coin ladder), so the board holds no spawned reward items.
 	var leftover := 0

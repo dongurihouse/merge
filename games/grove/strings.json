@@ -44,6 +44,7 @@
       "empty_prompt": "Tap an item to inspect it",
       "generator": "Generator",
       "item_fallback": "Item",
+      "max_tier": "Max tier",
       "tier": "Tier",
       "unlock_level": "Unlocks at Level %d"
     },

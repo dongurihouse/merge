@@ -769,7 +769,13 @@ func _assert_selection_kind_survives(kind: String) -> void:
 	Feat.FLAGS["weather_hours"] = true
 	# Pin the hour: Sunbeam for the sky case, Calm for every other kind — a live lane rolling over the
 	# test's cell would otherwise let the sky branch win the tap and make the sweep hour-dependent.
-	Ambient.forced_weather = "sunbeam" if kind == "sky" else "calm"
+	# THE TOKEN IS A SKIN NAME, NOT A SKY NAME. `Ambient.WEATHER_DEBUG_STATES` is the whole vocabulary
+	# ("", calm, clear, breeze, rain, snow, star) and `Sky._look` matches exactly those; "clear" and
+	# "breeze" are the two skins of the SUNBEAM sky, so "clear" is how Sunbeam is pinned and "sunbeam"
+	# is not a token at all. An unrecognised token does not error — `_look` falls through its match to
+	# the live hourly roll, which is precisely the hour-dependence this line exists to remove, and it
+	# cost this sweep its sky case on every Calm hour until 2026-07-27.
+	Ambient.forced_weather = "clear" if kind == "sky" else "calm"
 	var scn := _open_board()
 	await _settle()
 	var cell := Vector2i(2, 2)

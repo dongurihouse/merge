@@ -9,6 +9,26 @@ const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").Ambient
+const Ambient = preload("res://engine/scripts/ui/ambient.gd")   # owns WEATHER_DEBUG_STATES, the pin vocabulary
+
+# --- the debug-pin vocabulary guard ---------------------------------------------------------
+#
+# Roots the pin scan walks, whole. A pin living in a directory the scan does not visit is the
+# ENTIRE failure mode this guard exists for, so these are three broad trees, never a file list.
+const PIN_ROOTS := ["res://engine/", "res://games/", "res://tools/"]
+
+# `<expr>forced_weather` then `=` or `:=` (never `==`/`!=`) then a double-quoted literal. Precise
+# rather than exclusion-driven: a comparison, a parameter declaration and a non-literal right-hand
+# side (`Ambient.forced_weather = state`) all carry no token to check and none of them match.
+const PIN_RE := "forced_weather\\s*:?=(?!=)\\s*\"([^\"]*)\""
+# The else arm of a ternary right-hand side: `= <a> if <cond> else <b>` pins TWO tokens, not one,
+# and the second one is the arm a hand sweep reads past.
+const PIN_ELSE_RE := "\\belse\\s+\"([^\"]*)\""
+# The shot layer's own spelling of the same pin: a `weather` spec key or its `get()` default, both
+# of which reach forced_weather through shot_base._apply_weather.
+const SHOT_WEATHER_RE := "\"weather\"\\s*[:,]\\s*\"([^\"]*)\""
+# ...which accepts one token the pin itself does not: `auto` is the shot layer's spelling of "".
+const SHOT_EXTRA_TOKEN := "auto"
 
 const MID_LEVEL := 12                          # a level where every lane on both axes is playable
 const LANE_SWEEP_LEVELS := [1, 2, 6, 12, 40]   # early board → fully open board
@@ -97,27 +117,72 @@ func _initialize() -> void:
 	ok(not Sky.in_patch({"sky": "calm", "lane_axis": "column", "lane": 3}, Vector2i(0, 3)), \
 		"in_patch rejects Calm by the SKY name, not by the lane sentinel — a stray lane cannot revive it")
 
-	# --- share sweep: four skies, at their stated weights -------------------------------
-	var found := {"calm": false, "sunbeam": false, "rain": false, "starfall": false, "breeze": false, "snow": false}
+	# --- share sweep: exactly the skies the table funds, at their stated weights --------
+	# BOTH HALVES ARE DERIVED FROM G.SKY_SHARES, never listed here: every sky with a POSITIVE share must
+	# be observed, and every sky PARKED AT 0 must be observed ZERO times — the walk skips a share <= 0, so
+	# that is the whole disable. The reachable SKIN set follows the same way (a live sky's split entry, or
+	# its one skin when it has none), which is what keeps `starlit` out while Starfall is parked. Parking
+	# a sky or restoring it is a `grove_data.gd` edit alone; this assertion needs no touch either way.
+	var live_skies: Array = []
+	var parked_skies: Array = []
+	var want_skins := {}
+	var share_total := 0
+	for sky_name in G.SKY_SHARES.keys():
+		var share := maxi(0, int(G.SKY_SHARES[sky_name]))
+		share_total += share
+		if share <= 0:
+			parked_skies.append(String(sky_name))
+			continue
+		live_skies.append(String(sky_name))
+		var split: Dictionary = G.SKY_SKIN_SPLIT.get(String(sky_name), {})
+		if split.is_empty():
+			want_skins[String(Sky.SKIN_STARLIT)] = true    # mirrors Sky._skin: no split = one skin
+		else:
+			for skin_name in split.keys():
+				if int(split[skin_name]) > 0:
+					want_skins[String(skin_name)] = true
 	var sky_counts := {}
+	var skin_counts := {}
 	var skin_matches := true
 	for h in range(0, SHARE_SWEEP_HOURS):
 		var t := float(h) * Tune.SECS_PER_HOUR
 		var st: Dictionary = Sky.state(t, MID_LEVEL)
-		found[String(st.sky)] = true
-		found[String(st.skin)] = true
 		sky_counts[String(st.sky)] = int(sky_counts.get(String(st.sky), 0)) + 1
+		skin_counts[String(st.skin)] = int(skin_counts.get(String(st.skin), 0)) + 1
 		if h < 500 and String(Sky.skin_at(t)) != String(st.skin):
 			skin_matches = false
-	ok(found.calm and found.sunbeam and found.rain and found.starfall and found.breeze and found.snow, \
-		"auto weather reaches all FOUR skies and every legacy skin")
+	var sky_missing: Array = []
+	for sky_name in live_skies:
+		if int(sky_counts.get(sky_name, 0)) <= 0:
+			sky_missing.append(String(sky_name))
+	var sky_leaked: Array = []
+	for sky_name in parked_skies:
+		if int(sky_counts.get(sky_name, 0)) > 0:
+			sky_leaked.append("%s×%d" % [sky_name, int(sky_counts.get(sky_name, 0))])
+	ok(sky_missing.is_empty() and sky_leaked.is_empty(), \
+		"auto weather reaches EXACTLY the funded skies over %d hours — %s all seen, %s parked at 0 and never rolled (missing %s, leaked %s)" \
+		% [SHARE_SWEEP_HOURS, str(live_skies), str(parked_skies), str(sky_missing), str(sky_leaked)])
+	var skin_missing: Array = []
+	for skin_name in want_skins.keys():
+		if int(skin_counts.get(skin_name, 0)) <= 0:
+			skin_missing.append(String(skin_name))
+	var skin_leaked: Array = []
+	for skin_name in skin_counts.keys():
+		if not want_skins.has(String(skin_name)):
+			skin_leaked.append("%s×%d" % [String(skin_name), int(skin_counts[skin_name])])
+	ok(skin_missing.is_empty() and skin_leaked.is_empty(), \
+		"the sweep wears EXACTLY the skins the funded skies can draw, legacy breeze and snow included — %s (missing %s, leaked %s)" \
+		% [str(want_skins.keys()), str(skin_missing), str(skin_leaked)])
 	var share_report: Array = []
 	var share_worst := 0.0
 	for sky_name in G.SKY_SHARES.keys():
-		var want := float(G.SKY_SHARES[sky_name])
+		# TOTAL-DRIVEN, exactly as sky.gd::_walk_shares rolls it: a share divides the hours against the
+		# table's OWN total, which equals 100 only by coincidence. Comparing a raw share against a
+		# percentage would make this assertion fire on arithmetic the moment any share changes.
+		var want := 100.0 * float(maxi(0, int(G.SKY_SHARES[sky_name]))) / float(maxi(1, share_total))
 		var got := 100.0 * float(sky_counts.get(String(sky_name), 0)) / float(SHARE_SWEEP_HOURS)
 		share_worst = maxf(share_worst, absf(got - want))
-		share_report.append("%s %.2f/%d" % [sky_name, got, int(want)])
+		share_report.append("%s %.2f/%.2f" % [sky_name, got, want])
 	ok(share_worst <= SHARE_TOLERANCE, \
 		"observed shares land within %.1f point of SKY_SHARES over %d hours (%s; worst %.2f)" \
 		% [SHARE_TOLERANCE, SHARE_SWEEP_HOURS, " · ".join(share_report), share_worst])
@@ -315,8 +380,92 @@ func _initialize() -> void:
 	ok(calm_stream_match, "Calm merge drops leave the board rng stream byte-identical to the baseline")
 	ok(not calm_bonus, "no Calm merge ever mints the in-patch sky coin")
 
+	_check_pin_vocabulary()
+
 	if saved_weather_hours == null:
 		Features.FLAGS.erase("weather_hours")
 	else:
 		Features.FLAGS["weather_hours"] = bool(saved_weather_hours)
 	finish()
+
+# --- every debug pin in the repo names a state _look actually knows -------------------------
+#
+# `Ambient.forced_weather` is the ONE pin for the sky, and `SkyLogic._look` dispatches on it with a
+# `match` whose fall-through is the live hourly roll. `""` is the legitimate auto arm — but so is
+# every typo: an unrecognised token is INDISTINGUISHABLE from auto at every observable point. There
+# is no error, no warning and no wrong-looking frame; a test or a capture that means to pin one sky
+# samples the wall clock instead, and disagrees only in the hours that happen to roll something
+# else — on someone else's machine, an hour later.
+#
+# So the vocabulary is checked where it is WRITTEN, against WEATHER_DEBUG_STATES itself. A sky added
+# to that list is accepted here the same day; a token that is not in it fails the sweep with the file
+# that wrote it. Nothing about this list is duplicated here.
+
+func _check_pin_vocabulary() -> void:
+	var vocab: Array = Ambient.WEATHER_DEBUG_STATES
+	ok(vocab.size() >= 5 and vocab.has(""), \
+		"read the pin vocabulary off Ambient.WEATHER_DEBUG_STATES (%d states, auto included)" % vocab.size())
+
+	var pin_re := RegEx.create_from_string(PIN_RE)
+	var else_re := RegEx.create_from_string(PIN_ELSE_RE)
+	var shot_re := RegEx.create_from_string(SHOT_WEATHER_RE)
+	var pins := 0
+	var pin_files := {}
+	var shot_keys := 0
+	var bad: Array = []
+
+	for root in PIN_ROOTS:
+		for path in gd_files(root):
+			var lines := read_text(path).split("\n")
+			for i in lines.size():
+				var line := String(lines[i])
+				var where := "%s:%d" % [String(path).trim_prefix("res://"), i + 1]
+
+				var hits := pin_re.search_all(line)
+				for h in hits.size():
+					var m: RegExMatch = hits[h]
+					pins += 1
+					pin_files[path] = true
+					var tokens: Array = [m.get_string(1)]
+					# The right-hand side stops at the next pin on the same line, so a ternary's else
+					# arm is attributed to the assignment it actually belongs to.
+					var rhs_end := int(hits[h + 1].get_start()) if h + 1 < hits.size() else line.length()
+					var em := else_re.search(line.substr(m.get_end(), rhs_end - m.get_end()))
+					if em != null:
+						tokens.append(em.get_string(1))
+					for tok in tokens:
+						if not vocab.has(String(tok)):
+							bad.append("%s  pin token %s" % [where, _quoted(tok)])
+
+				for m in shot_re.search_all(line):
+					shot_keys += 1
+					var tok := m.get_string(1)
+					if not (vocab.has(tok) or tok == SHOT_EXTRA_TOKEN):
+						bad.append("%s  shot weather key %s" % [where, _quoted(tok)])
+
+	# ANTI-POTEMKIN: a scanner that reports nothing is a bug until it is seen finding something. Both
+	# floors are well under today's counts — they catch a broken regex or an unwalked root, not growth.
+	ok(pins >= 8 and pin_files.size() >= 3, \
+		"the pin scan finds real assignments across the tree (%d pins in %d files)" % [pins, pin_files.size()])
+	ok(shot_keys >= 1, "the shot scan finds the capture layer's weather key (%d)" % shot_keys)
+
+	if not bad.is_empty():
+		print("  ----------------------------------------------------------------")
+		print("  pinned to a weather token SkyLogic._look does not know:")
+		for b in bad:
+			print("    ", b)
+		print("  an unknown token is NOT an error: _look falls through to the live hourly roll,")
+		print("  exactly as the empty auto pin does, so the pin silently does nothing at all.")
+		print("  valid states (Ambient.WEATHER_DEBUG_STATES): ", ", ".join(_quoted_all(vocab)))
+		print("  the shot layer's weather key also accepts ", _quoted(SHOT_EXTRA_TOKEN))
+		print("  ----------------------------------------------------------------")
+	ok(bad.is_empty(), "every weather pin literal in the tree names a real debug state (%d bad)" % bad.size())
+
+func _quoted(tok) -> String:
+	return "'%s'" % String(tok)
+
+func _quoted_all(toks: Array) -> PackedStringArray:
+	var out := PackedStringArray()
+	for t in toks:
+		out.append(_quoted(t))
+	return out
