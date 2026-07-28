@@ -435,11 +435,11 @@ func _initialize() -> void:
 	ok(Save.coins() == coins_before, "trash on a generator does not credit old generator sell coins")
 	await drop(ssell, 3)
 
-	# --- burst-pop, the FLAT burst_count family (§6, T58) — line generators, special generators
-	# (boosted accumulator collect, treat pop), and the sim use the same flat tables.
+	# --- burst-pop, the ONE flat burst_count seam (§6, T58) — line generators, special generators
+	# (boosted accumulator collect, treat pop), and the sim all call G.burst_count(rng, boosted).
 	# WITHOUT a boost a tap almost always pops a SINGLE item (BURST_ODDS); a live BOOST swaps in
 	# BURST_ODDS_BOOST so multiples become the norm — the boost RAISES THE CHANCE of multiples, it does
-	# not add a flat count. Both tables top out at BURST_MAX; no per-map scale-up (the map arg is ignored). ---
+	# not add a flat count. Both tables top out at BURST_MAX; there is no per-map scale-up. ---
 	var brng := RandomNumberGenerator.new()
 	brng.seed = 7
 	var N := 4000
@@ -451,8 +451,8 @@ func _initialize() -> void:
 	var bo_min := 99
 	var floored := true
 	for _i in N:
-		var u := G.burst_count(0, 0, brng)              # no boost
-		var b := G.burst_count(0, G.BOOST_BONUS, brng)  # boost live (any positive arg = boosted)
+		var u := G.burst_count(brng)                    # no boost (the default)
+		var b := G.burst_count(brng, true)              # boost live
 		un_sum += u
 		bo_sum += b
 		un_max = maxi(un_max, u)
@@ -471,34 +471,15 @@ func _initialize() -> void:
 	ok(bo_rate > 0.60, "with a boost multiples become the norm (multiple-rate %.2f > 0.60)" % bo_rate)
 	ok(bo_rate > un_rate + 0.30, "the boost markedly RAISES the chance of multiples (%.2f vs %.2f)" % [bo_rate, un_rate])
 	ok(bo_sum > un_sum, "the boost raises the average items per tap")
-	var deep_max := 0
-	for _i in N:
-		deep_max = maxi(deep_max, G.burst_count(9, 0, brng))
-	ok(deep_max <= int(G.BURST_MAX), "a deep map does not burst beyond BURST_MAX (no per-map scale-up)")
+	# the BURST_MAX clamp is the board-flood safety net; it is inert only while the dial matches the
+	# tables' length, so pin that here (a longer odds row must raise the dial deliberately).
+	ok(int(G.BURST_MAX) == G.BURST_ODDS.size() and int(G.BURST_MAX) == G.BURST_ODDS_BOOST.size(),
+		"BURST_MAX matches both flat tables' length (the clamp is the flood net, not a silent cap)")
 	# the boost coin sink: a flat cost, the same every activation (no ladder — T57)
 	ok(G.boost_cost() > 0, "the boost has a positive coin cost")
 
-	ok(G.gen_burst_odds() == G.BURST_ODDS and G.gen_burst_odds(true) == G.BURST_ODDS_BOOST,
-		"line-generator burst odds use the flat unboosted/boosted rows")
-	var gen_rng := RandomNumberGenerator.new()
-	gen_rng.seed = 64
-	var gen_un_max := 0
-	var gen_un_sum := 0
-	var gen_bo_max := 0
-	var gen_bo_min := 99
-	var gen_bo_sum := 0
-	for _i in N:
-		var gu := G.gen_burst_count(gen_rng)
-		var gb := G.gen_burst_count(gen_rng, true)
-		gen_un_max = maxi(gen_un_max, gu)
-		gen_un_sum += gu
-		gen_bo_max = maxi(gen_bo_max, gb)
-		gen_bo_min = mini(gen_bo_min, gb)
-		gen_bo_sum += gb
-	ok(gen_un_max <= int(G.BURST_MAX) and gen_bo_max <= int(G.BURST_MAX),
-		"line-generator bursts stay inside the flat BURST_MAX ceiling")
-	ok(gen_bo_min >= 1, "a boosted generator burst is always at least 1 item")
-	ok(gen_bo_sum > gen_un_sum, "the boost raises a line generator's mean burst")
+	ok(G.burst_odds() == G.BURST_ODDS and G.burst_odds(true) == G.BURST_ODDS_BOOST,
+		"burst odds select the flat unboosted/boosted rows — one table pair for every generator tap")
 
 	# --- §6 spawn TIER-bias: a pop's line AND tier lean toward what givers want (ASK_WEIGHT), but
 	# --- only among POPPABLE tiers (≤ TIER_ODDS range) so a generator never pops a high tier
@@ -921,7 +902,7 @@ func _initialize() -> void:
 	ok(G.buy_price(107) == Vector2i(0, 5) and G.buy_price(108) == Vector2i(0, 8) and G.buy_price(112) == Vector2i(0, 55), 		"t7 → 5, t8 → 8 … t12 → 55 acorns (Fibonacci)")
 	# (the active-lines window + due_line_gen are RETIRED; quest-driven birth-on-tap is covered by
 	#  Quests.due_gen in quest_tests.gd.)
-	ok(G.gen_burst_odds() == [0.80, 0.15, 0.05] and G.gen_burst_odds(true) == [0.20, 0.45, 0.35],
+	ok(G.burst_odds() == [0.80, 0.15, 0.05] and G.burst_odds(true) == [0.20, 0.45, 0.35],
 		"generator burst odds are flat after retiring generator merge tiers")
 
 	# --- §6.D temporary treat generators (per-map line / clicks / id mapping) ---
