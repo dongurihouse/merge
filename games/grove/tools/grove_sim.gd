@@ -104,7 +104,7 @@ var resident_merges := 0       # auto-merge events fired (two-of-a-kind → a ti
 var diamonds := 0              # spendable 💎 balance (faucet minus the premium sink)
 var gems_from_levels := 0      # 💎 from level-ups (LEVEL_DIAMONDS each)
 var gems_from_maps := 0        # 💎 from fully restoring a map (MAP_DIAMONDS each)
-var gems_from_sells := 0       # RETIRED (always 0) — t8 sells for COINS now, no premium pinnacle
+var gems_from_sells := 0       # 💎 from selling an acorn-tier item (§9 ladder: t >= G.SELL_ACORN_TIER)
 var gems_from_quests := 0      # RETIRED (always 0) — quests pay no acorns now (milestone/IAP only)
 # the coin faucet measured ONCE the FIRST map completes (drives the P1 late-game no-pile check) —
 # coins earned AFTER population opens must have somewhere to go.
@@ -416,7 +416,7 @@ func _initialize() -> void:
 	# map-restores (MAP_DIAMONDS) + t8-pinnacle sells (flat 1💎); sink = premium signature residents
 	# (RESIDENT_PREMIUM_COST each). REPORTED as a ledger — the premium sink is gated behind completing
 	# a map, so an early/short run may show 0 spend (the faucet leads the sink, by design). ---
-	print("  -- D diamonds --  faucet %d💎 (levels %d + maps %d + t8-sells %d + quests %d) · sink %d💎 = magnet unsockets %d (%d placed/%d held) + premium residents %d (%d) · balance %d💎" % \
+	print("  -- D diamonds --  faucet %d💎 (levels %d + maps %d + acorn-tier sells %d + quests %d) · sink %d💎 = magnet unsockets %d (%d placed/%d held) + premium residents %d (%d) · balance %d💎" % \
 		[gems_earned, gems_from_levels, gems_from_maps, gems_from_sells, gems_from_quests, magnet_gems_spent + resident_gems_spent, magnet_gems_spent, magnets_built, magnet_seeds_unplaced, resident_gems_spent, residents_premium, diamonds])
 	print("                 NOTE the premium SINK reads 0 by construction: it models the retired per-map WELCOME roster")
 	print("                 (MAPS[z].spots, now save-compat legacy), so this ledger is faucet-only until the parked")
@@ -577,6 +577,14 @@ func _gain_coins(amount: int) -> void:
 		return
 	coins += amount
 	coins_spendable += amount
+
+## An acorn-tier sale mints 💎 (§9 ladder) — booked into the D ledger so the Y round-trip guard and the
+## diamond faucet see the sell path, not just level/map milestones.
+func _gain_acorns_from_sell(amount: int) -> void:
+	if amount <= 0:
+		return
+	diamonds += amount
+	gems_from_sells += amount
 
 func _earn_coins(amount: int) -> void:
 	if amount <= 0:
@@ -1128,13 +1136,14 @@ func _play_session() -> Dictionary:
 			# completion (diamond gift + habitat cell). Advancing on the spot skips that page forever.
 			continue
 
-		# 3. sell tops for coins (no gate to hoard top-tier for now — selling is pure cleanup/coins)
+		# 3. sell tops (no gate to hoard top-tier for now — selling is pure cleanup/coins/acorns)
 		var tops := board.top_tier_cells()
 		if not tops.is_empty():
 			var rw := G.sell_reward(board.item_at(tops[0]))
 			board.take(tops[0])
 			_gain_coins(rw.x)
-			sell_coins += rw.x                 # every tier sells for COINS now (no premium pinnacle, Option A)
+			sell_coins += rw.x
+			_gain_acorns_from_sell(rw.y)       # the acorn tiers pay 💎 instead of coins (§9 ladder)
 			merchant_sells += 1
 			continue
 
@@ -1160,6 +1169,7 @@ func _play_session() -> Dictionary:
 			board.take(junk)
 			_gain_coins(rwj.x)
 			sell_coins += rwj.x
+			_gain_acorns_from_sell(rwj.y)
 			merchant_sells += 1
 			continue
 

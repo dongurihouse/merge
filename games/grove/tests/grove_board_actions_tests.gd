@@ -456,6 +456,26 @@ func _test_farewell_sweep() -> void:
 		if int(v) == 16 * 100 + 2:
 			live_piece_survived = true
 	ok(live_piece_survived, "a currently needed line's board piece is untouched")
+	# §9 ladder: a swept ACORN-tier piece pays acorns, not coins — the sweep must not drop that payout
+	# on the floor (the preview summed only .x before the rework).
+	fresh("farewell_acorn_tier")
+	var deep := BoardModel.new()
+	for i in deep.items.size():
+		deep.terrain[i] = 0
+		deep.items[i] = 0
+	var deep_code := 2 * 100 + int(G.TOP_TIER)
+	deep.place(Vector2i(0, 0), deep_code)
+	var deep_pay := G.sell_reward(deep_code)
+	var acorns_b := Save.diamonds()
+	var deep_wallet_b := Save.coins()
+	var deep_preview: Dictionary = BoardActions.farewell_preview(deep, 2)
+	ok(int(deep_preview.get("acorns", -1)) == int(deep_pay.y) and int(deep_pay.y) > 0
+		and int(deep_preview.get("coins", -1)) == 0,
+		"farewell_preview reports the acorn payout of an acorn-tier piece (and no coins)")
+	var deep_out: Dictionary = BoardActions.sweep_line(deep, 2)
+	ok(int(deep_out.get("acorns", -1)) == int(deep_pay.y)
+		and Save.diamonds() == acorns_b + int(deep_pay.y) and Save.coins() == deep_wallet_b,
+		"sweep_line credits a swept acorn-tier piece to the acorn purse, not the coin wallet")
 
 # The lucky-drop landing cell (shared by the coin shake + the §6.B special shake): one of the ≤3 open
 # cells nearest the merge, picked by rng — or the (-1,-1) sentinel when the board has no open ground.

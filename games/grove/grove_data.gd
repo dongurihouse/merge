@@ -287,13 +287,30 @@ const STARTER_ITEMS := {
 
 
 # §6/§9 per-map SELL COIN band — later maps' items sell for MORE coins (each map a real
-# economic step-up, not just new art). Indexed by the item's map (0-indexed, maps 1–5). A
-# t1–t7 item sells for round(tier_coins × band[map]); t8 stays the FLAT 1💎 pinnacle on every
-# map (the 32× anti-arbitrage proof, §9 — only the t1–t7 COIN reward scales, never t8→premium).
+# economic step-up, not just new art). Indexed by the item's map (0-indexed, maps 1–5). A coin-paying
+# item sells for round(SELL_TIER_COINS[tier-1] × band[map]); the ACORN tiers below ignore the band.
 # Monotonic by construction. Map 1 == 1.0 keeps the FTUE-era sell proofs exact. OWNER/SIM FEEL
 # DIAL — re-tune across the arc (grove_spec §5); the engine reads it via G.SELL_MAP_BAND in
 # content.sell_reward(). One entry per MAPS row.
 const SELL_MAP_BAND := [1.0, 1.3, 1.7, 2.2, 2.8]   # Fairy Hollow · Snowy · Oasis · Reef · Cherry-Blossom
+
+# §9 THE SELL LADDER (rework 2026-07-27, docs/design/sell-economy-rework.md). THE ONE PLACE the sell
+# payout is authored — content.sell_reward() reads only these three dials + the band above, and nothing
+# else in the engine carries a sell number. The old curve was LINEAR in tier (round(tier × band)) while
+# a tier costs EXPONENTIAL water (tier_clicks = 2^(t-1)), so a t12 paid 170x less per water click than a
+# t1 and selling was 2% of the coin faucet. The ladder DOUBLES per tier from t4 up, so value tracks the
+# water invested and a deep merge is value-neutral instead of a 2x loss.
+#   t1-t3   linear 1·2·3 — unchanged: the FTUE sell proofs and buy_price's "10x sell" rule read them.
+#   t4-t9   doubling coins, band-scaled (m1 4·8·16·32·64·128 … m5 11·22·45·90·179·358).
+#   t10-t12 ACORNS instead of coins (1·2·4), FLAT — the band does not apply and these tiers pay 0 coins.
+# Invariants pinned by content_sell_tests: no tier loses value on a merge from t4 up; splitting and
+# selling the halves never beats the whole (scissors floor); a constant 512💧 buys one acorn, 12.8x the
+# no-arbitrage floor; and an acorn sale always pays less than buy_price's acorn cost at the same tier.
+# OWNER/SIM FEEL DIAL — the coin SINKS (BOOST_COST, the expedition load-out, the cover-up ladder) are
+# NOT re-priced for this ladder yet; that is the parked §5 economy pass.
+const SELL_TIER_COINS := [1, 2, 3, 4, 8, 16, 32, 64, 128, 0, 0, 0]   # index tier-1; 0 = the tier pays acorns
+const SELL_ACORN_TIER := 10                                          # the lowest acorn-paying tier
+const SELL_ACORNS := {10: 1, 11: 2, 12: 4}                           # acorns per sale, flat across maps
 
 # BUYING a copy of an item (the §10 board info-bar buy, T55) — the SPLIT ladder (owner decision
 # 2026-07-18): t1-t3 cost COINS at 10× sell value; t4+ cost ACORNS on a Fibonacci ramp (1·2·3·5·8·

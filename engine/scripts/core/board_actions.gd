@@ -15,6 +15,7 @@ const Improvements = preload("res://engine/scripts/core/improvements.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Mastery = preload("res://engine/scripts/core/mastery.gd")
+const Vault = preload("res://engine/scripts/core/vault.gd")
 
 # Deliver quest `qi` by consuming the tile at `cell`: drop the quest from the live fence, remember
 # the asked item (anti-monotony window, ≤5), and pay the COIN reward through the coin clock (the
@@ -227,15 +228,18 @@ static func farewells_due(board: BoardModel, level: int) -> Array:
 
 static func farewell_preview(board: BoardModel, line: int) -> Dictionary:
 	var ln := int(line)
-	var out := {"line": ln, "pieces": 0, "coins": 0, "gens": 0, "gen_cells": []}
+	var out := {"line": ln, "pieces": 0, "coins": 0, "acorns": 0, "gens": 0, "gen_cells": []}
 	if G.zone_of_line(ln) < 0:
 		return out
 	var coins := 0
+	var acorns := 0                                       # the deep tiers sell for acorns, not coins (§9 ladder)
 	var pieces := 0
 	for i in board.items.size():
 		var code: int = board.items[i]
 		if code > 0 and not G.is_coin(code) and BoardModel.line_of(code) == ln:
-			coins += int(G.sell_reward(code).x)
+			var rw := G.sell_reward(code)
+			coins += int(rw.x)
+			acorns += int(rw.y)
 			pieces += 1
 	var gid := G.gen_for_line(ln)
 	var cells: Array = []
@@ -248,6 +252,7 @@ static func farewell_preview(board: BoardModel, line: int) -> Dictionary:
 				cells.append(cell)
 	out["pieces"] = pieces
 	out["coins"] = coins
+	out["acorns"] = acorns
 	out["gens"] = cells.size()
 	out["gen_cells"] = cells
 	out["keep_boost"] = keep_boost
@@ -272,9 +277,13 @@ static func sweep_line(board: BoardModel, line: int) -> Dictionary:
 		if keep_boost > 0:
 			_merge_kept_gen_boost(gid, keep_boost)
 	var coins := int(out.get("coins", 0))
+	var acorns := int(out.get("acorns", 0))
 	if coins > 0:
 		Save.add_coins(coins)                         # spendable only — farewell sweep never advances the clock
-	elif gid != "" and keep_boost > 0:
+	if acorns > 0:
+		Save.add_diamonds(acorns)                     # a swept t10+ item pays acorns, same as selling it by hand
+		Vault.skim(acorns)                            # T44 SKIM-SITE — the jar skims every acorn a sale mints
+	if coins <= 0 and acorns <= 0 and gid != "" and keep_boost > 0:
 		Save.grove_write()
 	return out
 
