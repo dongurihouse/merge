@@ -75,7 +75,7 @@ func _test_calm_hour_shows_no_chrome() -> void:
 		"a forced Calm hour reaches the board as the Calm sky with no lane")
 	ok(calm.board_area.find_child("SkyPatch", true, false) == null, "a Calm hour draws no lane wash")
 	ok(calm.find_child("SkyMarker", true, false) == null, "a Calm hour mounts no lane marker anywhere in the scene")
-	ok(calm.find_child("SkyCellGlyph", true, false) == null, "a Calm hour mounts no in-cell sky glyph")
+	ok(_sky_cell_glyphs(calm).is_empty(), "a Calm hour mounts no in-cell sky glyphs")
 	var info := String(calm._info_label.text)
 	ok(info.find("Calm") == -1 and info.find("Sunbeam") == -1 and info.find("Rain") == -1 and info.find("Starfall") == -1, \
 		"a Calm hour leaves the info bar alone — no sky line is written (%s)" % info)
@@ -83,7 +83,7 @@ func _test_calm_hour_shows_no_chrome() -> void:
 	await process_frame
 	ok(calm.board_area.find_child("SkyPatch", true, false) == null \
 		and calm.find_child("SkyMarker", true, false) == null \
-		and calm.find_child("SkyCellGlyph", true, false) == null, \
+		and _sky_cell_glyphs(calm).is_empty(), \
 		"the Calm board stays chrome-free across _rebuild_all, which re-inserts patch and glyphs for other skies")
 	calm.queue_free()
 
@@ -91,17 +91,10 @@ func _test_marker_patch_and_info_bar() -> void:
 	var sun = await _open_board("sky_marker_sun", "clear")
 	var sun_cell := _prepare_weather_focus_cell(sun)
 	var patch := sun.board_area.find_child("SkyPatch", true, false) as Control
-	var sun_glyph := _sky_cell_glyph(sun)
 	ok(patch != null and patch.get_parent() == sun.board_area, "Sunbeam patch mounts inside board_area")
 	ok(patch != null and patch.get_index() > 0, "Sunbeam patch is inserted after the board surface/slot block")
 	ok(sun.find_child("SkyMarker", true, false) == null, "Sunbeam no longer mounts a side marker")
-	ok(_sky_cell_glyph_matches(sun, sun_glyph, sun_cell), \
-		"Sunbeam mounts its icon as a faint background over the powered center cell")
-	if sun_glyph != null:
-		ok(String(sun_glyph.get_meta("icon_path", "")).find("icon_sky_sun.png") != -1, \
-			"Sunbeam cell glyph is wired to the future sun icon path")
-		ok(sun_glyph.mouse_filter == Control.MOUSE_FILTER_IGNORE and sun_glyph.modulate.a <= 0.34, \
-			"Sunbeam cell glyph is faint and does not intercept board taps")
+	_assert_all_powered_cells_have_sky_glyph(sun, "Sunbeam", "icon_sky_sun.png")
 	if sun_cell.x >= 0:
 		_tap_board_with_duplicate_events(sun, sun._cell_pos(sun_cell) + Vector2(sun.csz, sun.csz) / 2.0)
 		await process_frame
@@ -136,13 +129,13 @@ func _test_marker_patch_and_info_bar() -> void:
 	await process_frame
 	ok(sun.board_area.find_child("SkyPatch", true, false) != null \
 		and sun.find_child("SkyMarker", true, false) == null \
-		and _sky_cell_glyph(sun) != null, \
-		"Sunbeam patch and in-cell glyph survive _rebuild_all")
+		and _sky_cell_glyphs(sun).size() == _lane_cells(sun).size(), \
+		"Sunbeam patch and all in-cell glyphs survive _rebuild_all")
 	sun._landscape = not sun._landscape
 	sun._rebuild_all()
 	await process_frame
-	ok(sun.board_area.find_child("SkyPatch", true, false) != null and _sky_cell_glyph(sun) != null, \
-		"Sunbeam patch and in-cell glyph survive an orientation flip/reflow")
+	ok(sun.board_area.find_child("SkyPatch", true, false) != null, "Sunbeam patch survives an orientation flip/reflow")
+	_assert_all_powered_cells_have_sky_glyph(sun, "landscape Sunbeam", "icon_sky_sun.png")
 	sun.queue_free()
 
 	var rain = await _open_board("sky_marker_rain", "rain")
@@ -156,13 +149,8 @@ func _test_marker_patch_and_info_bar() -> void:
 			"tapping a sealed powered Rain center cell focuses it and explains the weather before locked-cell info")
 		rain._clear_selection()
 	var rain_cell := _prepare_weather_focus_cell(rain)
-	var rain_glyph := _sky_cell_glyph(rain)
 	ok(rain.find_child("SkyMarker", true, false) == null, "Rain no longer mounts a side marker")
-	ok(_sky_cell_glyph_matches(rain, rain_glyph, rain_cell), \
-		"Rain mounts its icon as a faint background over the powered center cell")
-	if rain_glyph != null:
-		ok(String(rain_glyph.get_meta("icon_path", "")).find("icon_sky_rain.png") != -1, \
-			"Rain cell glyph is wired to the future rain icon path")
+	_assert_all_powered_cells_have_sky_glyph(rain, "Rain", "icon_sky_rain.png")
 	if rain_cell.x >= 0:
 		_tap_board_with_duplicate_events(rain, rain._cell_pos(rain_cell) + Vector2(rain.csz, rain.csz) / 2.0)
 		await process_frame
@@ -197,13 +185,10 @@ func _test_landscape_weather_glyph_stays_in_powered_cell() -> void:
 		}
 		sun._sync_sky_patch_marker(false)
 		await process_frame
-		var glyph := _sky_cell_glyph(sun)
-		var cell := _call_sky_icon_cell(sun)
 		ok(sun.find_child("SkyMarker", true, false) == null \
-			and cell.x >= 0 \
-			and glyph != null \
-			and _sky_cell_glyph_matches(sun, glyph, cell), \
-			"landscape %s weather glyph stays inside the powered center cell" % axis)
+			and _sky_cell_glyphs(sun).size() == _lane_cells(sun).size(), \
+			"landscape %s weather glyphs cover every powered cell" % axis)
+		_assert_all_powered_cells_have_sky_glyph(sun, "landscape %s" % axis, "icon_sky_sun.png")
 	sun.queue_free()
 
 func _test_starfall_start_tracks_landing_cell_in_landscape() -> void:
@@ -766,8 +751,33 @@ func _first_tile_child_index(board_scene) -> int:
 				best = mini(best, node.get_index())
 	return best
 
-func _sky_cell_glyph(board_scene) -> TextureRect:
-	return board_scene.find_child("SkyCellGlyph", true, false) as TextureRect
+func _sky_cell_glyphs(board_scene) -> Array:
+	if board_scene.board_area == null or not is_instance_valid(board_scene.board_area):
+		return []
+	return board_scene.board_area.find_children("SkyCellGlyph*", "TextureRect", true, false)
+
+func _assert_all_powered_cells_have_sky_glyph(board_scene, label: String, icon_file: String) -> void:
+	var expected := _lane_cells(board_scene)
+	var glyphs := _sky_cell_glyphs(board_scene)
+	ok(glyphs.size() == expected.size(), \
+		"%s mounts one faint weather icon on every affected lane cell (%d glyphs for %d cells)" \
+		% [label, glyphs.size(), expected.size()])
+	var seen := {}
+	for raw_glyph in glyphs:
+		var glyph := raw_glyph as TextureRect
+		if glyph == null:
+			continue
+		var cell := Vector2i(glyph.get_meta("cell", Vector2i(-1, -1)))
+		seen[cell] = true
+		ok(_sky_cell_glyph_matches(board_scene, glyph, cell), \
+			"%s glyph for %s is centered over its powered cell" % [label, str(cell)])
+		ok(String(glyph.get_meta("icon_path", "")).find(icon_file) != -1, \
+			"%s glyph for %s is wired to %s" % [label, str(cell), icon_file])
+		ok(glyph.mouse_filter == Control.MOUSE_FILTER_IGNORE and glyph.modulate.a <= 0.34, \
+			"%s glyph for %s is faint and does not intercept board taps" % [label, str(cell)])
+	for raw_cell in expected:
+		var cell := Vector2i(raw_cell)
+		ok(seen.has(cell), "%s has a weather icon on affected cell %s" % [label, str(cell)])
 
 func _sky_cell_glyph_matches(board_scene, glyph: TextureRect, cell: Vector2i) -> bool:
 	if glyph == null or cell.x < 0:
