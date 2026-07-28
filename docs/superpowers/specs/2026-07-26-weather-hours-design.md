@@ -1,9 +1,11 @@
 # Weather Hours — spec (2026-07-26)
 
-**Status: draft 8 — SHIPPED except §5.4–§5.6.** Starfall's lane was decorative (the star
-auto-landed and nothing the player did to the column mattered) and its arrival was
-unannounced. The catch fixes both: the star docks at the lane marker and the player taps a
-lit lane cell to place it. §13 is scoped to that delta; the rest is built and green.
+**Status: draft 9 — SHIPPED; Starfall PARKED at share 0.** The hourly roll runs Calm ·
+Sunbeam · Rain only; §5's Starfall machine is built, green and reachable only by forcing
+`star`. Un-parking is `SKY_SHARES["starfall"]` 0 → 10 and nothing else (§2, §11).
+Earlier: Starfall's lane was decorative (the star auto-landed and nothing the player did to
+the column mattered) and its arrival was unannounced. The catch fixed both — the star docks
+at the lane marker and the player taps a lit lane cell to place it.
 Builds §4 / rollout step 5 of
 `2026-07-26-progression-systems-design.md`. Code anchors: `engine/scripts/ui/ambient.gd`,
 `engine/scripts/core/board_logic.gd`, `engine/scripts/core/content.gd`,
@@ -17,9 +19,10 @@ moves no dial that feeds the sim.
 
 ## 1 · Scope
 
-Ships: the hourly sky (4 skies incl. Calm), one lane patch, Sunbeam/Rain merge gifts, the
-starfall **catch** (dock → tap a lit lane cell → land, §5), lane marker + info-bar line +
-patch rendering, debug lever, tests, sim re-pass. Removes the win-back rain beat (§2).
+Ships: the hourly sky (4 skies incl. Calm, Starfall parked at share 0), one lane patch,
+Sunbeam/Rain merge gifts, the starfall **catch** (dock → tap a lit lane cell → land, §5),
+lane marker + info-bar line + patch rendering, debug lever, tests, sim re-pass. Removes the
+win-back rain beat (§2).
 
 Every sky's lane must be load-bearing. Sunbeam and Rain gate their gift on in-lane merges;
 Starfall gates *placement* on the lit lane. A sky that draws a marker and a wash over a lane
@@ -41,12 +44,19 @@ magnet/mirror skies, Wild piece, the water stall's daily free rain.
   `hash(hour)` → sky; salted re-hashes (`hash(hour * K + SALT_*)`) → skin, lane.
 - The four shipped cosmetic states become skins, riding the existing `WeatherLayer`:
 
-| Sky (share) | Skins | Gift |
-|---|---|---|
-| **Calm** (40) | clear 70 · breeze 30 | **none** — no lane, no patch, no marker, no gift |
-| **Sunbeam** (30) | clear 70 · breeze 30 | in-patch coin drops up (§4) |
-| **Rain** (20) | rain 85 · snow 15 | in-patch water drops; in-patch soil waters free (§4) |
-| **Starfall** (10) | starlit (new) | one high-tier piece falls on the lane (§5) |
+| Sky (share) | Hours | Skins | Gift |
+|---|---|---|---|
+| **Calm** (40) | 44.4% | clear 70 · breeze 30 | **none** — no lane, no patch, no marker, no gift |
+| **Sunbeam** (30) | 33.3% | clear 70 · breeze 30 | in-patch coin drops up (§4) |
+| **Rain** (20) | 22.2% | rain 85 · snow 15 | in-patch water drops; in-patch soil waters free (§4) |
+| **Starfall** (**0** — parked) | 0% | starlit | never rolls automatically (§5 still builds it) |
+
+**Starfall is parked at share 0** (temporary). The walk skips any share `<= 0` and takes the
+roll modulo the table's own total, so the other three divide the hours against 90, not 100 —
+hence the Hours column. Nothing about the Starfall mechanism is removed: the catch flow, the
+dock, `star_pick`, the strings, the marker art, the shot modes and the debug picker's **Star**
+chip all still work, and forcing `star` still produces it. Restoring it is `SKY_SHARES`
+`"starfall"` back to `10` and nothing else — which is why 40/30/20 are left unscaled.
 
 **Calm is a real sky, not an absence.** Most hours are ordinary; that is what makes a
 Sunbeam or a Starfall hour land. A calm hour renders exactly like the pre-weather game —
@@ -65,14 +75,16 @@ false for every cell, so no gift path can fire without a special case anywhere e
   `WINBACK_RAIN_SECS`; `board.winback.*` strings; `last_seen` writes (no reader remains).
   Economy-neutral: offline regen (+1 / 2 min, capped) fills the can after ~3⅓ h away.
   Stale `winback_until` / `last_seen` save keys stay unread.
-- Look consequence: rain-family visuals (rain + snow particles) sit at ~20% of hours —
+- Look consequence: rain-family visuals (rain + snow particles) sit at ~22% of hours —
   double the pre-weather ~10%, and well down from the ~45% the first share table produced,
-  which read as a permanently wet world. Measured skin mix under these shares: clear 49% ·
-  breeze 21% · rain 17% · starlit 10% · snow 3%. `RAIN_VEIL` alpha stays an art dial.
-- **60% of hours carry a gift** (~14.4 h/day), and 40% are Calm. Cutting Rain from 45% to
-  20% cuts water-gift hours to 0.44× and Sunbeam 45% → 30% cuts coin-gift hours to 0.67×,
-  so the §11 gift rates were re-swept against the new hour mix — the rate and the share are
-  one dial in two halves and must never be changed independently.
+  which read as a permanently wet world. Measured skin mix over 20 000 hours with Starfall
+  parked: clear 54.0% · breeze 23.9% · rain 18.6% · snow 3.5% · starlit **0%**. `RAIN_VEIL`
+  alpha stays an art dial.
+- **55.6% of hours carry a gift** (~13.3 h/day), and 44.4% are Calm. Parking Starfall moves
+  its 10% of hours onto the other three in proportion, so Sunbeam and Rain each gain ~11%
+  more gift hours (30% → 33.3%, 20% → 22.2%) — the §11 coin and water rates were sim-set at
+  the 30/20 mix and now run ~1.11× denser. The rate and the share are one dial in two halves
+  and must never be changed independently; re-enabling Starfall reverses this on its own.
 
 ---
 
@@ -121,6 +133,10 @@ cell no-ops (`pick_drop_cell` sentinel).
 
 ## 5 · Starfall
 
+**Built and green, but PARKED: `SKY_SHARES["starfall"]` is 0, so no hour reaches this section
+automatically (§2).** Everything below stays live behind a forced `star` — debug picker, shot
+modes — and comes back with that one number.
+
 State in `Save.grove().sky`. The lane is **load-bearing**: the star docks at the marker and
 the player catches it into a lane cell they pick.
 
@@ -157,7 +173,8 @@ the player catches it into a lane cell they pick.
   numbers stand and no re-sweep is owed.
 - Offline Starfall hours never pay.
 - The generator pop-ceiling guard stays untouched. The star is the only high-tier faucet:
-  ≤1 piece, ~10% of hours, witnessed hours only, sellable — the sim prices it (§10).
+  ≤1 piece, witnessed hours only, sellable — the sim prices it (§10). At the parked share it
+  pays on **0%** of hours (it was ~10%), so that faucet currently contributes nothing.
 
 ---
 
@@ -276,6 +293,11 @@ docked + lit-cells state; build it from §5–§6 and capture a shot.
   measured property, not a precaution: neither number means anything without the other. Any
   future change to `SKY_SHARES`, `SKY_WATER_RATE`, in-patch geometry, or lane width re-opens
   this loop — re-run the sweep.
+- **OPEN, from parking Starfall.** Every rate below was swept at Rain 20% / Sunbeam 30%; with
+  Starfall at 0 they run at 22.2% / 33.3%, ~1.11× denser. That is well inside the flat part
+  of the saturation curve above and far from the 45% Rain runaway, so nothing is re-tuned
+  here — but by the rule this bullet states, the sweep is owed before either rate moves
+  again, and it is owed again when Starfall un-parks.
 - **The two sky rates are deliberately different numbers.** `SKY_COIN_RATE` is 0.50 where
   `SKY_WATER_RATE` is 0.30: at equal rates sky coins measured only 2.3–5.8% of the coin
   faucet against water's 17–47%, because the coin economy is large and the water economy is
@@ -393,14 +415,16 @@ the file map for the whole feature. Only the catch entries are outstanding — s
   the hour index, so the sim must **offset its starting hour per seed** — otherwise every
   seed replays one weather trajectory and the sweep measures it N times. (First cut walked
   hours 0–20 for every seed: 11 Sunbeam · 10 Rain · **0 Starfall**, reporting a confident
-  `stars 0` for a faucet it could never sample — the first Starfall hour is 29.) The sim
-  must also **apply the §2 gift gate** the board applies, and **report each sky faucet as a
-  share of its own denominator** — a raw drop count reads 6× smaller than the water it
-  grants.
+  `stars 0` for a faucet it could never sample — under the pre-park table the first Starfall
+  hour was 29.) The sim must also **apply the §2 gift gate** the board applies, and **report
+  each sky faucet as a share of its own denominator** — a raw drop count reads 6× smaller
+  than the water it grants.
 - **Sim re-pass (gates the merge):** grove_sim models skies per hour, adopts ➋, adds star
   injection — EV ≈ 166 t1-eq per paid star ≈ 17 per witnessed hour at §11 dials, plus
   sell value. Multi-seed sweep (≥8 seeds × 7 days); compare I2 · Y · Z and coin/water
-  faucet totals against baseline. Finals overwrite §11.
+  faucet totals against baseline. Finals overwrite §11. **While Starfall is parked the sim
+  reports `stars 0` legitimately** — the star EV above is the figure it returns to when the
+  share goes back to 10, and it is not a sampling gap to chase.
 
 ---
 
@@ -408,13 +432,13 @@ the file map for the whole feature. Only the catch entries are outstanding — s
 
 | Dial | Value | Meaning |
 |---|---|---|
-| `SKY_SHARES` | 40 · 30 · 20 · 10 | Calm · Sunbeam · Rain · Starfall |
+| `SKY_SHARES` | 40 · 30 · 20 · **0** | Calm · Sunbeam · Rain · Starfall — **Starfall parked at 0**; the table totals 90, so the hours are 44.4 · 33.3 · 22.2 · 0% (§2) |
 | `SKY_SKIN_SPLIT` | 70/30 · 70/30 · 85/15 | clear/breeze in Calm and Sunbeam · rain/snow in Rain |
 | `SKY_COIN_RATE` | 0.50 | in-patch coin chance (base 0.10) — raised to cover Sunbeam's 45% → 30% hour cut |
 | `SKY_COIN_TIER` | 2 | in-patch coin tier (worth 4) |
-| `SKY_WATER_RATE` | 0.30 | in-patch water roll (t1 = +8, over-cap) — **sim-set at 20% Rain; drops saturate above ~0.30** (§7) |
-| `STAR_TIER_WEIGHTS` | 80 · 15 · 5 | t8 · t9 · t10 |
-| `STAR_DELAY` | 10 s | live seconds before the star arrives at the marker |
+| `SKY_WATER_RATE` | 0.30 | in-patch water roll (t1 = +8, over-cap) — **sim-set at 20% Rain; drops saturate above ~0.30** (§7). Rain now runs 22.2% (Starfall parked), so the rate sits ~1.11× denser than swept |
+| `STAR_TIER_WEIGHTS` | 80 · 15 · 5 | t8 · t9 · t10 — **inert while Starfall is parked** |
+| `STAR_DELAY` | 10 s | live seconds before the star arrives at the marker (forced `star` only, while parked) |
 | `STAR_CATCH_SECS` | 30 s | live seconds the star stays catchable before it lands itself (§5.6) |
 | `LANE_MIN_OPEN` | 5 | min open cells for a lane to be rollable (§3) |
 | `PATCH_ALPHA` | Sunbeam 0.55 · Rain 0.13 · Star 0.12 | Sunbeam needs ~2× the others to read on locked brown cells (§6 measurement note) |

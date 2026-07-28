@@ -57,7 +57,8 @@ const POP_SLOTS_MAX := 8             # §1 a map's resident roster scales 1 (fir
 # WEATHER HOURS are a PURE FUNCTION of the hour index (sky.gd salts the hour, never the board rng), so a
 # run that always starts at hour 0 replays ONE identical sky sequence on every seed — an N-seed sweep then
 # measures a single weather trajectory N times, and whichever skies happen to sit past the end of the
-# window (starfall, at 10% share, first lands on hour 29) are never simulated at all. Offset the starting
+# window are never simulated at all (the first cut, walking hours 0-20 on every seed, never sampled a
+# rarer sky once and still reported a confident zero for its faucet). Offset the starting
 # hour by the seed so each seed walks a different stretch of the sequence. Deterministic: a given seed
 # always replays the same hours. The stride is prime and far wider than a run's hour count (3/day), so
 # no two seeds' windows overlap at any run length the sweeps use.
@@ -463,11 +464,13 @@ func _initialize() -> void:
 func _level() -> int:
 	return G.level_at_coins(coins_earned)
 
-# The run's weather MIX, "calm 12 · sunbeam 9 · rain 8 · starfall 4" — the sweep's spread signal: with
+# The run's weather MIX, "calm 12 · sunbeam 9 · rain 8 · starfall 0" — the sweep's spread signal: with
 # the hour offset above, two seeds should NOT report the same mix. A sweep whose seeds all print one mix
 # means the weather has re-correlated and the sky numbers below measure a single trajectory N times.
-# Calm is listed even though it pays nothing: it is 40% of hours, so leaving it out makes the paying
+# Calm is listed even though it pays nothing: it is 44% of hours, so leaving it out makes the paying
 # skies look denser than they are and hides an hour-mix drift from whoever re-sweeps the gift rates.
+# Starfall stays listed while it is PARKED at share 0 (grove_data.gd) — a standing `starfall 0` is the
+# only line that tells a re-sweeper the star faucet is off rather than merely unsampled by this window.
 func _sky_mix_str() -> String:
 	var parts: Array = []
 	for sky in [SkyLogic.SKY_CALM, SkyLogic.SKY_SUNBEAM, SkyLogic.SKY_RAIN, SkyLogic.SKY_STARFALL]:

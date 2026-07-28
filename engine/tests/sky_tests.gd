@@ -97,27 +97,72 @@ func _initialize() -> void:
 	ok(not Sky.in_patch({"sky": "calm", "lane_axis": "column", "lane": 3}, Vector2i(0, 3)), \
 		"in_patch rejects Calm by the SKY name, not by the lane sentinel — a stray lane cannot revive it")
 
-	# --- share sweep: four skies, at their stated weights -------------------------------
-	var found := {"calm": false, "sunbeam": false, "rain": false, "starfall": false, "breeze": false, "snow": false}
+	# --- share sweep: exactly the skies the table funds, at their stated weights --------
+	# BOTH HALVES ARE DERIVED FROM G.SKY_SHARES, never listed here: every sky with a POSITIVE share must
+	# be observed, and every sky PARKED AT 0 must be observed ZERO times — the walk skips a share <= 0, so
+	# that is the whole disable. The reachable SKIN set follows the same way (a live sky's split entry, or
+	# its one skin when it has none), which is what keeps `starlit` out while Starfall is parked. Parking
+	# a sky or restoring it is a `grove_data.gd` edit alone; this assertion needs no touch either way.
+	var live_skies: Array = []
+	var parked_skies: Array = []
+	var want_skins := {}
+	var share_total := 0
+	for sky_name in G.SKY_SHARES.keys():
+		var share := maxi(0, int(G.SKY_SHARES[sky_name]))
+		share_total += share
+		if share <= 0:
+			parked_skies.append(String(sky_name))
+			continue
+		live_skies.append(String(sky_name))
+		var split: Dictionary = G.SKY_SKIN_SPLIT.get(String(sky_name), {})
+		if split.is_empty():
+			want_skins[String(Sky.SKIN_STARLIT)] = true    # mirrors Sky._skin: no split = one skin
+		else:
+			for skin_name in split.keys():
+				if int(split[skin_name]) > 0:
+					want_skins[String(skin_name)] = true
 	var sky_counts := {}
+	var skin_counts := {}
 	var skin_matches := true
 	for h in range(0, SHARE_SWEEP_HOURS):
 		var t := float(h) * Tune.SECS_PER_HOUR
 		var st: Dictionary = Sky.state(t, MID_LEVEL)
-		found[String(st.sky)] = true
-		found[String(st.skin)] = true
 		sky_counts[String(st.sky)] = int(sky_counts.get(String(st.sky), 0)) + 1
+		skin_counts[String(st.skin)] = int(skin_counts.get(String(st.skin), 0)) + 1
 		if h < 500 and String(Sky.skin_at(t)) != String(st.skin):
 			skin_matches = false
-	ok(found.calm and found.sunbeam and found.rain and found.starfall and found.breeze and found.snow, \
-		"auto weather reaches all FOUR skies and every legacy skin")
+	var sky_missing: Array = []
+	for sky_name in live_skies:
+		if int(sky_counts.get(sky_name, 0)) <= 0:
+			sky_missing.append(String(sky_name))
+	var sky_leaked: Array = []
+	for sky_name in parked_skies:
+		if int(sky_counts.get(sky_name, 0)) > 0:
+			sky_leaked.append("%s×%d" % [sky_name, int(sky_counts.get(sky_name, 0))])
+	ok(sky_missing.is_empty() and sky_leaked.is_empty(), \
+		"auto weather reaches EXACTLY the funded skies over %d hours — %s all seen, %s parked at 0 and never rolled (missing %s, leaked %s)" \
+		% [SHARE_SWEEP_HOURS, str(live_skies), str(parked_skies), str(sky_missing), str(sky_leaked)])
+	var skin_missing: Array = []
+	for skin_name in want_skins.keys():
+		if int(skin_counts.get(skin_name, 0)) <= 0:
+			skin_missing.append(String(skin_name))
+	var skin_leaked: Array = []
+	for skin_name in skin_counts.keys():
+		if not want_skins.has(String(skin_name)):
+			skin_leaked.append("%s×%d" % [String(skin_name), int(skin_counts[skin_name])])
+	ok(skin_missing.is_empty() and skin_leaked.is_empty(), \
+		"the sweep wears EXACTLY the skins the funded skies can draw, legacy breeze and snow included — %s (missing %s, leaked %s)" \
+		% [str(want_skins.keys()), str(skin_missing), str(skin_leaked)])
 	var share_report: Array = []
 	var share_worst := 0.0
 	for sky_name in G.SKY_SHARES.keys():
-		var want := float(G.SKY_SHARES[sky_name])
+		# TOTAL-DRIVEN, exactly as sky.gd::_walk_shares rolls it: a share divides the hours against the
+		# table's OWN total, which equals 100 only by coincidence. Comparing a raw share against a
+		# percentage would make this assertion fire on arithmetic the moment any share changes.
+		var want := 100.0 * float(maxi(0, int(G.SKY_SHARES[sky_name]))) / float(maxi(1, share_total))
 		var got := 100.0 * float(sky_counts.get(String(sky_name), 0)) / float(SHARE_SWEEP_HOURS)
 		share_worst = maxf(share_worst, absf(got - want))
-		share_report.append("%s %.2f/%d" % [sky_name, got, int(want)])
+		share_report.append("%s %.2f/%.2f" % [sky_name, got, want])
 	ok(share_worst <= SHARE_TOLERANCE, \
 		"observed shares land within %.1f point of SKY_SHARES over %d hours (%s; worst %.2f)" \
 		% [SHARE_TOLERANCE, SHARE_SWEEP_HOURS, " · ".join(share_report), share_worst])
