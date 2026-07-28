@@ -3647,7 +3647,8 @@ func _build_almanac_chip(opts: Dictionary, row: Control) -> void:
 	_info_almanac.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(_info_almanac)
 
-# Select a board item INTO the info bar: show its piece + name, put "Tier N" in the subtitle, enable the info button, and
+# Select a board item INTO the info bar: show its piece + name, put "Tier N" ("Max tier" at the code's merge
+# ceiling — G.merge_top) in the subtitle, enable the info button, and
 # show the trashcan with its sell payout (hidden for generators / raw coins — they aren't deletable here).
 func _select_item(cell: Vector2i) -> void:
 	var code := board.item_at(cell)
@@ -3674,7 +3675,7 @@ func _select_item(cell: Vector2i) -> void:
 	_info_label.text = _soil_info_title(cell) if board.is_growing(cell) else nm
 	if _info_desc_label != null and is_instance_valid(_info_desc_label):
 		_hide_mastery_info_row()
-		var tier_text := "%s %d" % [Strings.t("board.info.tier"), tier]
+		var tier_text := Strings.t("board.info.max_tier") if tier >= G.merge_top(code) else "%s %d" % [Strings.t("board.info.tier"), tier]
 		var desc := _item_description_for_cell(cell, code)
 		_info_desc_label.text = tier_text if desc == "" else "%s · %s" % [tier_text, desc]
 		_info_desc_label.visible = true

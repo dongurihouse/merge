@@ -3,6 +3,8 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ## (deliver a quest) applies its whole state transition — consume the tile, drop the quest,
 ## advance exp, pay coins — as a headless call on BoardModel + Save, with NO Control / Tween /
 ## Board scene. This is the "change the rule, assert without UI validation" gate.
+## ONE exception, at the end: the info-bar tier subtitle is a scene-only string, so its guard mounts
+## the Board and drives the real selection path.
 
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
@@ -26,6 +28,7 @@ func _initialize() -> void:
 	_test_farewell_sweep()
 	_test_pick_drop_cell()
 	_test_generator_swaps()
+	await _test_info_bar_max_tier_subtitle()
 	finish()
 
 # Delivering a quest is the ONE place exp advances. The action consumes the asked tile, drops the
@@ -589,3 +592,34 @@ func _test_generator_swaps() -> void:
 		ok(b.swap_gens(live_gen_cell, other_cell), "generator swap: two non-matching generators trade cells")
 		ok(b.gen_id_at(other_cell) == gen_id and b.gen_tier_at(other_cell) == 2 and b.gen_boost_at(other_cell) == 3, "generator swap: dragged generator state lands on the target cell")
 		ok(b.gen_id_at(live_gen_cell) == "gen_2" and b.gen_tier_at(live_gen_cell) == 3 and b.gen_boost_at(live_gen_cell) == 5, "generator swap: target generator state lands on the source cell")
+
+# The info bar's tier subtitle: an item AT its merge ceiling (G.merge_top — TOP_TIER for a content line,
+# COIN_TOP for coins) reads "Max tier" instead of a tier number the player can never raise. Driven through
+# the scene's own _select_item so the one place that builds the string is the thing under test. Literal
+# strings on purpose: a missing strings.json key would otherwise pass against itself.
+func _test_info_bar_max_tier_subtitle() -> void:
+	fresh("info_bar_max_tier")
+	Save.mark_board_tutorial_seen()
+	await process_frame                      # the root is only a live tree from the first frame on; mounting
+	var scn = board_host()                   # before it leaves the scene's _ready with a null get_tree()
+	await process_frame
+	var cell: Vector2i = scn.board.empty_ground_cells()[0]
+	scn.board.place(cell, 1 * 100 + G.TOP_TIER)
+	scn._rebuild_all()
+	scn._select_item(cell)
+	var top_text := String(scn._info_desc_label.text)
+	ok(top_text.begins_with("Max tier"), "a content item at TOP_TIER reads \"Max tier\" (got %s)" % top_text)
+
+	scn.board.place(cell, 1 * 100 + 5)
+	scn._rebuild_all()
+	scn._select_item(cell)
+	var mid_text := String(scn._info_desc_label.text)
+	ok(mid_text.begins_with("Tier 5"), "a mid-tier item still reads its tier number (got %s)" % mid_text)
+
+	# Coins cap at COIN_TOP, well below TOP_TIER — the ceiling must come from merge_top, not the content top.
+	scn.board.place(cell, G.COIN_LINE * 100 + G.COIN_TOP)
+	scn._rebuild_all()
+	scn._select_item(cell)
+	var coin_text := String(scn._info_desc_label.text)
+	ok(coin_text.begins_with("Max tier"), "a coin at COIN_TOP reads \"Max tier\" too (got %s)" % coin_text)
+	await drop(scn)
