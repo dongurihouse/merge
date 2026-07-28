@@ -4351,7 +4351,7 @@ func _on_trash_pressed() -> void:
 	if board.is_gen(cell):
 		return
 	var code := board.item_at(cell)
-	if code <= 0 or board.is_gen(cell) or G.is_coin(code):
+	if code <= 0 or G.is_coin(code):
 		return
 	var node: Control = piece_nodes.get(cell)
 	if node == null:

@@ -221,8 +221,8 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 ## 6 · Generators & Item Lines
 
 > **⚠ THE ACTIVE-LINE WINDOW — read this box FIRST (2026-07-25).** Supersedes the *line-window* halves of
-> the 2026-06-28 and 2026-06-26 boxes below (their generator model — one gen per line, birth-on-tap, the
-> merge ladder, bonus gens, special recipes — is untouched). Implementation: `content.gd`
+> the 2026-06-28 and 2026-06-26 boxes below (their generator model — one gen per line, birth-on-tap,
+> bonus gens, special recipes — is untouched). Implementation: `content.gd`
 > (`active_lines` / `zone_window_lines` / `endgame_lines`), `quests.gd` (`refill`, `due_gen`),
 > `grove_data.gd` (`ACTIVE_LINE_WINDOW`), `grove_sim.gd`.
 >
@@ -295,8 +295,8 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 > while the generator itself rolls the flat burst odds. A live temporary boost (§10 sink) swaps `BURST_ODDS`
 > for `BURST_ODDS_BOOST`; there is no boosted 4th burst slot.
 >
-> **E. Board cap ≤ 6 generators.** At most **6 generators** on the board at once (active lines + duplicates
-> mid-merge + bonus gens, F); overflow queues in the **bag**.
+> **E. Board cap ≤ 6 generators.** At most **6 generators** on the board at once (active lines + bonus
+> gens, F); overflow queues in the **bag**.
 >
 > **F. Bonus generators (replaces real-time accrual).** The utility producers (water · coin · acorn · exp,
 > the old `ACCUMULATORS`/`habitat`) are **no longer real-time accumulators**. They become **limited-use
