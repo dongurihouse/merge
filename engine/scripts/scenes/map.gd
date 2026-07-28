@@ -2230,11 +2230,6 @@ func _bottom_bar_band_px(n: int) -> float:
 		return 0.0
 	return Look.safe_bottom(self) + NavBar.band_px(_bottom_bar_tile_px(n))
 
-# EDGE VARIANT — the one flag between the two looks under review: false = the shared torn cut-paper
-# edge every other paper element wears (the default), true = the concept mock's smooth rounded corners.
-# It only changes the tiles' EDGE; fill, rim, shadow and every metric above are identical either way.
-const NAV_TAB_SMOOTH_EDGE := false
-
 # Build the bottom bar from `specs` (each {name, icon, caption, action, active?}) and return
 # {name: Button}. Tiles are the SHARED Kit.action_button — a code-drawn cut-paper edge with a glyph over
 # a bold caption — sized so the row fills the width between the safe-area insets exactly. The row is a
@@ -2276,7 +2271,10 @@ func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dict
 			o["tooltip"] = String(spec.caption)
 			o["caption"] = String(spec.caption)     # the caption is now DRAWN, not only a tooltip
 			o["active"] = active
-			o["smooth_edge"] = NAV_TAB_SMOOTH_EDGE
+			# the row's CHALKED tint: the tab's paper role resolves through the shared table, then the nav
+			# row's own chalk pass lightens + desaturates it into the mock's pastel band. The ROLE fills stay
+			# where they are, so no dialog, pill, board or shop surface moves — see NavBar.chalk.
+			o["fill"] = NavBar.chalk(Kit.action_role_fill(role, action_opts.get("tints", {})))
 			# the paper runs past the button's bottom edge, through the safe-area inset and one corner
 			# radius beyond the screen, so the bottom corners round off-screen and only the top two show.
 			var bleed := safe_b + float(tab["corner"])
@@ -2285,7 +2283,7 @@ func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dict
 			# action-button set — scoped to THIS row, so no other cut-paper surface in the game changes.
 			# The flare is measured across the VISIBLE box, so the full drawn sheet height goes in with it.
 			var cp: Dictionary = (o.get("cp", {}) as Dictionary).duplicate()
-			cp.merge(NavBar.tab_cp(tile_w, box.y, box.y + bleed), true)
+			cp.merge(NavBar.tab_cp(tile_w, box.y, box.y + bleed, active), true)
 			o["cp"] = cp
 			b = Kit.action_button(role, box, spec.action, o)
 		else:

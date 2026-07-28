@@ -1243,6 +1243,26 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 			"%s casts the all-sides halo (%.1f px)" % [tile_name, panel.get("halo_reach")])
 		ok(float(panel.get("bevel_px")) > 0.0,
 			"%s wears the slab bevel (%.1f px)" % [tile_name, panel.get("bevel_px")])
+		# SMOOTH corners: the row zeroes the shared torn deckle (it is the mock's clean rounded tab, and
+		# the ONE knob apart — the same panel, same fill, same rim, same halo).
+		ok(is_equal_approx(float(panel.get("deckle_amp")), 0.0),
+			"%s draws a smooth edge, not the torn deckle (amp %.2f)" % [tile_name, panel.get("deckle_amp")])
+		# THE BORDER marks the one active destination: only the ACTIVE tab is outlined. A plain tab's paper
+		# edge just ends — no warm cut-edge rim at all.
+		var is_active := btn.find_child("ActionButtonActiveRim", true, false) != null
+		if is_active:
+			ok(float(panel.get("rim_width")) > 0.0,
+				"%s is the active tab and keeps its rim (%.1f px)" % [tile_name, panel.get("rim_width")])
+		else:
+			ok(is_equal_approx(float(panel.get("rim_width")), 0.0),
+				"%s is an inactive tab and draws NO rim (%.1f px)" % [tile_name, panel.get("rim_width")])
+		# CHALKED tint: the row lightens + desaturates whatever its paper role resolves to, into the mock's
+		# pastel band (NavBar.chalk). Measured on the fill the panel actually carries, against the untouched
+		# shared role fill — the role itself must NOT have moved (asserted below).
+		var pc: Color = panel.get("paper_color")
+		ok(pc.s <= NavBarKit.CHALK_SAT_MAX + 0.001 and pc.v >= 0.70 and pc.v <= NavBarKit.CHALK_VALUE_MAX + 0.001,
+			"%s wears a chalked tint (s %.2f ≤ %.2f, v %.2f in 0.70..%.2f)"
+				% [tile_name, pc.s, NavBarKit.CHALK_SAT_MAX, pc.v, NavBarKit.CHALK_VALUE_MAX])
 		# the drawn outline, tear and all — the sheet runs from the tile's top edge to BELOW the screen
 		var pts: PackedVector2Array = panel.call("_deckle_polygon", panel.size, panel.corner)
 		ok(pts.size() > 8, "%s draws a real sheet outline (%d points)" % [tile_name, pts.size()])
@@ -1292,6 +1312,23 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 		"an ordinary action button keeps the flat sheet — flare/halo/bevel default off")
 	ok(plain_panel != null and String(plain_panel.get("shape")) == "rect",
 		"…and the plain rounded-rect base shape")
+	# …and the two things the NAV ROW takes away are still there off the row: the torn deckle and the warm
+	# cut-edge rim. Both are shared by dialogs, pills and buttons across the game; the row zeroes them in
+	# its OWN cut-paper patch (NavBar.tab_cp), never in the shared defaults.
+	ok(plain_panel != null and float(plain_panel.get("deckle_amp")) > 0.0,
+		"…the shared torn deckle survives off the nav row (%.2f)" % [0.0 if plain_panel == null else plain_panel.get("deckle_amp")])
+	ok(plain_panel != null and float(plain_panel.get("rim_width")) > 0.0,
+		"…and so does the shared warm cut-edge rim (%.2f)" % [0.0 if plain_panel == null else plain_panel.get("rim_width")])
+	# the CHALK is the row's own too: the shared paper ROLES keep their fills, so no dialog, pill, board or
+	# shop surface moves. Compare the untouched role fill against what the row would have chalked it to.
+	var gold: Color = Kit.action_role_fill("play", {"play": "gold"})
+	ok(is_equal_approx(gold.s, Color(Pal.GOLD).s) and is_equal_approx(gold.v, Color(Pal.GOLD).v),
+		"the shared paper roles keep their fills — the chalk is applied at the nav call site only")
+	ok(NavBarKit.chalk(gold).s < gold.s and NavBarKit.chalk(gold).v > gold.v,
+		"…and the row's chalk really does lighten + desaturate it (s %.2f→%.2f, v %.2f→%.2f)"
+			% [gold.s, NavBarKit.chalk(gold).s, gold.v, NavBarKit.chalk(gold).v])
+	ok(is_equal_approx(NavBarKit.chalk(gold).h, gold.h),
+		"…preserving the hue exactly (a chalking pass, not a re-hue)")
 	plainb.queue_free()
 
 ## The flare the sheet's outline actually carries: a least-squares fit of its HALF-width against y over

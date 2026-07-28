@@ -138,10 +138,13 @@ func _draw() -> void:
 	else:
 		draw_colored_polygon(pts, paper_color)
 	_draw_bevel(pts)                # the paper's thickness (off unless `bevel_px` > 0)
-	# the warm cut-edge rim, closed around the deckle
-	var closed := pts.duplicate()
-	closed.append(pts[0])
-	draw_polyline(closed, rim_color, rim_width, true)
+	# the warm cut-edge rim, closed around the deckle. 0 width = NO border at all — the paper edge just
+	# ends (a plain nav tab; only the active one is outlined). Guarded because draw_polyline treats a
+	# non-positive width as "use the thin GL line", which would still draw a hairline.
+	if rim_width > 0.0:
+		var closed := pts.duplicate()
+		closed.append(pts[0])
+		draw_polyline(closed, rim_color, rim_width, true)
 
 ## The torn-edge polygon: take the base OUTLINE for the chosen shape (any convex/organic polygon), then
 ## push every sampled point OUT along its own edge-normal by fractal noise on the arc length. Because the

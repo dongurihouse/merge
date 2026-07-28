@@ -363,6 +363,14 @@ static func _caption_layer(text: String, fsz: int, color: Color, box_h: float, b
 	lbl.offset_bottom = lbl.offset_top + float(fsz) * 2.0
 	return lbl
 
+## The paper FILL a button role resolves to under a tint map — role → paper role → surface fill. Exposed
+## because a caller that must TRANSFORM the fill (the nav row chalks its tabs, NavBar.chalk) has to start
+## from the same colour the button would have picked; it reads this one lookup rather than re-walking the
+## PAPER_SURFACES chain and drifting from it.
+static func action_role_fill(role: String, tints: Dictionary = ACTION_TINT_DEFAULTS) -> Color:
+	var surface: Dictionary = PAPER_SURFACES.get(String(tints.get(role, "cream")), PAPER_SURFACES["cream"])
+	return surface.get("fill", Pal.CREAM)
+
 ## The shared ACTION BUTTON: a flat Button wearing the code-drawn rugged cut-paper edge (a CutPaperPanel,
 ## the SAME applier the pill/frame/rows use) filled by its per-button paper-role tint, with a centered
 ## transparent glyph on top. ONE source for the home bottom bar and the board Home/Bag wells — the baked
@@ -374,9 +382,11 @@ static func _caption_layer(text: String, fsz: int, color: Color, box_h: float, b
 ##   glyph_box_px / glyph_center_frac — the glyph shrinks and rides high once a caption shares the tile;
 ##   active / rim_px — the raised current tab's cream rim, drawn OUTSIDE the fill;
 ##   bleed_bottom — px the PAPER extends below the button rect (a tab bled off the screen edge rounds
-##                  only its top corners); the button's own rect, and its hit area, stay on-screen;
-##   smooth_edge — the mock's smooth rounded corners instead of the shared torn edge (one flag apart:
-##                 it zeroes the tear on the SAME CutPaperPanel, so fill/rim/shadow are identical).
+##                  only its top corners); the button's own rect, and its hit area, stay on-screen.
+##   caption_shadow — the caption's own shadow stack (defaults to the glyph's GLYPH_SHADOW); a caller
+##                    whose tile is PALE overrides it so white type keeps its local contrast.
+## (The nav row's smooth corners and its rimless plain tiles are NOT separate flags: it zeroes `deckle_amp`
+## and `rim_width` through the ordinary cut-paper knob set in NavBar.tab_cp, like every per-row tuning.)
 static func action_button(role: String, size: Vector2, action: Callable, opts: Dictionary = {}) -> Button:
 	var b := Button.new()
 	b.name = String(opts.get("name", "ActionButton_" + role))
@@ -398,15 +408,10 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_theme_stylebox_override(st, clear)
 	# resolve the per-button fill from its paper role (explicit `fill` wins)
-	var tints: Dictionary = opts.get("tints", ACTION_TINT_DEFAULTS)
-	var paper_role := String(tints.get(role, "cream"))
-	var surface: Dictionary = PAPER_SURFACES.get(paper_role, PAPER_SURFACES["cream"])
-	var fill: Color = opts.get("fill", surface.get("fill", Pal.CREAM))
+	var fill: Color = opts.get("fill", action_role_fill(role, opts.get("tints", ACTION_TINT_DEFAULTS)))
 	var cp: Dictionary = opts.get("cp", cut_paper_opts_from_config(load_config(CONFIG_PATH), "action_button", ACTION_BUTTON_CP_DEFAULTS)).duplicate()
 	if opts.has("corner"):
 		cp["corner"] = float(opts["corner"])          # the caller's own corner (a nav tab's is a fraction of its width)
-	if bool(opts.get("smooth_edge", false)):
-		cp["deckle_amp"] = 0.0                        # smooth rounded corners: the SAME panel with its tear zeroed
 	var corner := float(cp.get("corner", 20.0))
 	b.set_meta(Look.SHADOW_CORNER_META, corner)
 	# `bleed_bottom` lets the PAPER run past the button's bottom edge (a tab bled off the screen edge):
@@ -460,7 +465,9 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 		cap_host.name = "ActionButtonCaptionHost"
 		cap_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cap_host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		for layer in GLYPH_SHADOW:
+		# the caption's shadow stack. Defaults to the glyph's, but a caller whose tile is PALE overrides it
+		# (`caption_shadow`) — white type carries on a chalked pastel only if its own shadow does the work.
+		for layer in (opts.get("caption_shadow", GLYPH_SHADOW) as Array):
 			cap_host.add_child(_caption_layer(caption, fsz, Look.shadow_color(float(layer["a"])),
 				size.y, baseline, float(fsz) * float(layer["dy"])))
 		var cap := _caption_layer(caption, fsz, Color.WHITE, size.y, baseline, 0.0)
