@@ -455,15 +455,17 @@ const SPECIAL_ITEMS := {
 # §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
 # chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.
 # Tap-collect grants the resource (water/acorn) per tier; a CHEST is opened by a second TAP
-# (no key needed — the key line is retired) for a coins+acorns payout scaled by the chest tier.
+# (no key needed — the key line is retired) for a coins+acorns payout ROLLED from the chest
+# tier's range — low-biased, so the mean sits low and the ceiling reads as a jackpot.
 const SPECIAL_DROP_RATE := 0.02           # P(a merge also drops a special item); cf COIN_DROP_RATE 0.10 (sim-tuned down — drops fed too much water/exp)
 const SPECIAL_DROP_WEIGHTS := {CHEST_LINE: 1, WATER_LINE: 1, ACORN_LINE: 1, SOIL_SEED_LINE: 1, MAGNET_SEED_LINE: 1}   # chest·water·acorn·soil seed·magnet seed (flat; the key + spark lines are retired)
 const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the resource kinds
 	"water": {1: 8, 2: 20, 3: 50},
 	"acorn": {1: 1, 2: 2, 3: 5},   # 3 tiers now (the 12-tier premium ladder is retired)
 }
-const CHEST_OPEN_COINS := {1: 40, 2: 120, 3: 320, 4: 800, 5: 2000}   # base coins for opening a chest of this tier …
-const CHEST_OPEN_ACORNS := {1: 0, 2: 1, 3: 3, 4: 6, 5: 12}          # … plus acorns at the higher chest tiers
+const CHEST_OPEN_COINS := {1: [10, 60], 2: [30, 180], 3: [80, 500], 4: [200, 1250], 5: [500, 3200]}   # [lo, hi] coins ROLLED low-biased on open …
+const CHEST_OPEN_ACORNS := {1: [0, 0], 2: [0, 2], 3: [1, 5], 4: [2, 11], 5: [4, 24]}                  # … plus a rolled acorn range above t1
+const CHEST_ROLL_SKEW := 2.0                # roll = lo + span·randf()^SKEW; at 2 the expectation sits at 1/3 of the span
 
 # §6.C UTILITY ACCUMULATORS — generators that BANK a resource over real time (no water cost) up to a small
 # cap; tap to collect, bag-stowable (reuse the generator bag). UNLOCKED across map 1's first 4 restored

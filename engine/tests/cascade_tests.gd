@@ -158,6 +158,21 @@ func _test_run_excludes_unreachable_tiers() -> void:
 	ok(not rrun.has(Vector2i(4, 3)) and rrun.size() == 3, \
 		"a runway's rungs stop at the tier gap (%s)" % str(rrun))
 
+	# The rungs must survive a MESSY component. A stray at or below the ladder's foot, bridged in
+	# through an unrelated tier, used to hijack the walk and collapse the ribbon to a single dot —
+	# which on a played board is most of them, and read as the guide vanishing outright.
+	var m := _blank_board()
+	m.place(Vector2i(2, 1), 102)          # stray t2, dead end, row-major FIRST
+	m.place(Vector2i(2, 2), 107)          # unrelated tier bridging it to the ladder
+	m.place(Vector2i(2, 3), 102)
+	m.place(Vector2i(2, 4), 103)
+	m.place(Vector2i(2, 5), 104)
+	var mw := BoardLogic.runways(m, 3)
+	var mrun: Array = [] if mw.is_empty() else Array((mw[0] as Dictionary).get("run", []))
+	ok(mrun.size() == 3 and mrun.has(Vector2i(2, 3)) and mrun.has(Vector2i(2, 5)) \
+		and not mrun.has(Vector2i(2, 1)), \
+		"a messy component still draws the real ladder, not the stray (%s)" % str(mrun))
+
 func _test_chain_reward_codes() -> void:
 	ok(BoardLogic.chain_reward_code(1) == 0, "chain_reward_code: x1 has no reward")
 	ok(BoardLogic.chain_reward_code(2) == 0, "chain_reward_code: x2 has no cascade reward")

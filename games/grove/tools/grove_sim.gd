@@ -718,7 +718,7 @@ func _credit_special_drop(code: int, src: String = "drop") -> void:
 func _try_open_chest() -> void:
 	while _pending_chests >= 1:
 		_pending_chests -= 1
-		var rw := G.chest_open_reward(G.CHEST_LINE * 100 + 1)
+		var rw := G.chest_open_reward(G.CHEST_LINE * 100 + 1, rng)
 		_gain_coins(int(rw.coins))
 		drop_open_coins += int(rw.coins)
 		acorns += int(rw.acorns)
@@ -732,7 +732,7 @@ func _credit_cascade_reward(code: int) -> void:
 		_gain_coins(cv)
 		cascade_reward_coins += cv
 	elif G.is_chest(code):
-		var rw := G.chest_open_reward(code)
+		var rw := G.chest_open_reward(code, rng)
 		_gain_coins(int(rw.coins))
 		cascade_reward_coins += int(rw.coins)
 		acorns += int(rw.acorns)

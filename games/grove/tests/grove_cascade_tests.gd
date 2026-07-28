@@ -457,8 +457,14 @@ func _test_chain_rewards_and_chest_open_clock() -> void:
 	b4._on_press(chest_pos)
 	b4._on_release(chest_pos)
 	await create_timer(0.1).timeout
-	ok(Save.coins() == wallet0 + int(G.chest_open_reward(1002).coins), "opening the cascade chest credits spendable coins")
-	ok(Save.diamonds() == acorns0 + int(G.chest_open_reward(1002).acorns), "opening the cascade chest credits acorns")
+	# the payout is ROLLED from the tier's range, so assert membership — never an exact number
+	var chest_range := G.chest_open_range(1002)
+	var got_coins := Save.coins() - wallet0
+	var got_acorns := Save.diamonds() - acorns0
+	ok(got_coins >= int((chest_range.coins as Array)[0]) and got_coins <= int((chest_range.coins as Array)[1]),
+		"opening the cascade chest credits spendable coins from its tier range (%d)" % got_coins)
+	ok(got_acorns >= maxi(0, int((chest_range.acorns as Array)[0])) and got_acorns <= int((chest_range.acorns as Array)[1]),
+		"opening the cascade chest credits acorns from its tier range (%d)" % got_acorns)
 	ok(Save.coins_earned_lifetime() == clock0, "opening a cascade chest does not move the quest coin clock")
 	b4.queue_free()
 
