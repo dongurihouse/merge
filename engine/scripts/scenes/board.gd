@@ -2658,12 +2658,41 @@ func _cascade_extension_pads(from: Vector2i, code: int, occupied: Dictionary) ->
 				continue
 			seen[cell] = true
 			out.append(entry)
+	for entry in _single_neighbor_seed_pads(from, code, occupied):
+		var cell := Vector2i((entry as Dictionary).get("cell", Vector2i(-1, -1)))
+		if cell.x < 0 or seen.has(cell):
+			continue
+		seen[cell] = true
+		out.append(entry)
 	out.sort_custom(func(a, b): return BoardModel.idx(Vector2i((a as Dictionary).get("cell", Vector2i.ZERO))) < BoardModel.idx(Vector2i((b as Dictionary).get("cell", Vector2i.ZERO))))
 	return out
 
 func _guide_run_cells(entry: Dictionary) -> Array:
 	var run := Array(entry.get("run", []))
 	return run if not run.is_empty() else Array(entry.get("cells", []))
+
+func _single_neighbor_seed_pads(from: Vector2i, code: int, occupied: Dictionary) -> Array:
+	var out: Array = []
+	if board == null or code <= 0:
+		return out
+	var line := BoardModel.line_of(code)
+	var held_tier := BoardModel.tier_of(code)
+	for i in board.items.size():
+		var base := BoardModel.cell_of(i)
+		if base == from:
+			continue
+		var item := int(board.items[i])
+		if item <= 0 or BoardModel.line_of(item) != line:
+			continue
+		var tier := BoardModel.tier_of(item)
+		if tier != held_tier - 1 and tier != held_tier + 1:
+			continue
+		for raw_d in BoardLogic.ORTHO_DIRS:
+			var cell := base + Vector2i(raw_d)
+			if not _can_show_extension_pad(cell, from, occupied):
+				continue
+			out.append({"cell": cell, "line": line, "kind": "stage"})
+	return out
 
 func _extension_pads_for_component(from: Vector2i, code: int, cells: Array, occupied: Dictionary) -> Array:
 	var out: Array = []
@@ -5117,6 +5146,7 @@ func _begin_drag() -> void:
 		_show_drag_targets()   # light the Bag drop target when it can accept a stashed piece
 
 func _on_release(pos: Vector2) -> void:
+	var gesture_dragged := _drag_node != null and not _drag_pending
 	if _drag_pending:
 		# the pointer never crossed the slop — a pure TAP. Resolve the node QUIETLY (no lift fx,
 		# no pickup sound) and fall through: the still-tap branch below owns select/collect/deliver.
@@ -5162,6 +5192,10 @@ func _on_release(pos: Vector2) -> void:
 			from_code, str(from), str(_press_was_selected), pos.distance_to(_press_pos),
 			("COLLECT" if (target == from and from_code > 0 and pos.distance_to(_press_pos) <= _drag_slop_px() and _press_was_selected) else "select/snap-back")])
 	if target == from and from_code > 0 and pos.distance_to(_press_pos) <= _drag_slop_px():
+		if gesture_dragged:
+			_snap_back(from, node)
+			_select_item(from)
+			return
 		# A still tap selects first. Collectables (coins + §6.B resource drops) collect only
 		# on a second tap of the already-focused cell, so dragging never pockets them.
 		if G.is_collectable(from_code) and _press_was_selected:

@@ -488,6 +488,21 @@ func _initialize() -> void:
 	ok(not bd._drag_pending and bd._selected_cell == slop_cell,
 		"releasing inside the slop is a TAP — it selects instead of dragging")
 	ok(bd._drag_slop_px() >= 24.0, "the touch slop is at least a fingertip-wobble wide")
+	var drag_down := InputEventMouseButton.new()
+	drag_down.button_index = MOUSE_BUTTON_LEFT
+	drag_down.pressed = true
+	drag_down.position = slop_pos
+	bd._on_board_input(drag_down)
+	var drag_move := InputEventMouseMotion.new()
+	drag_move.position = slop_pos + Vector2(bd._drag_slop_px() + 8.0, 0.0)
+	bd._on_board_input(drag_move)
+	var drag_up := InputEventMouseButton.new()
+	drag_up.button_index = MOUSE_BUTTON_LEFT
+	drag_up.pressed = false
+	drag_up.position = slop_pos
+	bd._on_board_input(drag_up)
+	ok(bd.get_node_or_null("LadderOverlay") == null,
+		"a drag gesture that returns to its selected item does not open the tier ladder")
 	bd.queue_free()
 
 	# The board's bottom-bar Home + Bag wells build through the SAME shared code-drawn
