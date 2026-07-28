@@ -457,8 +457,7 @@ const SPECIAL_ITEMS := {
 # Tap-collect grants the resource (water/acorn) per tier; a CHEST is opened by a second TAP
 # (no key needed — the key line is retired) for a COINS-ONLY payout ROLLED from the chest tier's
 # range — low-biased, so the mean sits low and the ceiling reads as a jackpot. A chest pays NO
-# acorns and no premium of any kind (owner call 2026-07-27); the only acorn faucets are the §6.B
-# acorn DROP line and the shop.
+# acorns and no premium of any kind (owner call 2026-07-27).
 const SPECIAL_DROP_RATE := 0.02           # P(a merge also drops a special item); cf COIN_DROP_RATE 0.10 (sim-tuned down — drops fed too much water/exp)
 const SPECIAL_DROP_WEIGHTS := {CHEST_LINE: 1, WATER_LINE: 1, ACORN_LINE: 1, SOIL_SEED_LINE: 1, MAGNET_SEED_LINE: 1}   # chest·water·acorn·soil seed·magnet seed (flat; the key + spark lines are retired)
 const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the resource kinds
