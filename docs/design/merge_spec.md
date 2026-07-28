@@ -352,10 +352,11 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 > **B. Special drop items — SHIPPED.** A pool of special items mixes into the generator's pops as
 > occasional surprises (`SPECIAL_DROP_RATE` / `SPECIAL_DROP_WEIGHTS`), each behaving differently:
 > **chest** (merges through **5** tiers via its own `top`; opened by a **second TAP** — the key line is
-> **retired**, no key is needed — for a coins+acorns payout **ROLLED** from that tier's `CHEST_OPEN_COINS` /
-> `CHEST_OPEN_ACORNS` range, low-biased as `lo + span·randf()^CHEST_ROLL_SKEW`; at skew **2** the
-> expectation sits at **1/3 of the span**, so a typical open pays near the floor and the ceiling is the
-> jackpot. Each tier's ceiling and mean more than **double** the tier below, so merging chests up beats
+> **retired**, no key is needed — for a **COINS-ONLY** payout **ROLLED** from that tier's
+> `CHEST_OPEN_COINS` range, low-biased as `lo + span·randf()^CHEST_ROLL_SKEW`; at skew **3** the
+> expectation sits at **1/4 of the span**, so a typical open pays near the floor and the ceiling is the
+> jackpot. A chest pays **no acorns and no premium** — its coins are spendable but never clock-advancing.
+> Each tier's ceiling and mean more than **double** the tier below, so merging chests up beats
 > opening two of the lower tier) · **water** · **acorn** · **exp** (each merges, **tap-collect** → the
 > currency) · **coins** (already shipped). water/exp cap at `SPECIAL_TOP` (3); the acorn runs the
 > full 12 via a per-item `top`. *(The brainstorm's **tool** item was cut from scope; the **wildcard**

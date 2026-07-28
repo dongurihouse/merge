@@ -248,19 +248,32 @@ func _rebuild_tags() -> void:
 		child.queue_free()
 	if not cell_pos_fn.is_valid():
 		return
+	# ONE tag per cell, loudest wins. These three sources overlap in the ordinary case — a runway
+	# anchors its needed-tier chip on the very cell that becomes the drop target once you pick that
+	# tier up — and two Labels at one position just overprint into gibberish ("t×3").
+	# Order is the order of authority: what you can do NOW, then what is armed, then what is merely
+	# wanted. The runway's "needs a t2" is redundant anyway while you are holding the t2.
+	var taken := {}
+	for entry in ghost_pads:
+		if not (entry is Dictionary) or String((entry as Dictionary).get("kind", "stage")) != "cascade":
+			continue
+		var cell := Vector2i((entry as Dictionary).get("cell", Vector2i(-1, -1)))
+		if cell.x < 0 or taken.has(cell):
+			continue
+		taken[cell] = true
+		var pn := int((entry as Dictionary).get("n", 2))
+		_add_tag(cell, "×%d" % pn, pn, false)
 	for entry in ladders:
 		if not (entry is Dictionary):
 			continue
 		var top_cell := Vector2i((entry as Dictionary).get("top_cell", Vector2i(-1, -1)))
-		if top_cell.x < 0:
+		if top_cell.x < 0 or taken.has(top_cell):
 			continue
+		taken[top_cell] = true
 		var n := int((entry as Dictionary).get("n", 2))
 		_add_tag(top_cell, "×%d" % n, n, false)
 	for entry in runways:
 		if not (entry is Dictionary):
-			continue
-		var cells: Array = Array((entry as Dictionary).get("cells", []))
-		if cells.is_empty():
 			continue
 		var need := int((entry as Dictionary).get("needs_code", 0))
 		if need <= 0:
@@ -270,16 +283,14 @@ func _rebuild_tags() -> void:
 		# then floats on a cell with no mark under it.
 		var anchor: Array = Array((entry as Dictionary).get("run", []))
 		if anchor.is_empty():
-			anchor = cells
-		_add_tag(Vector2i(anchor[0]), "t%d" % (need % 100), int((entry as Dictionary).get("would_be_n", 3)), true)
-	for entry in ghost_pads:
-		if not (entry is Dictionary) or String((entry as Dictionary).get("kind", "stage")) != "cascade":
+			anchor = Array((entry as Dictionary).get("cells", []))
+		if anchor.is_empty():
 			continue
-		var cell := Vector2i((entry as Dictionary).get("cell", Vector2i(-1, -1)))
-		if cell.x < 0:
+		var at := Vector2i(anchor[0])
+		if taken.has(at):
 			continue
-		var n := int((entry as Dictionary).get("n", 2))
-		_add_tag(cell, "×%d" % n, n, false)
+		taken[at] = true
+		_add_tag(at, "t%d" % (need % 100), int((entry as Dictionary).get("would_be_n", 3)), true)
 
 func _add_tag(cell: Vector2i, text: String, n: int, weak: bool) -> void:
 	var chip := Label.new()
