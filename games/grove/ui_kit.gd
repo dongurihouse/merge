@@ -440,7 +440,7 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 			rim.offset_top = -rim_px
 			rim.offset_right = rim_px
 			rim.offset_bottom = bleed + rim_px
-			rim.configure(rim_cp, Pal.CREAM, null, cut_paper_tile())
+			rim.configure(rim_cp, Pal.CREAM, null, action_button_tile())
 			rim.corner = float(rim_cp["corner"])
 			b.add_child(rim)
 	# the code-drawn rugged edge — the ONE shared applier
@@ -450,7 +450,7 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	panel.offset_bottom = bleed
-	panel.configure(cp, fill, null, cut_paper_tile())
+	panel.configure(cp, fill, null, action_button_tile())
 	panel.corner = corner
 	b.add_child(panel)
 	# the caption (a nav tab): bold white type on the shared layered-silhouette shadow, shrunk to fit the
@@ -2991,6 +2991,37 @@ const CUT_PAPER_TILE_OLD_CREAM := "res://games/grove/assets/ui/dialogs/paper_til
 const CUT_PAPER_TILE_WHITE := "res://games/grove/assets/ui/dialogs/paper_tile_white.png"   # the white paper role's fibre (desaturated + lifted from the cream tile)
 const CUT_PAPER_TILE_SOFT_CREAM := "res://games/grove/assets/ui/dialogs/paper_tile_soft_cream.png"   # shared frame fibre: between white and the old yellow cream
 const CUT_PAPER_TILE := CUT_PAPER_TILE_SOFT_CREAM   # code-drawn shared sheet's paper fibre
+
+## THE ACTION BUTTON'S PAPER FIBRE — the nav tab's face, and nothing else. Every cut-paper surface
+## in the game multiplies its fill by `CUT_PAPER_TILE`; the tab bar is the one row whose grain is
+## being chosen on its own, so `action_button` reads THIS selection instead. The candidates were
+## generated for the tab-bar restyle (games/grove/assets/_new/_processed/nav_paper_candidates_v1_*.plan.json
+## carries each one's prompt, provenance and measured fine-grain sigma; the concept mock's tile faces
+## measure ~2.7 and the shipping cream fibre 2.75):
+##
+##   soft_cream  2.75  SHIPPING — the shared cream fibre every dialog, pill and card also wears
+##   laid        2.26  directional laid/Ingres lines, anisotropy 2.03 (the shipping tile is 1.22)
+##   coldpress   3.50  cold-press watercolour tooth — the most energetic
+##   felt        2.63  soft felt/blotter nap — broad woolly drifts under a fine matted grain
+##
+## Changing `ACTION_TILE` is the whole switch. Once the pick is made, delete the other candidate
+## PNGs under ui/nav/paper/ — they are shipped only so the choice is a one-line change.
+const ACTION_TILE_CANDIDATES := {
+	"soft_cream": CUT_PAPER_TILE_SOFT_CREAM,
+	"laid": "res://games/grove/assets/ui/nav/paper/paper_tile_nav_laid.png",
+	"coldpress": "res://games/grove/assets/ui/nav/paper/paper_tile_nav_coldpress.png",
+	"felt": "res://games/grove/assets/ui/nav/paper/paper_tile_nav_felt.png",
+}
+const ACTION_TILE := "soft_cream"
+
+## The fibre `action_button` draws (falls back to the shared tile if the pick is missing/unloadable,
+## so a deleted candidate degrades to today's look rather than a bare fill).
+static func action_button_tile() -> Texture2D:
+	var p := String(ACTION_TILE_CANDIDATES.get(ACTION_TILE, CUT_PAPER_TILE))
+	if p != "" and ResourceLoader.exists(p):
+		return load(p) as Texture2D
+	return cut_paper_tile()
+
 const FRAME_BORDERS := {
 	"parchment":  {"art": "meadow_v2/dialog_panel.png", "slice": 42.0, "pad_x": 26.0, "pad_y": 24.0},
 	"vault twig": {"art": "kit/vault_panel.png",        "slice": 64.0, "pad_x": 40.0, "pad_y": 34.0},
