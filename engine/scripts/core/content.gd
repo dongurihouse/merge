@@ -51,7 +51,6 @@ const EXP_PER_QUEST_EST = D.STARS_PER_QUEST_EST
 const BURST_ODDS = D.BURST_ODDS
 const BURST_ODDS_BOOST = D.BURST_ODDS_BOOST
 const BURST_MAX = D.BURST_MAX
-const BOOST_BONUS = D.BOOST_BONUS
 const BOOST_TAPS = D.BOOST_TAPS
 const BOOST_COST = D.BOOST_COST
 const SOIL_MAX = D.SOIL_MAX
@@ -797,11 +796,6 @@ static func active_giver_count(earned_exp: int, target_exp: int, max_givers: int
 ## board-wide grove["boost_taps"] counter (T57).
 static func boost_cost() -> int:
 	return BOOST_COST
-
-## Legacy dial: the boost's old flat +items magnitude. The boost is an ODDS SWAP now (burst_count takes a
-## bool), so nothing reads this — kept only so the BOOST_BONUS data dial keeps a named accessor.
-static func boost_bonus() -> int:
-	return BOOST_BONUS
 
 # --- §1 residents: the population sub-game (welcome + auto-merge) ------------------
 # Residents are WELCOMED (bought) on a COMPLETED map; two of the same type+tier AUTO-MERGE
