@@ -7,6 +7,8 @@ const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const Mastery = preload("res://engine/scripts/core/mastery.gd")
+const Features = preload("res://engine/scripts/core/features.gd")
+const Strings = preload("res://engine/scripts/core/strings.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Design = preload("res://engine/scripts/core/design.gd")   # the shipped canvas — read it, never re-type it
 
@@ -246,8 +248,9 @@ func _initialize() -> void:
 	ok(bm6.gen_boost_at(Vector2i(4, 3)) == 0, "remove_gen clears the vacated cell's boost")
 	ok(not bm6.remove_gen(Vector2i(4, 3)), "remove_gen on a cell with no generator is a no-op (false)")
 
-	# Mastery scene chrome: a ranked generator wears the progress ring, moves its tier into the title,
-	# shows the mastery row in the subtitle, and rank-up cards mark mastery_seen once opened.
+	# Mastery scene chrome: a ranked generator wears the progress ring, carries its MASTERY tier as a
+	# "· Tier N" badge in the title, shows the meter/next mastery row in the subtitle, and rank-up
+	# cards mark mastery_seen once opened.
 	fresh("scene_mastery_chrome")
 	Save.mark_board_tutorial_seen()
 	Save.grove()["mastery"] = {"1": 60}
@@ -267,14 +270,41 @@ func _initialize() -> void:
 	ok(ring != null and is_equal_approx(float(ring.get("progress")), Mastery.rank_progress(1)),
 		"the mastery ring uses progress within the current rank")
 	smastery._select_generator(mcell)
-	ok(not String(smastery._info_label.text).contains("Tier"),
-		"the generator info title no longer carries the retired generator tier")
+	# The title reads "<name> · Tier N" at the line's MASTERY tier. Asserted as the WHOLE string (and
+	# with N derived from Mastery, never a typed threshold) so a stray tier number from any other
+	# scale — the retired generator tier included — fails here rather than reading plausibly.
+	var mgid: String = smastery.board.gen_id_at(mcell)
+	var mbadge: String = Strings.t("mastery.info.badge") % Mastery.rank(1)
+	ok(String(smastery._info_label.text) == "%s · %s" % [G.generator_display_name(mgid), mbadge],
+		"the generator info title reads '<name> · Tier N' at the line's mastery tier (%s)" % smastery._info_label.text)
 	var mastery_row: Control = smastery._info_mastery_row
 	ok(mastery_row != null and mastery_row.visible
-		and smastery._info_mastery_pips.size() == 8
 		and is_equal_approx(float(smastery._info_mastery_progress.value), Mastery.rank_progress(1))
 		and String(smastery._info_mastery_next_label.text).contains("next: reach"),
-		"the generator info subtitle becomes the pips/progress/next mastery row")
+		"the generator info subtitle becomes the progress/next mastery row")
+	var mrow_kids: Array = []
+	for mk in mastery_row.get_children():
+		mrow_kids.append(String(mk.name))
+	ok(mrow_kids == ["MasteryProgress", "MasteryNext"],
+		"the mastery row is just the meter and the next label — the pips are gone (%s)" % str(mrow_kids))
+
+	# The badge is gated exactly like the row: a generator OFF the base lines (a treat gen carries no
+	# meter) keeps its bare name…
+	var tgid: String = G.treat_gen_id(int(G.TREAT_LINES[0]))
+	var tcell := Vector2i(smastery.board.empty_ground_cells()[0])
+	smastery.board.place_gen(tgid, tcell)
+	smastery._rebuild_all()
+	smastery._select_generator(tcell)
+	ok(String(smastery._info_label.text) == G.generator_display_name(tgid),
+		"a non-mastery-line generator's title carries no Tier badge (%s)" % smastery._info_label.text)
+	# …and so does a mastery-line generator while the feature flag is off.
+	Features.FLAGS["mastery"] = false
+	smastery._select_generator(mcell)
+	ok(String(smastery._info_label.text) == G.generator_display_name(mgid),
+		"with the mastery flag off the generator title drops the Tier badge (%s)" % smastery._info_label.text)
+	Features.FLAGS["mastery"] = true
+	smastery._select_generator(mcell)
+
 	smastery._queue_mastery_rankups({1: 1})
 	smastery._schedule_mastery_rankup(0.25)
 	await create_timer(0.05).timeout
@@ -330,8 +360,13 @@ func _initialize() -> void:
 			widest_text = ntext
 	ok(widest <= nlbl.size.x,
 		"the mastery next label fits its widest string untrimmed (%.0fpx '%s' in %.0fpx)" % [widest, widest_text, nlbl.size.x])
-	ok(sfit._info_mastery_progress.size.x >= 60.0 and sfit._info_mastery_pips[7].size.x >= 8.0,
-		"the mastery meter and pips keep a visible width beside the label (%.0fpx meter)" % sfit._info_mastery_progress.size.x)
+	# The other half of the split: the meter must keep a visible width beside the label AND take a real
+	# share of the row rather than sitting pinned at its floor (the pips used to eat that width). Both
+	# read off the REAL laid-out row, so a size_flags/ratio change that starves either half fails here.
+	ok(sfit._info_mastery_progress.size.x >= 60.0
+		and sfit._info_mastery_progress.size.x > sfit._info_mastery_progress.custom_minimum_size.x,
+		"the mastery meter keeps a visible width and takes a share of the freed row (%.0fpx meter over a %.0fpx floor, %.0fpx label)"
+			% [sfit._info_mastery_progress.size.x, sfit._info_mastery_progress.custom_minimum_size.x, nlbl.size.x])
 	ok(is_equal_approx(sfit._info_mastery_row.size.y, sfit._info_mastery_row.get_combined_minimum_size().y)
 		and sfit._info_mastery_row.size.y <= 40.0,
 		"the mastery row stays one line tall (%.0fpx)" % sfit._info_mastery_row.size.y)

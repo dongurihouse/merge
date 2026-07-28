@@ -140,8 +140,8 @@ static func mount(host: Control) -> void:
 	if host.has_method("debug_pop_magnet"):      # board-only: feed a Magnet a pair so it auto-merges on demand
 		_action(menu, host, "Pop magnet", _act_pop_magnet)
 	if Features.on("mastery") and host.has_method("debug_bump_mastery"):   # board-only: walk every generator's mastery rank
-		_action(menu, host, "Gen rank +1", _act_mastery_up)
-		_action(menu, host, "Gen rank -1", _act_mastery_down)
+		_action(menu, host, "Gen tier +1", _act_mastery_up)
+		_action(menu, host, "Gen tier -1", _act_mastery_down)
 
 	col.position = _panel_position(host, col)
 	host.add_child(layer)

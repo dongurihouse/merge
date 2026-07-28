@@ -521,9 +521,10 @@ func _initialize() -> void:
 			scn._select_generator(scn.board.gens.keys()[0])
 			await create_timer(0.3).timeout
 		"mastery":
-			# The generator INFO BAR at a given mastery rank — the pips, the within-rank progress bar and
-			# the next-tier label. `line=` picks the generator (2 = Wild Berries), `meter=` is written
-			# straight into the save, so a THRESHOLD entry lands exactly on that rank. Seeds the meter
+			# The generator INFO BAR at a given mastery rank — the "· Tier N" title badge, the
+			# within-rank progress bar and the next-tier label. `line=` picks the generator (2 = Wild
+			# Berries), `meter=` is written straight into the save, so a THRESHOLD entry lands exactly
+			# on that rank. Seeds the meter
 			# BEFORE selecting: _select_generator is what builds the row off Mastery.rank().
 			var ml := int(Base.opt(args, "line", "2"))
 			var mm := int(Base.opt(args, "meter", "1150"))

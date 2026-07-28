@@ -198,12 +198,13 @@ Mocks (composition authority for the builder):
   *"<Line name> — pops now land tX–tY."*, **Continue** (action green), `FX.burst` confetti.
   Deferred until the triggering action's FX settle; multiple ranks in one credit collapse to the
   highest; queued behind the level-up popup (board.gd:3798).
-- **Info bar** (generator selected): tier moves into the name line (`_gen_info_text`,
-  board.gd:2250); the second line becomes the mastery row at the same height: eight round pips
-  (filled = line color, hollow = ink outline on cream) · slim `Kit.progress_bar` ≈170×14 px at
-  base canvas (cream track, line-color fill) to the next threshold · the next-reward string. The
-  tray must not grow (action_bar.gd:95–111; `board_hud_layout_tests` stays green). Items and empty
-  cells unchanged.
+- **Info bar** (generator selected): the tier rides the name line as `<name> · Tier N`
+  (`_gen_info_text`, `mastery.info.badge`) — capitalised and spelled out, so it never reads as an
+  ITEM tier (`t5`); the second line is the mastery row at the same height: slim progress bar
+  ≈109×14 px at base canvas (cream track `#FBF3EA` @ 0.72, line-color fill, corner radius 7) to the
+  next threshold · the next-reward string, split 1 : 2.5 across the row's 383 px. No pips. The tray
+  must not grow (action_bar.gd:95–111; `board_hud_layout_tests` stays green). Items and empty cells
+  unchanged.
 - **Scissors in shop:** a QUICK HELP row below Coin Pouch, caption "SCISSORS": icon · ink text
   *"Cuts a piece into two of a tier lower."* · green price pill with the coin icon and 40.
 - **Scissors on board:** dragging over an eligible piece shows the split preview (telegraph seam,

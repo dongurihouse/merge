@@ -112,6 +112,7 @@
   },
   "mastery": {
     "info": {
+      "badge": "Tier %d",
       "maxed": "maxed",
       "next_reach": "next: reach t%d",
       "next_start": "next: start t%d"
