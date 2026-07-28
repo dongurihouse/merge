@@ -3840,8 +3840,8 @@ func _build_almanac_chip(opts: Dictionary, row: Control) -> void:
 	_info_almanac.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(_info_almanac)
 
-# Select a board item INTO the info bar: show its piece + name, put "Tier N" ("Max tier" at the code's merge
-# ceiling — G.merge_top) in the subtitle, enable the info button, and
+# Select a board item INTO the info bar: show its piece + name, put "Tier N" in the subtitle ("Max tier" at the
+# code's merge ceiling — G.merge_top — since that number can never move again), enable the info button, and
 # show the trashcan with its sell payout (hidden for generators / raw coins — they aren't deletable here).
 func _select_item(cell: Vector2i) -> void:
 	var code := board.item_at(cell)
@@ -3961,9 +3961,8 @@ func _select_generator(cell: Vector2i) -> void:
 	else:
 		_refresh_burst_chip()                 # the boost chip (full when armable, faded while live)
 
-# The generator's info-bar label: its name, then — on a mastery line — the "· Tier N" mastery badge
-# ("· Max tier" once the last MASTERY_THRESHOLDS rank is banked — the number stops moving, so stop
-# printing it),
+# The generator's info-bar label: its name, then — on a mastery line — the "· Tier N" mastery badge ("· Max
+# tier" once the last MASTERY_THRESHOLDS rank is banked — the number stops moving, so stop printing it),
 # plus — while a boost is live — the boost detail (that the boost is on and how many taps are left).
 # Built here so a pop can refresh it live without rebuilding the whole info bar (§3 boost detail).
 # The badge is gated on the SAME condition _select_generator uses to choose the mastery row over the
