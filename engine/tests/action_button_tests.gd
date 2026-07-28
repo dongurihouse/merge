@@ -43,6 +43,22 @@ func _initialize() -> void:
 	ok(String(ro["tints"].get("map", "")) == "sky", "reader round-trips the per-button tint palette")
 	ok(is_equal_approx(float(ro["icon_scale"]), 0.55), "reader normalizes icon_scale (55 → 0.55)")
 
+	# 4b) the cut-paper edge band is a LIT cut edge, not a shaded slab. Light comes from above: an edge
+	# facing up takes the full highlight, a SIDE takes light and no shadow at all, and only the foot
+	# darkens. A side that shades is what reads as volume — a flat card inflated into a button — so the
+	# split is pinned here rather than left to the drawing code.
+	var CP := load(Kit.CUT_PAPER)
+	var w_top: Vector2 = CP.bevel_weights(-1.0)     # outward normal pointing straight UP
+	var w_side: Vector2 = CP.bevel_weights(0.0)     # …horizontal (a side)
+	var w_foot: Vector2 = CP.bevel_weights(1.0)     # …straight DOWN
+	ok(is_equal_approx(w_top.x, 1.0) and is_equal_approx(w_top.y, 0.0),
+		"the top edge takes the full highlight and no shadow (%.2f/%.2f)" % [w_top.x, w_top.y])
+	ok(w_side.x > 0.0 and is_equal_approx(w_side.y, 0.0),
+		"a SIDE edge is lit, never shaded — the flat-card read (%.2f/%.2f)" % [w_side.x, w_side.y])
+	ok(is_equal_approx(w_foot.x, 0.0) and w_foot.y > 0.0,
+		"only the foot darkens (%.2f/%.2f)" % [w_foot.x, w_foot.y])
+	ok(w_top.x > w_side.x, "…and the top edge catches more light than the sides")
+
 	# 5) the workbench registers the action_button component and drops the old home_button component
 	# NOTE: DEFAULTS is not a const dict or a static func in ui_workbench_view.gd — the schema lives in
 	# the instance method _default_params() (declared on the shared workbench_view.gd base, overridden

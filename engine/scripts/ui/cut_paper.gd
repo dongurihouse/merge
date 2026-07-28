@@ -44,11 +44,12 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 # same however many copies the reach asks for). 0 reach = off, which is the default everywhere.
 @export var halo_reach: float = 0.0     # how far the halo reaches out from EVERY edge (px)
 @export var halo_alpha: float = 0.30     # the halo's alpha where it touches the sheet
-# PAPER THICKNESS — the slab bevel. A dense stack of INSET outlines hugging the sheet's own perimeter:
-# the edges facing the light (up) pick up a pale highlight off the paper colour, the edges facing away
-# (the foot fully, the sides at part weight) darken with the shared shadow tint, and the band fades out
-# reading inward. Without it a cut-paper face is a flat fill with a hairline rim; with it the rim reads
-# as a rounded-over cut edge and the sheet as a slab. 0 depth = off (the default everywhere).
+# PAPER THICKNESS — the lit cut edge. A dense stack of INSET outlines hugging the sheet's own perimeter:
+# the edges facing the light (up) pick up a pale highlight off the paper colour, the sides take half of
+# it, only the foot darkens with the shared shadow tint, and the band fades out reading inward. Keep the
+# depth to a HAIRLINE (1-2px): that reads as the cut edge of a card. Reaching many px in turns the same
+# band into an inward gradient, which no longer reads as an edge at all but as an inflated, domed face.
+# 0 depth = off (the default everywhere).
 @export var bevel_px: float = 0.0          # how far the bevel band reaches in from the edge (px)
 @export var bevel_strength: float = 0.0    # peak alpha of the bevel's light + dark bands
 # TAB FLARE — the sheet's top edge is narrower than its bottom by this FRACTION (0.07 = the bottom reads
@@ -374,11 +375,20 @@ func _draw_edge_halo() -> void:
 	for i in range(steps, 0, -1):
 		draw_colored_polygon(_offset_loop(base, halo_reach * float(i) / float(steps)), sh)
 
-## THE SLAB BEVEL — the sheet's thickness. Dense inset outlines of the sheet's own perimeter, coloured by
-## which way each stretch of edge faces: light comes from above, so an edge facing UP catches a pale
-## highlight off the paper's own colour, an edge facing DOWN sits in full shadow tint, and the sides take
-## part shade. Alpha fades reading inward over `bevel_px`, so the band hugs the rim instead of tinting the
-## face. The light and dark passes are drawn separately — one polyline never blends cream into shadow.
+## How much LIGHT (x) and how much SHADOW (y) a stretch of edge takes, from the vertical component of its
+## outward normal (-1 = facing straight up, 0 = a side, +1 = the foot). Light comes from above: the top
+## edge takes the full highlight, a side takes half of it, and only the foot darkens. A side that SHADES
+## instead of lighting is what turns a flat card into an inflated slab, so this split is asserted
+## (engine/tests/action_button_tests.gd).
+static func bevel_weights(ny: float) -> Vector2:
+	return Vector2(clampf(0.5 - 0.5 * ny, 0.0, 1.0), clampf(ny, 0.0, 1.0))
+
+## THE LIT CUT EDGE — the sheet's thickness. Dense inset outlines of the sheet's own perimeter, coloured
+## by which way each stretch of edge faces (see bevel_weights). A sheet of paper lying on the art is LIT
+## at its cut edge, not shaded into a slab. Alpha fades reading inward over `bevel_px`, so at a hairline
+## depth the band reads as the mock's 1px lit rim rather than an inward gradient — a dark ramp reaching
+## several px in is what inflates a flat card into a button. The light and dark passes are drawn
+## separately — one polyline never blends cream into shadow.
 func _draw_bevel(pts: PackedVector2Array) -> void:
 	if bevel_px <= 0.0 or bevel_strength <= 0.0 or pts.size() < 3:
 		return
@@ -397,9 +407,9 @@ func _draw_bevel(pts: PackedVector2Array) -> void:
 		var shade := PackedColorArray()
 		for i in n:
 			loop.append(pts[i] - nrm[i] * (bevel_px * t + 0.75))
-			var ny := nrm[i].y
-			lit.append(Color(hi.r, hi.g, hi.b, fade * maxf(0.0, -ny)))
-			shade.append(Color(lo.r, lo.g, lo.b, fade * clampf(0.4 + 0.6 * ny, 0.0, 1.0)))
+			var wgt := bevel_weights(nrm[i].y)
+			lit.append(Color(hi.r, hi.g, hi.b, fade * wgt.x))
+			shade.append(Color(lo.r, lo.g, lo.b, fade * wgt.y))
 		loop.append(loop[0])
 		lit.append(lit[0])
 		shade.append(shade[0])

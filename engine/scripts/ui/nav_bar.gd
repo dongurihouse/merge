@@ -18,7 +18,7 @@ const SIDE_INSET := 32.0      # left/right inset of the row
 # ACTIVE tile takes its caption/glyph/rim sizes from the SAME W as its neighbours, so the captions read
 # at one size on one baseline across the whole row however much taller the active tile grows.
 const TILE_H_FRAC := 0.83             # visible tile height (the paper bleeds further down, off-screen)
-const CORNER_FRAC := 0.19             # rounded-rect corner radius
+const CORNER_FRAC := 0.173            # rounded-rect corner radius (measured off the mock's own tiles)
 const CAPTION_FONT_FRAC := 0.16       # caption size before the fit-to-width shrink
 const CAPTION_BASELINE_FRAC := 0.055  # caption baseline above the tile's BOTTOM edge
 const GLYPH_BOX_FRAC := 0.62          # the glyph's square box
@@ -30,7 +30,7 @@ const ACTIVE_RIM_FRAC := 0.037        # its cream rim, drawn OUTSIDE the fill
 # The tab's PAPER look — the things that separate a bled tab from the art behind it. All of them are
 # shared cut-paper knobs (Kit.CUT_PAPER_KNOBS) whose defaults are inert, so they bite on this row and
 # nowhere else.
-const FLARE := 0.07                   # the VISIBLE bottom edge reads 7% wider than the top (a trapezoid)
+const FLARE := 0.055                  # the VISIBLE bottom edge reads 5.5% wider than the top (a trapezoid)
 const HALO_REACH_FRAC := 0.11         # the ambient shadow's reach out from every edge. The tile bleeds off
                                       # the bottom of the screen, so a DOWNWARD offset is wasted — the lift
                                       # has to come from a long, soft halo on the top and the sides. Twice
@@ -38,7 +38,11 @@ const HALO_REACH_FRAC := 0.11         # the ambient shadow's reach out from ever
                                       # on; a card floating above the ground carries a fringe out past 20.
 const HALO_ALPHA_PCT := 38.0          # …and its alpha where it touches the paper (%) — measured off the
                                       # mock, whose tiles darken their ground by ~0.28 at the contact edge
-const BEVEL_FRAC := 0.045             # the slab bevel's depth in from the edge
+const BEVEL_FRAC := 0.008             # the lit cut edge's depth in from the edge — a HAIRLINE (~1.5px).
+                                      # Measured off the mock: stepping inward from a tile's edge onto its
+                                      # face, the mock gains ~+8 luma on the FIRST pixel and is flat by the
+                                      # second. It is a lit paper edge, not a shaded slab: a band reaching
+                                      # 9px in (0.045 W) reads as volume and the tab inflates into a button.
 const BEVEL_STRENGTH_PCT := 34.0      # …and its peak alpha (%)
 # SMOOTH EDGE: the tabs wear the mock's clean rounded corners, not the torn cut-paper deckle every other
 # paper surface in the game wears. It is the same CutPaperPanel with its tear amplitude zeroed — fill,

@@ -1241,8 +1241,14 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 		ok(float(panel.get("flare")) > 0.0, "%s paper is flared (%.3f)" % [tile_name, panel.get("flare")])
 		ok(float(panel.get("halo_reach")) > 0.0,
 			"%s casts the all-sides halo (%.1f px)" % [tile_name, panel.get("halo_reach")])
-		ok(float(panel.get("bevel_px")) > 0.0,
-			"%s wears the slab bevel (%.1f px)" % [tile_name, panel.get("bevel_px")])
+		# the lit cut edge is a HAIRLINE. It is the mock's 1px lit paper edge, not a slab: a band reaching
+		# several px in reads as an inward gradient and the tab inflates into a button (measured on the
+		# render: 0.045 W put a 9px ramp with a peak 43 luma deep inside the face; the mock's own tiles
+		# change by ~8 luma on ONE pixel). Bounded in BOTH directions so neither a zero nor a re-grown
+		# slab passes.
+		var bevel := float(panel.get("bevel_px"))
+		ok(bevel > 0.0 and bevel <= panel.size.x * 0.015,
+			"%s wears a HAIRLINE lit cut edge (%.2f px ≤ %.2f)" % [tile_name, bevel, panel.size.x * 0.015])
 		# SMOOTH corners: the row zeroes the shared torn deckle (it is the mock's clean rounded tab, and
 		# the ONE knob apart — the same panel, same fill, same rim, same halo).
 		ok(is_equal_approx(float(panel.get("deckle_amp")), 0.0),
@@ -1288,6 +1294,15 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 		ok(absf(gain - NavBarKit.FLARE) < 0.01,
 			"%s flares by ~%.1f%% across the visible box (asked %.1f%%)"
 				% [tile_name, gain * 100.0, NavBarKit.FLARE * 100.0])
+		# THE TOP READS AS A CARD, NOT A DOME. The straight run along the sheet's top edge — what is left
+		# of the width once the two corner arcs and the flare's squeeze have taken their bites — measured
+		# on the outline itself. The mock's own tiles run straight across ~63% of their width; ours must
+		# land in the same band. (Before this pass, corner 0.19 W + a 7% flare left only 57%, and the top
+		# read as a dome.) Both bites count, so the assert holds the compound effect, not one knob.
+		var flat := _span_x(pts, -0.01, 0.01)
+		var flat_frac := (flat.y - flat.x) / panel.size.x
+		ok(flat_frac > 0.58 and flat_frac < 0.68,
+			"%s runs straight across %.0f%% of its top (the mock: ~63%%)" % [tile_name, flat_frac * 100.0])
 		# the TAP TARGET still covers every pixel of paper the player can see: the sheet only ever
 		# narrows INSIDE the button's box, so the button rect contains it.
 		ok(on_screen.x > -0.5 and on_screen.y < btn.size.x + 0.5,
