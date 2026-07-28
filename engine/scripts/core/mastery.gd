@@ -99,7 +99,7 @@ static func mark_seen_rank(line: int, r: int) -> void:
 	seen[key] = next
 	Save.grove_write()
 
-## The DEBUG PANEL's entry point (ui/debug.gd "Gen rank ±1" → board.debug_bump_mastery). Real play
+## The DEBUG PANEL's entry point (ui/debug.gd "Gen tier ±1" → board.debug_bump_mastery). Real play
 ## never calls this: rank is only ever moved by the two credit sites below, which only ever add.
 ## Writes the exact threshold entry for `r`, so rank(line) reads back exactly `r`, and rolls the
 ## celebration ledger DOWN to match — mark_seen_rank is monotonic, so without that a line ranked

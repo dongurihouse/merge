@@ -281,8 +281,7 @@ var _info_soil_water: Button         # Soil grow-row chip: spend board water to 
 var _info_soil_water_sb: StyleBoxFlat
 var _info_soil_water_count: Label
 var _info_soil_water_coin: Control
-var _info_mastery_row: HBoxContainer # generator mastery row: pips + slim meter + next reward
-var _info_mastery_pips: Array = []
+var _info_mastery_row: HBoxContainer # generator mastery row: slim meter + next reward (the rank number rides the title)
 var _info_mastery_progress: ProgressBar
 var _info_mastery_next_label: Label
 var _info_almanac: Button            # the empty-state Almanac button, shown only when no board cell is selected
@@ -3961,11 +3960,17 @@ func _select_generator(cell: Vector2i) -> void:
 	else:
 		_refresh_burst_chip()                 # the boost chip (full when armable, faded while live)
 
-# The generator's info-bar label: its name, plus — while a boost is live — the boost detail (that the
-# boost is on and how many taps are left). Built here so a pop can refresh it live without rebuilding
-# the whole info bar (§3 boost detail).
+# The generator's info-bar label: its name, then — on a mastery line — the "· Tier N" mastery badge,
+# plus — while a boost is live — the boost detail (that the boost is on and how many taps are left).
+# Built here so a pop can refresh it live without rebuilding the whole info bar (§3 boost detail).
+# The badge is gated on the SAME condition _select_generator uses to choose the mastery row over the
+# plain description, so the number and the meter under it always appear (and vanish) together. It sits
+# BEFORE the boost detail so arming a boost never shunts it sideways.
 func _gen_info_text(gid: String, cell: Vector2i) -> String:
 	var lbl := G.generator_display_name(gid)
+	var line := _gen_line(gid)
+	if Features.on("mastery") and G.ZONE_BASE_LINES.has(line):
+		lbl += " · " + (Strings.t("mastery.info.badge") % Mastery.rank(line))
 	if G.is_treat_gen(gid):
 		var clicks := int(Save.grove().get("treat_clicks", 0))
 		if clicks > 0:
@@ -3987,15 +3992,15 @@ func _refresh_selected_generator_mastery() -> void:
 	if Features.on("mastery") and G.ZONE_BASE_LINES.has(line):
 		_show_mastery_info_row(line)
 
+# The TEXT twin of the mastery row, used when the graphical row could not be installed. It carries the
+# same two payloads the row does — the within-rank progress and the next reward. The rank NUMBER is not
+# repeated here: it rides the title (_gen_info_text) in both renderings.
 func _mastery_info_text(line: int) -> String:
 	var rank := Mastery.rank(line)
 	var meter := Mastery.meter(line)
 	var next := Mastery.next_threshold(line)
-	var pips := ""
-	for i in range(G.MASTERY_THRESHOLDS.size()):
-		pips += "●" if i < rank else "○"
 	var progress := Strings.t("mastery.info.maxed") if rank >= G.MASTERY_THRESHOLDS.size() else "%d/%d" % [meter, next]
-	return "%s · %s · %s" % [pips, progress, _mastery_next_text(rank)]
+	return "%s · %s" % [progress, _mastery_next_text(rank)]
 
 func _mastery_next_text(rank: int) -> String:
 	if rank >= G.MASTERY_THRESHOLDS.size():
@@ -4023,28 +4028,14 @@ func _install_mastery_info_row() -> void:
 	parent.add_child(row)
 	parent.move_child(row, _info_desc_label.get_index() + 1)
 	_info_mastery_row = row
-	var pip_row := HBoxContainer.new()
-	pip_row.name = "MasteryPips"
-	pip_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pip_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	pip_row.add_theme_constant_override("separation", 3)
-	row.add_child(pip_row)
-	_info_mastery_pips.clear()
-	for i in range(G.MASTERY_THRESHOLDS.size()):
-		var pip := PanelContainer.new()
-		pip.name = "Pip%d" % (i + 1)
-		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		pip.custom_minimum_size = Vector2(9, 9)
-		pip_row.add_child(pip)
-		_info_mastery_pips.append(pip)
 	# The row's width is PINNED at 391px on the 1080-wide design canvas (the generator icon and the
-	# Boost chip beside it are already at their minimums, so nothing more can be taken). Minus the
-	# pip row (93) and two 8px separations that leaves 282px to split between the meter and the
+	# Boost chip beside it are already at their minimums, so nothing more can be taken). TWO children
+	# and the ONE 8px separation between them leave 383px to split between the meter and the
 	# next-reward text. The TEXT is the payload — an ellipsised "next: po…" says nothing — so the
-	# label takes the lion's share of that split (ratio 2.5 ⇒ ~201px, enough for the widest string)
-	# and the meter keeps the remainder (~80px) over a 76px floor that stops it collapsing on a
-	# narrower row. Splitting evenly (both EXPAND at ratio 1, meter floor 120) is what trimmed the
-	# label to "next: po…".
+	# label keeps the lion's share of that split (ratio 2.5 ⇒ ~274px, well clear of the widest string)
+	# and the meter takes the remainder (~109px) over a 76px floor that stops it collapsing on a
+	# narrower row. Splitting evenly (both EXPAND at ratio 1, meter floor 120) is what once trimmed the
+	# label to "next: po…". mechanics_tests measures both halves against the real laid-out row.
 	var bar := ProgressBar.new()
 	bar.name = "MasteryProgress"
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -4081,17 +4072,6 @@ func _show_mastery_info_row(line: int) -> void:
 		return
 	var rank := Mastery.rank(line)
 	var color := _line_color(line)
-	for i in range(_info_mastery_pips.size()):
-		var pip := _info_mastery_pips[i] as PanelContainer
-		if pip == null or not is_instance_valid(pip):
-			continue
-		var filled := i < rank
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = color if filled else Pal.CREAM
-		sb.border_color = color if filled else Pal.INK
-		sb.set_border_width_all(1)
-		sb.set_corner_radius_all(99)
-		pip.add_theme_stylebox_override("panel", sb)
 	if _info_mastery_progress != null and is_instance_valid(_info_mastery_progress):
 		_info_mastery_progress.value = Mastery.rank_progress(line)
 		var bg := StyleBoxFlat.new()
@@ -5734,7 +5714,7 @@ func debug_pop_magnet() -> void:
 		print("[debug] Pop magnet: the Magnet at %s pulled the seeded %d pair at %s/%s together." % [magnet, code, a, b])
 
 ## Debug-only: move the mastery rank of EVERY generator standing on the board by `delta` (the debug
-## panel's "Gen rank ±1" buttons), so the raised pop windows and the rank-up card can be exercised
+## panel's "Gen tier ±1" buttons), so the raised pop windows and the rank-up card can be exercised
 ## without grinding the meter. A generator on a non-base line simply no-ops inside Mastery.set_rank —
 ## only base lines carry a meter. No scene reload: _after_board_change repaints the mastery rings and
 ## the selected generator's info row in place.
