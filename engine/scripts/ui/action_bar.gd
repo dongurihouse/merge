@@ -159,6 +159,32 @@ static func offset_slot(child: Control, x_frac: float, node_name: String) -> Con
 	slot.add_child(child)
 	return slot
 
+# offset_slot's sibling, for the other half of "move a bar child sideways". This one RESERVES
+# `x_frac` of the child's own min width as empty space to the child's RIGHT: the slot is that much
+# wider than the child, so the row's EXPANDING sibling gives the width up and the child sits inboard
+# of the row's right edge at its own unchanged size.
+# Which to reach for: offset_slot holds the footprint and slides the child, so it can slide the child
+# UNDER a neighbour — fine against the info tray's fixed contents, wrong against an autowrapping label
+# that fills its box by design. inset_slot buys real space, so the neighbour re-measures instead.
+# A ~0 frac passes the child through.
+static func inset_slot(child: Control, x_frac: float, node_name: String) -> Control:
+	if child == null:
+		return Control.new()
+	if absf(x_frac) < 0.001:
+		return child
+	var slot := MarginContainer.new()
+	slot.name = node_name
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# The slot stands in for the child in the row, so it inherits the child's flags — the VERTICAL one
+	# is load-bearing: a MarginContainer fits its child to its own rect whatever the child's flags say,
+	# so a FILL slot would stretch a square chip to the row's full height.
+	slot.size_flags_horizontal = child.size_flags_horizontal
+	slot.size_flags_vertical = child.size_flags_vertical
+	var basis := maxf(1.0, child.custom_minimum_size.x)
+	slot.add_theme_constant_override("margin_right", int(roundf(basis * x_frac)))
+	slot.add_child(child)
+	return slot
+
 # The breathing room between each outer tile and the centre tray (the old painted dividers are retired —
 # the three pieces are separated by open space now).
 static func well_gap(px: float) -> int:
