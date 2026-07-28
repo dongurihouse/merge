@@ -308,6 +308,13 @@ var level_label: Label            # S10: the shared Lv chip, wired in BOTH scene
 var _open_water: Callable = Callable()  # opens the water stall (the water pill's +; wired from the HUD)
 var _open_shop: Callable = Callable()   # opens the acorn (premium) stall — the bag's short-of-acorns prompt
 var _hud_refresh: Callable = Callable() # ticks the shared wallet + re-syncs the live water cache (on_refresh)
+# WHAT THE WALLET IS ALLOWED TO SAY WHILE A PAYOUT IS STILL IN THE AIR: {currency key -> int}. A
+# payout that FLIES is banked into Save up front but arrives piece by piece, so for the length of the
+# flight the pill must show the RUNNING total the arrivals are ticking, not the banked one. Anything
+# that repaints the HUD in that window (the sweep's own _rebuild_all, a later rebuild, a persist)
+# reads the held number through _update_hud instead of Save. Empty = no flight, Save is the truth.
+# See _hold_wallet / _release_wallet.
+var _wallet_hold: Dictionary = {}
 var bottom_bar: Control          # the board bottom bar row (Home · info bar · Bag+count)
 var _action_bar_relayout_queued := false
 var _last_action_bar_view_size := Vector2.ZERO
@@ -2019,13 +2026,37 @@ func _on_refill() -> void:
 
 func _update_hud() -> void:
 	# the top wallet is Water·Coin·Gem now (no star count). Water is updated live by _update_water_hud.
-	coins_label.text = str(Save.coins())
+	# Coin/gem read through the HOLD: while a banked payout is still flying to the pill, the held
+	# running total wins over Save, so a repaint landing mid-flight cannot flash the final number.
+	coins_label.text = str(_wallet_shown("coin", Save.coins()))
 	if diamonds_label != null:
-		diamonds_label.text = str(Save.diamonds())
+		diamonds_label.text = str(_wallet_shown("gem", Save.diamonds()))
 	# The decorate invitation now rides on the centre Home button (the standalone CTA is gone):
 	# light it up the moment the frontier map has a spot the player can afford; a fully-done
 	# game (no frontier left) leaves it resting.
 	_set_home_ready(_gate_ready())
+
+# --- the wallet hold (a banked payout that is still flying) ---------------------------------------
+# A flying payout is already IN Save — sweep_line banks the whole line before the first piece leaves
+# the board — so every wallet repaint in the flight's window would otherwise show the end of the
+# animation before it has played. These three keep one number per currency: `_hold_wallet` is called
+# with the running total each arrival ticks to, `_wallet_shown` is what _update_hud paints, and
+# `_release_wallet` hands the pill back to Save.
+#
+# THE RELEASE IS THE PART THAT MATTERS. A hold that outlived its flight would freeze the pill for the
+# rest of the session — far worse than the flash it exists to stop. So it is released from the
+# flight's OWN completion callback, which FX.fly_pieces_away also fires for an EMPTY flight list: a
+# payout with no piece node to fly still releases (and the release's _update_hud then lands the pill
+# on the true banked number), so no path can strand one. Per-currency keys, because the coin and
+# acorn halves of one sweep are two independent flights that finish at different times.
+func _hold_wallet(key: String, value: int) -> void:
+	_wallet_hold[key] = int(value)
+
+func _release_wallet(key: String) -> void:
+	_wallet_hold.erase(key)
+
+func _wallet_shown(key: String, banked: int) -> int:
+	return int(_wallet_hold.get(key, banked))
 
 # The Home button is the way back to the decorate hub, so the "you can afford a spot" cue lives
 # ON it now: a gentle breathe. On the board stars
@@ -6648,16 +6679,24 @@ func _sweep_farewell(line: int, next_need: Dictionary) -> void:
 	# flight and then snap on the final _update_hud(). An Array is a reference, so the running total
 	# survives across arrivals. FX.fly_pieces_away's own `remaining` counter uses this same idiom.
 	var shown := [Save.coins() - coins]
+	# ...and the same pre-sweep number is HELD on the pill, because the payout is already banked and
+	# this beat also runs _rebuild_all — whose own _update_hud would otherwise paint the final total
+	# at launch and leave the flight counting up to a number the player has already read.
+	_hold_wallet("coin", int(shown[0]))
 	var on_each := func(payout: int) -> void:
 		if not is_instance_valid(self):
 			return
 		if payout <= 0:
 			return
 		shown[0] = int(shown[0]) + int(payout)
+		_hold_wallet("coin", int(shown[0]))
 		_currency_arrival_beat(coins_label, "coin", int(payout), int(shown[0]))
-	var on_all := func() -> void:
+	# ONE RELEASE PER CURRENCY, not one shared callback: the two flights below finish at different
+	# times, and a shared release would hand the coin pill back to Save while coins were still flying.
+	var on_all_coin := func() -> void:
 		if is_instance_valid(self):
-			_update_hud()
+			_release_wallet("coin")
+			_update_hud()          # ...and settle on the truth, even if no piece ever flew
 	# The sweep flies to whichever counter the piece actually paid — a t10+ item mints ACORNS (§9), so it
 	# must not tick the coin label. Coin pieces and acorn pieces are two flights to two labels.
 	var coin_flights: Array = []
@@ -6670,13 +6709,19 @@ func _sweep_farewell(line: int, next_need: Dictionary) -> void:
 			coin_flights.append({"node": f.get("node"), "payout": int(f.get("payout", 0))})
 	if not acorn_flights.is_empty():
 		var acorns_shown := [Save.diamonds() - acorns]
+		_hold_wallet("gem", int(acorns_shown[0]))
 		var on_each_acorn := func(payout: int) -> void:
 			if not is_instance_valid(self) or payout <= 0:
 				return
 			acorns_shown[0] = int(acorns_shown[0]) + int(payout)
+			_hold_wallet("gem", int(acorns_shown[0]))
 			_currency_arrival_beat(diamonds_label, "gem", int(payout), int(acorns_shown[0]))
-		FX.fly_pieces_away(self, acorn_flights, diamonds_label, {"fx_id": "farewell_sweep_acorn"}, on_each_acorn, on_all)
-	FX.fly_pieces_away(self, coin_flights, coins_label, {"fx_id": "farewell_sweep"}, on_each, on_all)
+		var on_all_acorn := func() -> void:
+			if is_instance_valid(self):
+				_release_wallet("gem")
+				_update_hud()
+		FX.fly_pieces_away(self, acorn_flights, diamonds_label, {"fx_id": "farewell_sweep_acorn"}, on_each_acorn, on_all_acorn)
+	FX.fly_pieces_away(self, coin_flights, coins_label, {"fx_id": "farewell_sweep"}, on_each, on_all_coin)
 	_clear_selection()
 	_rebuild_all()
 	_after_board_change(coins > 0 or acorns > 0)
