@@ -423,6 +423,9 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 		if rim_px > 0.0:
 			var rim_cp: Dictionary = cp.duplicate()
 			rim_cp["corner"] = corner + rim_px
+			# the rim is a hairline of cream, not a sheet: a slab bevel on it would eat its whole width and
+			# read as a muddy border. It keeps the face's ambient halo (that is what lands on the art behind).
+			rim_cp["bevel_px"] = 0.0
 			var rim: Control = load(CUT_PAPER).new()
 			rim.name = "ActionButtonActiveRim"
 			rim.show_behind_parent = true
@@ -2327,6 +2330,18 @@ const CUT_PAPER_KNOBS := [
 	{"key": "shadow_reach",    "kind": "slider", "label": "Shadow reach",    "min": 0, "max": 40, "default": 10},
 	{"key": "shadow_strength", "kind": "slider", "label": "Shadow strength", "min": 0, "max": 20, "default": 5},
 	{"key": "shadow_blur",     "kind": "slider", "label": "Shadow blur",     "min": 0, "max": 100, "default": 55},
+	# the AMBIENT halo (CutPaperPanel._draw_edge_halo): the same shadow rung around EVERY edge instead of
+	# dropped below the sheet — the only shadow a surface bled off the screen edge can show. `halo_reach` is
+	# the reach in px (0 = off, so every existing surface is untouched); `halo_strength` the contact alpha.
+	{"key": "halo_reach",      "kind": "slider", "label": "Halo reach",     "min": 0, "max": 40,  "default": 0},
+	{"key": "halo_strength",   "kind": "slider", "label": "Halo strength",  "min": 0, "max": 80,  "default": 30},
+	# PAPER THICKNESS (CutPaperPanel._draw_bevel): a lit/shaded band inside the rim so the sheet reads as a
+	# slab. Depth in px (0 = off) and peak alpha (%).
+	{"key": "bevel_px",        "kind": "slider", "label": "Bevel depth",     "min": 0, "max": 30,  "default": 0},
+	{"key": "bevel_strength",  "kind": "slider", "label": "Bevel strength",  "min": 0, "max": 80,  "default": 35},
+	# TAB FLARE (CutPaperPanel._tab_base): the trapezoid tab — how much WIDER the sheet's bottom edge reads
+	# than its top, as a PERCENT (`freq` = "saved as a percent, normalized to a fraction here"). 0 = off.
+	{"key": "flare",           "kind": "slider", "label": "Tab flare %",     "min": 0, "max": 30,  "default": 0, "freq": true},
 ]
 
 ## Read the shared cut-paper knob set from a component's config `block` into a NORMALIZED opts dict

@@ -17,6 +17,7 @@ const FxWorkbenchView = preload("res://games/grove/tools/fx_workbench_view.gd")
 const Kit = preload("res://games/grove/ui_kit.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 const MapScript = preload("res://engine/scripts/scenes/map.gd")
+const NavBarKit = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared nav-tab metric table (flare · halo · bevel)
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
 
 func _initialize() -> void:
@@ -1217,7 +1218,117 @@ func _test_bottom_bar_tab_geometry() -> void:
 	var plain := hx.get_node_or_null("DailyTile") as Button
 	ok(plain == null or plain.find_child("ActionButtonActiveRim", true, false) == null,
 		"a plain tab wears no rim")
+	# MailTile joins the sweep when the inbox build carries it — the row must not collide with it either.
+	_check_tab_paper(hx, names + ["MailTile"])
 	hx.queue_free()
+
+# The tab's PAPER (NavBar.tab_cp → the shared cut-paper knobs): a FLARED sheet — a trapezoid that reads
+# wider at its visible bottom edge than at its top — carrying the all-sides ambient halo and the slab
+# bevel. The geometry here is measured off the outline the CutPaperPanel actually draws, in GLOBAL space,
+# so it covers the real thing rather than the knob values. Control geometry is float32 → is_equal_approx
+# or a strict inequality, never ==.
+func _check_tab_paper(hx: Node, names: Array) -> void:
+	var spans: Array = []          # per tile: {min_x, max_x, top_w, bot_w} over the ON-SCREEN band
+	for tile_name in names:
+		var btn := hx.get_node_or_null(NodePath(tile_name)) as Button
+		if btn == null:
+			continue
+		var panel := btn.find_child("ActionButtonDeckleSurface", true, false) as Control
+		ok(panel != null, "%s carries its cut-paper sheet" % tile_name)
+		if panel == null or panel.size.x <= 0.0:
+			continue
+		# every tab knob is ON for this row (and, by their defaults, off everywhere else — see below)
+		ok(float(panel.get("flare")) > 0.0, "%s paper is flared (%.3f)" % [tile_name, panel.get("flare")])
+		ok(float(panel.get("halo_reach")) > 0.0,
+			"%s casts the all-sides halo (%.1f px)" % [tile_name, panel.get("halo_reach")])
+		ok(float(panel.get("bevel_px")) > 0.0,
+			"%s wears the slab bevel (%.1f px)" % [tile_name, panel.get("bevel_px")])
+		# the drawn outline, tear and all — the sheet runs from the tile's top edge to BELOW the screen
+		var pts: PackedVector2Array = panel.call("_deckle_polygon", panel.size, panel.corner)
+		ok(pts.size() > 8, "%s draws a real sheet outline (%d points)" % [tile_name, pts.size()])
+		if pts.size() <= 8:
+			continue
+		var vis_h := btn.size.y                       # the part of the sheet the player can see
+		# the taper is measured on the sheet's STRAIGHT sides — a band inside the top corner arc (which
+		# narrows the outline for its own reasons) against the visible bottom edge — then read back out to
+		# the box's own top and bottom, which is where the metric table's percentage is defined.
+		var y1: float = float(panel.get("corner")) + 5.0
+		var y2 := vis_h - 3.0
+		var hi_span := _span_x(pts, y1 - 3.0, y1 + 3.0)
+		var lo_span := _span_x(pts, y2 - 3.0, y2 + 3.0)
+		var on_screen := _span_x(pts, 0.0, vis_h)
+		var org := btn.global_position.x + panel.position.x
+		var w_hi := hi_span.y - hi_span.x
+		var w_lo := lo_span.y - lo_span.x
+		ok(w_lo > w_hi, "%s tapers: the sheet is wider low than high (%.1f > %.1f)" % [tile_name, w_lo, w_hi])
+		ok(not is_equal_approx(w_lo, w_hi), "…measurably, not a rounding tie")
+		# …by exactly the flare the metric table asks for, read off a fit of the whole straight-sided
+		# stretch (two spot samples would just measure where the tear happened to wobble).
+		var gain := _flare_gain(pts, panel.size.x * 0.5, float(panel.get("corner")) + 2.0, vis_h, vis_h)
+		ok(absf(gain - NavBarKit.FLARE) < 0.01,
+			"%s flares by ~%.1f%% across the visible box (asked %.1f%%)"
+				% [tile_name, gain * 100.0, NavBarKit.FLARE * 100.0])
+		# the TAP TARGET still covers every pixel of paper the player can see: the sheet only ever
+		# narrows INSIDE the button's box, so the button rect contains it.
+		ok(on_screen.x > -0.5 and on_screen.y < btn.size.x + 0.5,
+			"%s stays inside its own hit area (paper %.1f..%.1f of 0..%.1f)"
+				% [tile_name, on_screen.x, on_screen.y, btn.size.x])
+		spans.append({"name": tile_name, "lo": org + on_screen.x, "hi": org + on_screen.y})
+	# NEIGHBOURS DO NOT COLLIDE — compared at the WIDEST point (the bottom), which is what these global
+	# extremes are, so a flared row can never touch however hard it flares.
+	spans.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["lo"]) < float(b["lo"]))
+	for i in maxi(0, spans.size() - 1):
+		var l: Dictionary = spans[i]
+		var r: Dictionary = spans[i + 1]
+		ok(float(l["hi"]) < float(r["lo"]),
+			"%s and %s keep a clear gap (%.1f px)" % [l["name"], r["name"], float(r["lo"]) - float(l["hi"])])
+	# …and the knobs that do all this are OFF by default, so NO other cut-paper surface changed: a plain
+	# action button (the board wells, the workbench preview) draws the flat rounded sheet it always did.
+	var plainb := Kit.action_button("map", Vector2(120, 120), Callable())
+	var plain_panel := plainb.find_child("ActionButtonDeckleSurface", true, false) as Control
+	ok(plain_panel != null and is_equal_approx(float(plain_panel.get("flare")), 0.0)
+		and is_equal_approx(float(plain_panel.get("halo_reach")), 0.0)
+		and is_equal_approx(float(plain_panel.get("bevel_px")), 0.0),
+		"an ordinary action button keeps the flat sheet — flare/halo/bevel default off")
+	ok(plain_panel != null and String(plain_panel.get("shape")) == "rect",
+		"…and the plain rounded-rect base shape")
+	plainb.queue_free()
+
+## The flare the sheet's outline actually carries: a least-squares fit of its HALF-width against y over
+## the straight-sided stretch [y_lo, y_hi], read out as the fractional width gain from the box's top edge
+## to its visible bottom. Fitting every sample point averages the torn edge's wobble out, which spot
+## samples cannot — the tear is ±deckle_amp on each side and swamps a two-point slope.
+func _flare_gain(pts: PackedVector2Array, cx: float, y_lo: float, y_hi: float, vis_h: float) -> float:
+	var n := 0.0
+	var sy := 0.0
+	var sh := 0.0
+	var syy := 0.0
+	var syh := 0.0
+	for p in pts:
+		if p.y < y_lo or p.y > y_hi:
+			continue
+		var h := absf(p.x - cx)
+		n += 1.0
+		sy += p.y
+		sh += h
+		syy += p.y * p.y
+		syh += p.y * h
+	var det := n * syy - sy * sy
+	if n < 8.0 or absf(det) < 0.001:
+		return 0.0
+	var b := (n * syh - sy * sh) / det        # half-width gained per px of height
+	var a := (sh - b * sy) / n                # half-width extrapolated back to the box's top edge
+	return 0.0 if absf(a) < 0.001 else b * vis_h / a
+
+## min/max x of the outline points whose y falls in [y0, y1] — the sheet's width across one band.
+func _span_x(pts: PackedVector2Array, y0: float, y1: float) -> Vector2:
+	var lo := INF
+	var hi := -INF
+	for p in pts:
+		if p.y >= y0 and p.y <= y1:
+			lo = minf(lo, p.x)
+			hi = maxf(hi, p.x)
+	return Vector2(0.0, 0.0) if lo > hi else Vector2(lo, hi)
 
 func _test_dock_collect_chip() -> void:
 	fresh("dock_collect_chip")

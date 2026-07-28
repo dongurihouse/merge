@@ -27,6 +27,31 @@ const ACTIVE_W_FRAC := 1.05           # the active tab grows outward into the ga
 const ACTIVE_H_FRAC := 0.94           # … and upward, so it reads as the raised, current tab
 const ACTIVE_RIM_FRAC := 0.037        # its cream rim, drawn OUTSIDE the fill
 
+# The tab's PAPER look — the three things that separate a bled tab from the art behind it. All three are
+# shared cut-paper knobs (Kit.CUT_PAPER_KNOBS) that default OFF, so they bite on this row and nowhere else.
+const FLARE := 0.07                   # the VISIBLE bottom edge reads 7% wider than the top (a trapezoid)
+const HALO_REACH_FRAC := 0.06        # the ambient shadow's reach out from every edge
+const HALO_ALPHA_PCT := 38.0          # …and its alpha where it touches the paper (%) — measured off the
+                                      # mock, whose tiles darken their ground by ~0.28 at the contact edge
+const BEVEL_FRAC := 0.045             # the slab bevel's depth in from the edge
+const BEVEL_STRENGTH_PCT := 34.0      # …and its peak alpha (%)
+
+## The nav tab's CUT-PAPER knob patch — merged over the shared action-button opts so the tuning lands on
+## THIS row only. `sheet_h` is the paper's full drawn height (the box plus whatever it bleeds off the
+## screen); the flare is scaled by sheet_h/box_h so the 7% is measured across the part the player can
+## SEE, not across the run that finishes below the screen edge.
+static func tab_cp(w: float, box_h: float, sheet_h: float) -> Dictionary:
+	var f := FLARE
+	if box_h > 0.0 and sheet_h > box_h:
+		f = FLARE * sheet_h / box_h
+	return {
+		"flare": f,
+		"halo_reach": w * HALO_REACH_FRAC,
+		"halo_strength": HALO_ALPHA_PCT,
+		"bevel_px": w * BEVEL_FRAC,
+		"bevel_strength": BEVEL_STRENGTH_PCT,
+	}
+
 ## The plain tile's box for a row whose slot width is `w`.
 static func tile_size(w: float) -> Vector2:
 	return Vector2(w, w * TILE_H_FRAC)

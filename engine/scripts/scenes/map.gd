@@ -2279,7 +2279,14 @@ func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dict
 			o["smooth_edge"] = NAV_TAB_SMOOTH_EDGE
 			# the paper runs past the button's bottom edge, through the safe-area inset and one corner
 			# radius beyond the screen, so the bottom corners round off-screen and only the top two show.
-			o["bleed_bottom"] = safe_b + float(tab["corner"])
+			var bleed := safe_b + float(tab["corner"])
+			o["bleed_bottom"] = bleed
+			# the tab's OWN cut-paper knobs (flare · ambient halo · slab bevel) patched over the shared
+			# action-button set — scoped to THIS row, so no other cut-paper surface in the game changes.
+			# The flare is measured across the VISIBLE box, so the full drawn sheet height goes in with it.
+			var cp: Dictionary = (o.get("cp", {}) as Dictionary).duplicate()
+			cp.merge(NavBar.tab_cp(tile_w, box.y, box.y + bleed), true)
+			o["cp"] = cp
 			b = Kit.action_button(role, box, spec.action, o)
 		else:
 			b = Button.new()                          # defensive fallback (kit absent): a bare tile
