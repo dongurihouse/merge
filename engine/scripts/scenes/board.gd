@@ -182,7 +182,7 @@ var _sky_state: Dictionary = {}
 var _sky_live_secs := 0.0
 var _sky_patch: Control = null
 var _sky_marker: Button = null
-var _sky_cell_glyph: TextureRect = null
+var _sky_cell_glyphs := []
 var _sky_docked_star: Control = null
 var _star_catch_nodes := {}
 var _star_pending_started_secs := -1.0
@@ -565,8 +565,12 @@ func _sky_patch_insert_index() -> int:
 	return mini(insert_at, board_area.get_child_count() - 1)
 
 func _clear_sky_cell_glyph() -> void:
-	_free_now(_sky_cell_glyph)
-	_sky_cell_glyph = null
+	for raw_glyph in _sky_cell_glyphs:
+		_free_now(raw_glyph)
+	_sky_cell_glyphs.clear()
+	if board_area != null and is_instance_valid(board_area):
+		for glyph in board_area.find_children("SkyCellGlyph*", "TextureRect", true, false):
+			_free_now(glyph)
 
 func _weather_focus_sky() -> bool:
 	var sky := String(_sky_state.get("sky", ""))
@@ -609,11 +613,24 @@ func _sky_icon_cell() -> Vector2i:
 func _sync_sky_cell_glyph(pop_glyph: bool = false) -> void:
 	if board_area == null or not is_instance_valid(board_area) or not _weather_focus_sky():
 		return
-	var cell := _sky_icon_cell()
-	if cell.x < 0:
-		return
+	var insert_at := board_area.get_child_count()
+	if _sky_patch != null and is_instance_valid(_sky_patch):
+		insert_at = _sky_patch.get_index() + 1
+	for raw_cell in _sky_lane_cells():
+		var cell := Vector2i(raw_cell)
+		if not board.in_bounds(cell):
+			continue
+		var glyph := _make_sky_cell_glyph(cell)
+		board_area.add_child(glyph)
+		board_area.move_child(glyph, mini(insert_at, board_area.get_child_count() - 1))
+		insert_at += 1
+		_sky_cell_glyphs.append(glyph)
+		if pop_glyph:
+			FX.pop(glyph)
+
+func _make_sky_cell_glyph(cell: Vector2i) -> TextureRect:
 	var glyph := TextureRect.new()
-	glyph.name = "SkyCellGlyph"
+	glyph.name = "SkyCellGlyph_%d_%d" % [cell.x, cell.y]
 	glyph.texture = _sky_marker_texture()
 	glyph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -626,12 +643,7 @@ func _sync_sky_cell_glyph(pop_glyph: bool = false) -> void:
 	glyph.custom_minimum_size = Vector2(csz - inset * 2.0, csz - inset * 2.0)
 	glyph.size = glyph.custom_minimum_size
 	glyph.pivot_offset = glyph.size * 0.5
-	board_area.add_child(glyph)
-	if _sky_patch != null and is_instance_valid(_sky_patch):
-		board_area.move_child(glyph, mini(_sky_patch.get_index() + 1, board_area.get_child_count() - 1))
-	_sky_cell_glyph = glyph
-	if pop_glyph:
-		FX.pop(glyph)
+	return glyph
 
 func _make_sky_marker() -> Button:
 	var marker := Button.new()
