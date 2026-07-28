@@ -364,7 +364,12 @@ const WATER_REWARD_MAX_RATIO := 0.3       # invariant: per-spot water rewards < 
 # ORDER IS LOAD-BEARING: sky.gd walks these entries by CUMULATIVE share in Dictionary insertion order,
 # so re-ordering the keys re-maps which hour draws which sky. The values need not sum to 100 (the walk
 # normalises against their total), but changing any share moves every hour after the first threshold.
-const SKY_SHARES := {"calm": 40, "sunbeam": 30, "rain": 20, "starfall": 10}
+# STARFALL IS PARKED AT 0 (temporary). The walk skips a share <= 0, so no hour rolls Starfall
+# automatically and the other three keep their stated proportions against the table's own total of 90
+# (calm 44.4% · sunbeam 33.3% · rain 22.2%). Nothing else about Starfall is removed: forcing "star"
+# still produces it, so the debug picker and the shot modes are unchanged. Restoring it is this one
+# number back to 10 — which is why 40/30/20 are left as they are rather than rescaled to sum to 100.
+const SKY_SHARES := {"calm": 40, "sunbeam": 30, "rain": 20, "starfall": 0}
 # Per-sky skin split, walked the same cumulative way. A sky with NO entry here (Starfall) wears its own
 # single skin. Calm and Sunbeam deliberately share the 70/30 clear/breeze look.
 const SKY_SKIN_SPLIT := {
@@ -450,15 +455,17 @@ const SPECIAL_ITEMS := {
 # §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
 # chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.
 # Tap-collect grants the resource (water/acorn) per tier; a CHEST is opened by a second TAP
-# (no key needed — the key line is retired) for a coins+acorns payout scaled by the chest tier.
+# (no key needed — the key line is retired) for a coins+acorns payout ROLLED from the chest
+# tier's range — low-biased, so the mean sits low and the ceiling reads as a jackpot.
 const SPECIAL_DROP_RATE := 0.02           # P(a merge also drops a special item); cf COIN_DROP_RATE 0.10 (sim-tuned down — drops fed too much water/exp)
 const SPECIAL_DROP_WEIGHTS := {CHEST_LINE: 1, WATER_LINE: 1, ACORN_LINE: 1, SOIL_SEED_LINE: 1, MAGNET_SEED_LINE: 1}   # chest·water·acorn·soil seed·magnet seed (flat; the key + spark lines are retired)
 const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the resource kinds
 	"water": {1: 8, 2: 20, 3: 50},
 	"acorn": {1: 1, 2: 2, 3: 5},   # 3 tiers now (the 12-tier premium ladder is retired)
 }
-const CHEST_OPEN_COINS := {1: 40, 2: 120, 3: 320, 4: 800, 5: 2000}   # base coins for opening a chest of this tier …
-const CHEST_OPEN_ACORNS := {1: 0, 2: 1, 3: 3, 4: 6, 5: 12}          # … plus acorns at the higher chest tiers
+const CHEST_OPEN_COINS := {1: [10, 60], 2: [30, 180], 3: [80, 500], 4: [200, 1250], 5: [500, 3200]}   # [lo, hi] coins ROLLED low-biased on open …
+const CHEST_OPEN_ACORNS := {1: [0, 0], 2: [0, 2], 3: [1, 5], 4: [2, 11], 5: [4, 24]}                  # … plus a rolled acorn range above t1
+const CHEST_ROLL_SKEW := 2.0                # roll = lo + span·randf()^SKEW; at 2 the expectation sits at 1/3 of the span
 
 # §6.C UTILITY ACCUMULATORS — generators that BANK a resource over real time (no water cost) up to a small
 # cap; tap to collect, bag-stowable (reuse the generator bag). UNLOCKED across map 1's first 4 restored
