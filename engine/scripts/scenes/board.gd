@@ -5036,6 +5036,7 @@ func _begin_drag() -> void:
 		_show_drag_targets()   # light the Bag drop target when it can accept a stashed piece
 
 func _on_release(pos: Vector2) -> void:
+	var gesture_dragged := _drag_node != null and not _drag_pending
 	if _drag_pending:
 		# the pointer never crossed the slop — a pure TAP. Resolve the node QUIETLY (no lift fx,
 		# no pickup sound) and fall through: the still-tap branch below owns select/collect/deliver.
@@ -5081,6 +5082,10 @@ func _on_release(pos: Vector2) -> void:
 			from_code, str(from), str(_press_was_selected), pos.distance_to(_press_pos),
 			("COLLECT" if (target == from and from_code > 0 and pos.distance_to(_press_pos) <= _drag_slop_px() and _press_was_selected) else "select/snap-back")])
 	if target == from and from_code > 0 and pos.distance_to(_press_pos) <= _drag_slop_px():
+		if gesture_dragged:
+			_snap_back(from, node)
+			_select_item(from)
+			return
 		# A still tap selects first. Collectables (coins + §6.B resource drops) collect only
 		# on a second tap of the already-focused cell, so dragging never pockets them.
 		if G.is_collectable(from_code) and _press_was_selected:
