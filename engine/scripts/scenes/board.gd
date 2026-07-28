@@ -3961,7 +3961,9 @@ func _select_generator(cell: Vector2i) -> void:
 	else:
 		_refresh_burst_chip()                 # the boost chip (full when armable, faded while live)
 
-# The generator's info-bar label: its name, then — on a mastery line — the "· Tier N" mastery badge,
+# The generator's info-bar label: its name, then — on a mastery line — the "· Tier N" mastery badge
+# ("· Max tier" once the last MASTERY_THRESHOLDS rank is banked — the number stops moving, so stop
+# printing it),
 # plus — while a boost is live — the boost detail (that the boost is on and how many taps are left).
 # Built here so a pop can refresh it live without rebuilding the whole info bar (§3 boost detail).
 # The badge is gated on the SAME condition _select_generator uses to choose the mastery row over the
@@ -3971,7 +3973,7 @@ func _gen_info_text(gid: String, cell: Vector2i) -> String:
 	var lbl := G.generator_display_name(gid)
 	var line := _gen_line(gid)
 	if Features.on("mastery") and G.ZONE_BASE_LINES.has(line):
-		lbl += " · " + (Strings.t("mastery.info.badge") % Mastery.rank(line))
+		lbl += " · " + (Strings.t("board.info.max_tier") if Mastery.rank(line) >= G.MASTERY_THRESHOLDS.size() else Strings.t("mastery.info.badge") % Mastery.rank(line))
 	if G.is_treat_gen(gid):
 		var clicks := int(Save.grove().get("treat_clicks", 0))
 		if clicks > 0:

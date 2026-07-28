@@ -3,8 +3,9 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ## (deliver a quest) applies its whole state transition — consume the tile, drop the quest,
 ## advance exp, pay coins — as a headless call on BoardModel + Save, with NO Control / Tween /
 ## Board scene. This is the "change the rule, assert without UI validation" gate.
-## ONE exception, at the end: the info-bar tier subtitle is a scene-only string, so its guard mounts
-## the Board and drives the real selection path.
+## TWO exceptions, at the end: the info bar's two tier numbers (an item's subtitle, a generator's
+## mastery badge) are scene-only strings, so those guards mount the Board and drive the real
+## selection paths.
 
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
@@ -26,6 +27,7 @@ func _initialize() -> void:
 	_test_pick_drop_cell()
 	_test_generator_swaps()
 	await _test_info_bar_max_tier_subtitle()
+	await _test_gen_info_max_mastery_badge()
 	finish()
 
 # Delivering a quest is the ONE place exp advances. The action consumes the asked tile, drops the
@@ -560,3 +562,34 @@ func _test_info_bar_max_tier_subtitle() -> void:
 	ok(coin_text.begins_with("Max tier"), "a coin at COIN_TOP reads \"Max tier\" too (got %s)" % coin_text)
 	await drop(scn)
 
+# The OTHER tier number in the same info bar: a generator's title carries the "· Tier N" mastery badge,
+# and a fully-mastered line's N is just as frozen as a top-tier item's. Same treatment, same string.
+# (The mastery ROW's own "maxed" progress text is a different payload and is left alone.)
+func _test_gen_info_max_mastery_badge() -> void:
+	fresh("info_bar_max_mastery")
+	Save.mark_board_tutorial_seen()
+	var maxed: int = int(G.MASTERY_THRESHOLDS[G.MASTERY_THRESHOLDS.size() - 1])
+	Save.grove()["mastery"] = {"1": maxed}
+	Save.grove()["mastery_seen"] = {}
+	Save.grove_write()
+	await process_frame
+	var scn = board_host()
+	await process_frame
+	scn._rebuild_all()
+	var gcell := Vector2i(-1, -1)
+	for c in scn.board.gens.keys():
+		if scn._gen_line(scn.board.gen_id_at(c)) == 1:
+			gcell = c
+			break
+	ok(gcell.x >= 0, "fixture: the board seeds the line-1 generator")
+	ok(Mastery.rank(1) == G.MASTERY_THRESHOLDS.size(), "fixture: line 1 is mastered to the last rank")
+	scn._select_generator(gcell)
+	var maxed_title := String(scn._info_label.text)
+	ok(maxed_title.ends_with("· Max tier"), "a fully-mastered generator's badge reads \"Max tier\" (got %s)" % maxed_title)
+
+	Save.grove()["mastery"] = {"1": int(G.MASTERY_THRESHOLDS[0])}
+	Save.grove_write()
+	scn._select_generator(gcell)
+	var mid_title := String(scn._info_label.text)
+	ok(mid_title.ends_with("· Tier 1"), "a below-max generator still wears its mastery tier number (got %s)" % mid_title)
+	await drop(scn)
