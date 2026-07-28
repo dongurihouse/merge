@@ -25,7 +25,6 @@ func _blank_board() -> BoardModel:
 		b.terrain[i] = 0
 		b.items[i] = 0
 	b.gens = {}
-	b.gen_tiers = {}
 	b.gen_boost = {}
 	b.collect_rewards = {}
 	b.improvements = {}
@@ -355,7 +354,6 @@ func _test_chain_placements_no_mutation() -> void:
 	loose.terrain[BoardModel.idx(Vector2i(3, 5))] = 1
 	loose.items[BoardModel.idx(Vector2i(3, 5))] = 0
 	loose.gens[Vector2i(5, 5)] = "acorn_tree"
-	loose.gen_tiers[Vector2i(5, 5)] = 2
 	loose.items[BoardModel.idx(Vector2i(5, 5))] = 0
 	_untouched(loose, Vector2i(0, 0), 101, "rewards, a bramble and a generator, pads lit", true)
 	_untouched(_dense_board(), Vector2i(0, 0), 101, "the dense worst case", false)
@@ -365,10 +363,9 @@ func _untouched(b: BoardModel, from: Vector2i, code: int, label: String, want_pa
 	var terrain_before := b.terrain.duplicate()
 	var rewards_before := str(b.collect_rewards)
 	var gens_before := str(b.gens)
-	var tiers_before := str(b.gen_tiers)
 	var got: Array = BoardLogic.chain_placements(b, from, code)
 	var clean := _packed_equal(b.items, items_before) and _packed_equal(b.terrain, terrain_before) \
-		and str(b.collect_rewards) == rewards_before and str(b.gens) == gens_before and str(b.gen_tiers) == tiers_before
+		and str(b.collect_rewards) == rewards_before and str(b.gens) == gens_before
 	ok(clean and (got.size() > 0 or not want_pads), \
 		"chain_placements leaves the caller's board untouched: %s (%d guide pads)" % [label, got.size()])
 
@@ -555,9 +552,7 @@ static func _ref_copy_board(board: BoardModel) -> BoardModel:
 	cp.items = board.items.duplicate()
 	cp.collect_rewards = board.collect_rewards.duplicate(true)
 	cp.gens = board.gens.duplicate(true)
-	cp.gen_tiers = board.gen_tiers.duplicate(true)
 	cp.gen_bag = board.gen_bag.duplicate(true)
-	cp.gen_bag_tiers = board.gen_bag_tiers.duplicate(true)
 	cp.gen_boost = board.gen_boost.duplicate(true)
 	cp.gen_bag_boost = board.gen_bag_boost.duplicate(true)
 	return cp

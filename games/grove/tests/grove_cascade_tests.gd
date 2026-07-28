@@ -47,7 +47,6 @@ func _blank_fixture(b: Node, placements: Dictionary) -> void:
 		b.board.items[i] = 0
 	b.board.collect_rewards = {}
 	b.board.gens = {}
-	b.board.gen_tiers = {}
 	b.board.gen_boost = {}
 	b.quests = []
 	for cell in placements:
@@ -62,7 +61,6 @@ func _clear_rendered_generators(b: Node) -> void:
 	b.gen_nodes.clear()
 	b.gen_node = null
 	b.board.gens = {}
-	b.board.gen_tiers = {}
 	b.board.gen_boost = {}
 
 func _drag_merge(b: Node, from: Vector2i, to: Vector2i) -> void:
@@ -650,7 +648,6 @@ func _test_ready_outline_stays_between_slots_and_pieces_with_stale_generator_nod
 	for i in b.board.items.size():
 		b.board.items[i] = 0
 	b.board.gens = {}
-	b.board.gen_tiers = {}
 	b.board.gen_boost = {}
 	b.board.place(Vector2i(3, 1), 101)
 	b.board.place(Vector2i(3, 2), 101)

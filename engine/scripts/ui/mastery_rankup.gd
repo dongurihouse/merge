@@ -42,7 +42,7 @@ static func open(host: Control, opts: Dictionary) -> Control:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 
 	var gid := G.gen_for_line(line)
-	var art: Control = PieceView.make_generator(gid, width * 0.28, {}, 1) if gid != "" else PieceView.make_piece(line * 100 + 1, width * 0.28, 0.0)
+	var art: Control = PieceView.make_generator(gid, width * 0.28, {}) if gid != "" else PieceView.make_piece(line * 100 + 1, width * 0.28, 0.0)
 	art.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	col.add_child(art)
 

@@ -42,7 +42,7 @@ PY_TESTS     := tools/test_boot_splash_assets.py \
                 games/grove/tools/tests/test_extract_meadow_ui_v2.py \
                 games/tools/test_intake_apply.py \
                 tools/sfx_synth/test_synth.py
-SH_TESTS     := tools/test_stamp_build_info.sh tools/test_xcode_cloud_ci.sh
+SH_TESTS     := tools/test_stamp_build_info.sh tools/test_xcode_cloud_ci.sh tools/test_grove_shot_parse.sh
 export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
 
 .DEFAULT_GOAL := help
@@ -99,7 +99,7 @@ test-fast: ## ⚡ inner-loop check — engine + tool suites, parallel. USE THIS 
 test: test-config ## full sweep: config guards + every suite (engine + grove), parallel + per-suite timing table
 	@python3 $(RUNNER) $(TESTS)
 
-test-config: ## non-godot guards (splash, build-info stamp, Xcode Cloud hook, asset-pipeline image tools)
+test-config: ## config/tool guards (splash, build-info stamp, Xcode Cloud hook, asset pipeline, shot scripts)
 	@set -e; \
 	for t in $(PY_TESTS); do echo "== $$t"; PYTHONPATH=$(PROJECT) python3 $$t; done; \
 	for t in $(SH_TESTS); do echo "== $$t"; bash $$t; done

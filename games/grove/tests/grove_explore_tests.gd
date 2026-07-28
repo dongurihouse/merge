@@ -92,7 +92,7 @@ func _test_farewell_cards_chain() -> void:
 		await process_frame
 	var free_cells: Array = scn.board.empty_ground_cells()
 	ok(free_cells.size() >= 6, "fixture: the board has ground for chained farewells")
-	scn.board.place_gen("gen_2", free_cells[0], 3)
+	scn.board.place_gen("gen_2", free_cells[0])
 	scn.board.arm_gen_boost(free_cells[0], 4)
 	scn.board.place_gen("gen_4", free_cells[1])
 	scn.board.place(free_cells[2], 2 * 100 + 2)
@@ -123,7 +123,7 @@ func _test_farewell_cards_chain() -> void:
 	ok(not scn.board.gens.values().has("gen_2") and not scn.board.gens.values().has("gen_4"),
 		"closing the cards sweeps the away board generators")
 	var kept: Dictionary = Save.grove().get("gen_kept", {})
-	ok(kept.get("gen_2", []) == [3, 4], "the swept upgraded generator is kept for its return")
+	ok(kept.get("gen_2", []) == [4], "the swept boosted generator keeps its boost for the line's return")
 	ok(Save.coins() > wallet_b and Save.coins_earned_lifetime() == clock_b,
 		"farewell payouts are spendable-only and never advance the clock")
 	scn._queue_farewell_check()
@@ -217,7 +217,7 @@ func _farewell_fixture(name: String) -> Dictionary:
 	var free_cells: Array = scn.board.empty_ground_cells()
 	ok(free_cells.size() >= 3, "fixture: board has room for the away generator, its item, and bare ground")
 	var gen_cell: Vector2i = free_cells[0]
-	scn.board.place_gen("gen_2", gen_cell, 2)
+	scn.board.place_gen("gen_2", gen_cell)
 	scn.board.place(free_cells[1], 2 * 100 + 1)
 	scn._rebuild_all()
 	return {"scn": scn, "gen": gen_cell, "empty": free_cells[2]}
@@ -709,7 +709,6 @@ func _test_purge_above_level_migration() -> void:
 	scn.board.place(c_glow, 101)             # glow-mushrooms t1 — valid (anchor)
 	scn.board.place_gen("gen_18", c_gen)     # koi generator — GATED
 	scn.board.gen_bag = ["gen_18", G.gen_for_line(ok_line)]  # a gated koi + an in-cadence generator
-	scn.board.gen_bag_tiers = [1, 1]
 	scn.board.gen_bag_boost = [0, 0]
 	scn.bag = [1801, 101]                     # a gated koi item + a valid glow item stashed
 	scn.quests = [{"line": 18, "tier": 1, "giver": 0}, {"line": 1, "tier": 1, "giver": 1}]  # koi quest (gated) + glow (valid)
@@ -730,7 +729,7 @@ func _test_purge_above_level_migration() -> void:
 	ok(not scn.board.gens.values().has("gen_18"), "migration removes the too-advanced koi generator")
 	ok(scn.board.gens.values().has("gen_1"), "migration keeps the anchor generator")
 	ok(not scn.board.gen_bag.has("gen_18") and scn.board.gen_bag.has(G.gen_for_line(ok_line)), "migration prunes the gen_bag — drops koi, keeps the in-cadence generator")
-	ok(scn.board.gen_bag.size() == scn.board.gen_bag_tiers.size() and scn.board.gen_bag.size() == scn.board.gen_bag_boost.size(), "the parallel gen_bag arrays stay aligned after the prune")
+	ok(scn.board.gen_bag.size() == scn.board.gen_bag_boost.size(), "the parallel gen_bag boost array stays aligned after the prune")
 	ok(not scn.bag.has(1801) and scn.bag.has(101), "migration prunes the item bag — drops koi, keeps glow")
 	var quest_lines: Array = []
 	for q in scn.quests:

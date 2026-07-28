@@ -2692,22 +2692,17 @@ func _pos_to_cell(p: Vector2) -> Vector2i:
 # move/swap path, so an intended merge wins near a shared edge without making any other drop target looser.
 func _merge_target_at(from: Vector2i, pos: Vector2, drag_is_gen: bool) -> Vector2i:
 	var best := Vector2i(-1, -1)
+	if drag_is_gen:
+		return best
 	var best_dist := INF
-	var candidates: Array = board.gens.keys() if drag_is_gen else piece_nodes.keys()
+	var candidates: Array = piece_nodes.keys()
 	for raw_target in candidates:
 		var target := Vector2i(raw_target)
 		if target == from:
 			continue
-		var compatible := false
-		if drag_is_gen:
-			compatible = board.is_gen(from) and board.is_gen(target) \
-				and board.gen_id_at(from) == board.gen_id_at(target) \
-				and board.gen_tier_at(from) == board.gen_tier_at(target) \
-				and board.gen_tier_at(from) < G.GEN_TOP_TIER
-		else:
-			compatible = board.can_merge(from, target) \
-				or _recipe_merge_code(board.item_at(from), board.item_at(target)) > 0 \
-				or (Features.on("scissors") and BoardActions.can_split_piece(board, from, target))
+		var compatible := board.can_merge(from, target) \
+			or _recipe_merge_code(board.item_at(from), board.item_at(target)) > 0 \
+			or (Features.on("scissors") and BoardActions.can_split_piece(board, from, target))
 		if not compatible:
 			continue
 		var hit := Rect2(_cell_pos(target), Vector2(csz, csz)).grow(csz * MERGE_TARGET_GROW)
@@ -2751,7 +2746,7 @@ func _rebuild_all() -> void:
 	var ghl := _gen_highlight_opts()         # workbench-tuned glow/outline/sparkle (or {} for shipped look)
 	for cell in board.gens:                  # the live, stateful set (cell -> id), §6
 		var gid := String(board.gens[cell])
-		var gn := _make_generator(gid, ghl, board.gen_tier_at(cell))
+		var gn := _make_generator(gid, ghl)
 		gn.position = _cell_pos(cell)
 		board_area.add_child(gn)
 		FX.breathe(gn)
@@ -3888,8 +3883,7 @@ func _select_generator(cell: Vector2i) -> void:
 		_info_almanac.visible = false
 	for c in _info_icon.get_children():
 		c.queue_free()
-	var tier := board.gen_tier_at(cell)
-	var prev := PieceView.make_generator(gid, _info_item_px, {}, tier)
+	var prev := PieceView.make_generator(gid, _info_item_px, {})
 	prev.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_info_icon.add_child(prev)
 	_info_label.text = _gen_info_text(gid, cell)
@@ -3911,35 +3905,18 @@ func _select_generator(cell: Vector2i) -> void:
 	_hide_soil_chips()
 	_hide_seed_chips()
 	_hide_improvement_chips()
-	# A generator is clearable only when it is REDUNDANT (a higher-tier same-line sibling exists — the
-	# stranding fix). Not-currently-needed lines are now swept by the automatic farewell card, so the
-	# info tray never carries a second manual line-clearing path.
-	if board.is_redundant_gen(cell):
-		var sell_coins := G.gen_sell_coins(tier)
-		_info_trash_count.text = "%d" % sell_coins
-		for ic in _info_trash_coin.get_children():
-			ic.queue_free()
-		var pay_icon := Look.icon("coin", _info_trash_coin.custom_minimum_size.x)
-		pay_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_info_trash_coin.add_child(pay_icon)
-		_info_trash.visible = true
+	_info_trash.visible = false
+	if G.is_accumulator(gid) or G.is_treat_gen(gid):
 		if _info_burst != null and is_instance_valid(_info_burst):
-			_info_burst.visible = false       # a generator you're clearing isn't boostable
+			_info_burst.visible = false
 	else:
-		_info_trash.visible = false           # the top/only generator of a line is never sold
-		if G.is_accumulator(gid) or G.is_treat_gen(gid):
-			if _info_burst != null and is_instance_valid(_info_burst):
-				_info_burst.visible = false
-		else:
-			_refresh_burst_chip()             # the boost chip (full when armable, faded while live)
+		_refresh_burst_chip()                 # the boost chip (full when armable, faded while live)
 
 # The generator's info-bar label: its name, plus — while a boost is live — the boost detail (that the
 # boost is on and how many taps are left). Built here so a pop can refresh it live without rebuilding
 # the whole info bar (§3 boost detail).
 func _gen_info_text(gid: String, cell: Vector2i) -> String:
 	var lbl := G.generator_display_name(gid)
-	if not G.gen_def(G.GENERATORS, gid).is_empty():
-		lbl += " · %s %d" % [Strings.t("board.info.tier"), board.gen_tier_at(cell)]
 	if G.is_treat_gen(gid):
 		var clicks := int(Save.grove().get("treat_clicks", 0))
 		if clicks > 0:
@@ -4362,10 +4339,7 @@ func _on_trash_pressed() -> void:
 	if _selected_cell.x < 0:
 		return
 	var cell := _selected_cell
-	if board.is_gen(cell):                         # the sell button only clears a REDUNDANT generator
-		if board.is_redundant_gen(cell):
-			_sell_generator(cell)
-			_clear_selection()
+	if board.is_gen(cell):
 		return
 	var code := board.item_at(cell)
 	if code <= 0 or board.is_gen(cell) or G.is_coin(code):
@@ -4404,7 +4378,6 @@ func _open_bag_overlay() -> void:
 				_open_shop.call(),
 		"on_balance": func() -> int: return Save.diamonds(),
 		"gen_bag": board.gen_bag,
-		"gen_bag_tiers": board.gen_bag_tiers,
 		"asked_lines": G.quest_needed_lines(_open_quest_lines()).keys(),   # asked + merged-recipe base lines — needed gens breathe in the bag
 		"on_place_gen": func(id: String) -> void:
 			var cells := board.empty_ground_cells()
@@ -4505,8 +4478,8 @@ func _refresh_locked_cells() -> void:
 		old.queue_free()
 		bramble_nodes[cell] = nb
 
-func _make_generator(id: String, hl: Dictionary = {}, tier: int = 1) -> Control:
-	var gn := PieceView.make_generator(String(id), csz, hl, tier)
+func _make_generator(id: String, hl: Dictionary = {}) -> Control:
+	var gn := PieceView.make_generator(String(id), csz, hl)
 	_attach_mastery_chrome(gn, String(id))
 	return gn
 
@@ -4926,11 +4899,6 @@ func _release_gen(pos: Vector2) -> void:
 		_rebuild_all()                        # #1 move (generators are movable-only; new ones arrive via near-end reward → gen_bag)
 		_after_board_change()
 		return
-	if target != from and board.is_gen(target) and board.merge_gens(from, target):   # #8: same-line generators merge → a stronger tier (frees the source cell)
-		Audio.play("item_drop", -2.0)
-		_rebuild_all()
-		_after_board_change()
-		return
 	if Features.on("drag_swap") and target != from \
 			and board.item_at(target) > 0 and not board.is_gen(target) \
 			and board.swap_gen_with_item(from, target):
@@ -4995,9 +4963,8 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		FX.wobble(gnode)                   # full board pauses the generator for FREE
 		Audio.play("invalid_soft", -4.0)
 		return
-	# Burst-pop (§6): one tap throws a BURST, not just one item. Its odds scale with the generator's
-	# TIER (gen redesign #8 — higher tier → more multiples); a live boost swaps in the boosted per-tier
-	# odds (T64 — the top tier gains a 4th burst slot). No per-map scale-up. Bound it by what's
+	# Burst-pop (§6): one tap throws a BURST, not just one item. A live boost swaps in the boosted
+	# flat odds. No per-map scale-up. Bound it by what's
 	# affordable (energy) and what fits (open cells). Each popped item costs `G.pop_cost(lo)` off
 	# the burst's ONE mastery window, so the whole burst is priced the same — the clamp below is
 	# what keeps a burst from overdrawing the can.
@@ -5007,7 +4974,7 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# (Accumulator/treat taps never reach here — their own collect/pop paths.)
 	var burst := 1
 	if charged:
-		burst = G.gen_burst_count(board.gen_tier_at(cell), rng, board.is_gen_boosted(cell))
+		burst = G.gen_burst_count(rng, board.is_gen_boosted(cell))
 	if charged:
 		burst = mini(burst, int(water / pop_cost))
 	burst = mini(burst, empties.size())
@@ -5083,9 +5050,6 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# §6.C a main-generator tap may also side-spawn a limited-use BONUS generator (one at a time)
 	if not _has_bonus_gen() and G.rolls_bonus_spawn(rng):
 		_spawn_bonus_gen()
-	# gen redesign #8: a tap may also self-produce a duplicate generator (the merge fuel) at GEN_SELF_DUP_RATE.
-	if G.rolls_gen_self_dup(rng):
-		_self_dup_generator(cell)
 	_after_board_change()
 	_update_water_hud()        # the pop SPENT water — the water pill sits outside the board fan-out
 
@@ -5109,19 +5073,6 @@ func _produce_due_generators() -> bool:
 		FX.celebrate_at(self, ctr, Strings.t("board.feedback.tool_arrived"), STRAW)
 	Audio.play("unlock" if Audio.has("unlock") else "level_complete", -3.0)
 	return true
-
-# Gen stranding fix — SELF-DUP (the merge fuel). The pure action spawns a duplicate at the LINE's TOP tier
-# so duplicates feed ONE lineage (no sub-tier strand) and a maxed line breeds nothing; the scene renders the
-# pop-in. Lands on a free cell, else the bag (BoardActions.self_dup_generator).
-func _self_dup_generator(src: Vector2i) -> void:
-	var out := BoardActions.self_dup_generator(board, src)
-	if out.landed.is_empty() and out.bagged.is_empty():
-		return
-	for c in out.landed:
-		_grown_cells.append(c)
-	if not out.landed.is_empty():
-		_rebuild_all()
-	_after_board_change()
 
 # #14 the special CODE crafted by dragging two DIFFERENT base lines at the SAME tier together (0 if not a
 # recipe, Core §6.G). The special pops at the ingredients' tier, then climbs its own ladder.
@@ -6423,24 +6374,6 @@ func _dismiss_2x_offer() -> void:
 	if _2x_offer != null and is_instance_valid(_2x_offer):
 		_2x_offer.queue_free()
 	_2x_offer = null
-
-# sell ANYTHING dragged onto the cart — tier pocket change; cleanup, never income
-## Gen stranding fix — sell the selected REDUNDANT generator: the pure action removes it + credits coins;
-## the scene re-renders without it (mirrors the merge/store generator paths) and floats the coin payout.
-func _sell_generator(cell: Vector2i) -> void:
-	var out := BoardActions.sell_generator(board, cell)
-	if not bool(out.sold):
-		return
-	Audio.play("tidy_poof", -4.0, 1.1)
-	var coins := int(out.coins)
-	if coins > 0:
-		var center: Vector2 = _info_trash.get_global_rect().get_center() if (_info_trash != null and is_instance_valid(_info_trash)) else get_global_rect().get_center()
-		var done := func() -> void:
-			if is_instance_valid(self):
-				_update_hud()
-		FX.reward_arrival(self, center, "coin", coins, STRAW, coins_label, done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
-	_rebuild_all()
-	_after_board_change()
 
 # Queue one calm farewell sweep after board entry or after the level-up ceremony has closed. The queued
 # seam keeps the card out of active gestures and lets any just-refilled quest fence settle first: a check

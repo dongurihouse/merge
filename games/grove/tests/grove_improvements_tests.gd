@@ -49,7 +49,6 @@ func _initialize() -> void:
 
 func _clear_board_model(b: BoardModel) -> void:
 	b.gens = {}
-	b.gen_tiers = {}
 	b.gen_boost = {}
 	b.collect_rewards = {}
 	b.improvements = {}
@@ -719,8 +718,8 @@ func _test_improvements_flag_blocks_seed_drops() -> void:
 	Feat.FLAGS["improvements"] = original
 
 # --- the bag carries Soil rank ---------------------------------------------------
-# bag_seed_ranks is PARALLEL to bag (invariant: equal sizes), the same shape gen_bag_tiers /
-# gen_bag_boost use for generators. These four cover the invariant end to end: the live round
+# bag_seed_ranks is PARALLEL to bag (invariant: equal sizes), the same shape gen_bag_boost
+# uses for generators. These four cover the invariant end to end: the live round
 # trip, the save/load round trip, per-slot identity across a removal, and the sparse default.
 
 # The bag's parallel-array invariant. An off-by-one here hands a seed the WRONG rank, so every

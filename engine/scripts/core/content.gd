@@ -30,14 +30,9 @@ const ZONE_BASE_LINES = D.ZONE_BASE_LINES   # §6 the new per-line zone model (g
 const ZONE_SPECIAL_LINES = D.ZONE_SPECIAL_LINES
 const ZONE_COUNT = D.ZONE_COUNT
 const ZONE_BAND = D.ZONE_BAND             # the frozen per-band zone counts (the retired 5-map layout)
-const GEN_TOP_TIER = D.GEN_TOP_TIER
 const SCENE_END_LEVEL = D.SCENE_END_LEVEL   # §8 the owner's per-scene completion levels — the pacing dial
 const ACTIVE_LINE_WINDOW = D.ACTIVE_LINE_WINDOW   # §7 how many lines the fence asks from at once (any line)
 const QUEST_GEN_CAP = D.QUEST_GEN_CAP
-const GEN_SELF_DUP_RATE = D.GEN_SELF_DUP_RATE
-const GEN_SELL_COINS = D.GEN_SELL_COINS
-const GEN_TIER_BURST_ODDS = D.GEN_TIER_BURST_ODDS
-const GEN_TIER_BURST_ODDS_BOOST = D.GEN_TIER_BURST_ODDS_BOOST
 const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = off; owner pacing dial)
 static var QUEST_CLICKS_PER_EXP: int = D.QUEST_CLICKS_PER_EXP   # OWNER DIAL — live-overridable (apply_tuning)
 const QUEST_CLICKS_PER_COIN = D.QUEST_CLICKS_PER_COIN
@@ -500,30 +495,14 @@ static func quest_zone_for_level(level: int) -> int:
 			break
 	return z
 
-# --- §6.D generator merge ladder (gen redesign 2026-06-28) ---------------------------------------------
-# A generator's burst odds at its tier (1..GEN_TOP_TIER); higher tier pops more multiples. A live boost
-# swaps in the strictly-better boosted table (T64).
-static func gen_burst_odds(tier: int, boosted: bool = false) -> Array:
-	var table: Array = GEN_TIER_BURST_ODDS_BOOST if boosted else GEN_TIER_BURST_ODDS
-	return table[clampi(tier, 1, GEN_TOP_TIER) - 1]
+# --- §6.D generator burst odds --------------------------------------------------------------------------
+# Line generators use the same flat burst tables as special generators. A live boost swaps in the boosted
+# row; rank/mastery affects the item tier window, not the generator's burst row.
+static func gen_burst_odds(boosted: bool = false) -> Array:
+	return BURST_ODDS_BOOST if boosted else BURST_ODDS
 
-# Two same-line generators merge 2:1 into the next tier (capped at GEN_TOP_TIER).
-static func gen_merge_tier(tier: int) -> int:
-	return mini(tier + 1, GEN_TOP_TIER)
-
-# Coins refunded for selling a redundant generator of `tier` (sellable tiers are 1..GEN_TOP_TIER-1 — a
-# tier-GEN_TOP_TIER generator is never redundant). Gen stranding fix.
-static func gen_sell_coins(tier: int) -> int:
-	return int(GEN_SELL_COINS[clampi(tier, 1, GEN_TOP_TIER - 1) - 1])
-
-# A below-top generator self-produces a duplicate at GEN_SELF_DUP_RATE per tap (the merge fuel).
-static func rolls_gen_self_dup(rng: RandomNumberGenerator) -> bool:
-	return rng.randf() < GEN_SELF_DUP_RATE
-
-# A generator's burst count at its tier (1..N items), rolled over its tier odds; a live boost swaps in the
-# strictly-better boosted row (the top row adds a 4th slot — only a boosted top-tier generator pops 4).
-static func gen_burst_count(tier: int, rng: RandomNumberGenerator, boosted: bool = false) -> int:
-	var odds := gen_burst_odds(tier, boosted)
+static func gen_burst_count(rng: RandomNumberGenerator, boosted: bool = false) -> int:
+	var odds := gen_burst_odds(boosted)
 	var n := 1
 	var roll := rng.randf()
 	var acc := 0.0
@@ -801,10 +780,10 @@ static func active_giver_count(earned_exp: int, target_exp: int, max_givers: int
 		return 0
 	return clampi(int(ceil(need / float(EXP_PER_QUEST_EST))), 1, max_givers)
 
-## Burst-pop for the UNTIERED special-generator family (§6, T58): the boosted accumulator collect, the
-## treat pop, and the sim roll their burst COUNT here — tiered line generators roll gen_burst_count
-## instead (T64). BURST_ODDS when no boost is live (a single item is the norm), BURST_ODDS_BOOST while
-## one is (`boost_bonus > 0` marks a live boost — it RAISES THE CHANCE of multiples, never a flat add;
+	## Burst-pop for all generator-like taps (§6, T58): line generators, boosted accumulator collect, the
+	## treat pop, and the sim roll their burst COUNT from the flat BURST_ODDS tables. BURST_ODDS applies
+	## when no boost is live (a single item is the norm), BURST_ODDS_BOOST while one is (`boost_bonus > 0`
+	## marks a live boost — it RAISES THE CHANCE of multiples, never a flat add;
 ## `_map` is unused — kept for call-site stability). Clamped to [1, BURST_MAX] as a board-flood safety
 ## net. Each popped item still costs 1 energy.
 static func burst_count(_map: int, boost_bonus: int, rng: RandomNumberGenerator) -> int:
@@ -1579,10 +1558,10 @@ static func accumulator_kind_of(id: String) -> String:
 
 # The generator icon for an id — the merge-generator roster first, then the accumulators. One lookup so
 # _make_generator renders both kinds of on-board "generator" from the same path.
-static func gen_tex(id: String, tier: int = 1) -> String:
+static func gen_tex(id: String) -> String:
 	var d := gen_def(GENERATORS, id)
 	if not d.is_empty():
-		return _tiered_gen_tex(String(d.get("tex", "")), tier)
+		return String(d.get("tex", ""))
 	var kind := accumulator_kind_of(id)
 	if kind != "":
 		return String(ACCUMULATORS[kind].get("tex", ""))
@@ -1590,19 +1569,6 @@ static func gen_tex(id: String, tier: int = 1) -> String:
 		var idx := TREAT_LINES.find(treat_line_of(id))
 		return String(TREAT_GEN_TEX[maxi(0, idx) % TREAT_GEN_TEX.size()])
 	return ""
-
-static func _tiered_gen_tex(tex: String, tier: int) -> String:
-	if tier <= 1 or tex == "":
-		return tex
-	var file := tex.get_file()
-	if not file.begins_with("generators_") or not file.ends_with(".png"):
-		return tex
-	var stem := file.trim_prefix("generators_").trim_suffix(".png")
-	if not stem.is_valid_int():
-		return tex
-	var upgraded := int(stem) + 17
-	var candidate := "%s/generators_%d.png" % [tex.get_base_dir(), upgraded]
-	return candidate if ResourceLoader.exists(Game.art(candidate)) else tex
 
 # --- §6.D temporary treat generators (the main generator occasionally spawns one) ---------------------
 static func rolls_treat_spawn(rng: RandomNumberGenerator) -> bool:

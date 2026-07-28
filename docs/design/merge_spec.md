@@ -146,7 +146,7 @@ Merging, moving, delivering, selling, collecting, and decorating are **always fr
 | | Default |
 |---|---|
 | Cap | **100** (`WATER_CAP`) |
-| Pop cost | **1 per item**; a tap pops a small **burst** — 1–3 by generator tier, a boosted top-tier generator up to 4 (`GEN_TIER_BURST_ODDS`/`_BOOST`, §6) — fewer taps, same energy/item |
+| Pop cost | **1 per item**; a tap pops a small **burst** — 1–3 from flat burst odds, with a temporary per-generator boost swapping in the boosted flat row (§6) — fewer taps, same energy/item |
 | Regen | **+1 every 120 s** (offline included) |
 | Level-up gift | **+50** |
 | Free refills | **1 per day** (a "refill" button at 0) |
@@ -289,23 +289,11 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 > progression and swaps only occasionally. When a line leaves the window it **retires to the Collection**;
 > its generator **retires with it — archived, no harvest payout (harvest parked, 2026-06-28)**.
 >
-> **D. Generators merge to tier 3; produce the fuel (tier-aware).** Two same-line generators **merge 2:1**
-> to the next tier (3 tiers), **freeing a cell**. **Higher tier → higher multi-item burst odds**
-> (`GEN_TIER_BURST_ODDS` by generator tier); a live temporary boost (§10 sink) swaps in
-> `GEN_TIER_BURST_ODDS_BOOST` — strictly better at every tier, and the top row adds a **4th burst slot**
-> (only a boosted tier-3 pops 4). A **below-tier-3** generator **self-produces a duplicate of its
-> own line at ~0.5%/tap** (`GEN_SELF_DUP_RATE`) — the merge fuel; the first of a line is free (B). A
-> **tier-3 (maxed)** generator **stops self-duplicating** (no further merge for itself) and instead, at the
-> same rate, **produces a tier-1 generator for another active line still below tier 3** — redirecting the
-> drip to where it helps (nothing if every active line is maxed).
->
-> **D-status (owner call, 2026-07-23): self-dup is OFF** — `GEN_SELF_DUP_RATE = 0.0`. The duplicate spawned
-> at the line's **top** tier, so a sub-top leftover met a copy it could not merge with; because generator art
-> is tier-independent the pair looked identical, and the refused drop fell through to `swap_gens` and just
-> traded cells — reading as "the merge did nothing." The ladder itself (merge 2:1, tier burst odds, sell a
-> redundant gen) is untouched and still works on tiers a save already holds; there is simply **no new fuel**,
-> so generators stay at their current tier and no new leftover can strand. Re-enable by restoring `0.005`
-> once tier is legible on the board **and** a refused generator merge bounces instead of swapping.
+> **D. Generator rank/mastery replaces generator merge tiers.** Generators no longer merge into their own
+> tier ladder, self-produce duplicate merge fuel, or expose a redundant-generator sell path. A generator's
+> job is to be the durable per-line tool; the line's **rank/mastery** determines the item-tier pop window,
+> while the generator itself rolls the flat burst odds. A live temporary boost (§10 sink) swaps `BURST_ODDS`
+> for `BURST_ODDS_BOOST`; there is no boosted 4th burst slot.
 >
 > **E. Board cap ≤ 6 generators.** At most **6 generators** on the board at once (active lines + duplicates
 > mid-merge + bonus gens, F); overflow queues in the **bag**.
