@@ -38,6 +38,7 @@ func _initialize() -> void:
 	await _test_residents_dialog_uses_shared_frame()
 	_test_reward_row_cap()
 	await _test_map_card_expedition_chrome()
+	await _test_bottom_bar_tab_geometry()
 	await _test_dock_collect_chip()
 	_test_loadout_uses_toggle_card_callback()
 	await _test_loadout_toggle_updates_in_place()
@@ -1148,8 +1149,10 @@ func _test_map_card_expedition_chrome() -> void:
 	var prev_tile := hx.get_node_or_null("DailyTile") as Button
 	ok(board != null and prev_tile != null and board.position.x > prev_tile.position.x,
 		"Board is the right-most tile (the bottom-right corner)")
-	ok(board != null and prev_tile != null and is_equal_approx(board.size.x, prev_tile.size.x),
-		"Board wears the same tile size as its neighbours — no oversized disc")
+	# Board is the row's ACTIVE tab — deliberately a little bigger than its neighbours (NavBar.active_size),
+	# but still a TILE in the row, not the old oversized disc: it stays well under 1.5 slots wide.
+	ok(board != null and prev_tile != null and board.size.x > prev_tile.size.x and board.size.x < prev_tile.size.x * 1.5,
+		"Board is the raised active tab — bigger than its neighbours, still a row tile (no oversized disc)")
 	ok(gear != null and board != null and gear.get_global_rect().end.y < board.get_global_rect().position.y,
 		"the gear sits well above the bottom bar, not in it")
 	# the row fills the width: last tile's right edge sits within a margin of the screen edge
@@ -1159,6 +1162,61 @@ func _test_map_card_expedition_chrome() -> void:
 			"the bottom row spans the full width (right edge at %.0f of %.0f)" % [board.position.x + board.size.x, view_w])
 	ok(hx.content.find_child("MapHomeExpeditionButton", true, false) == null, "eligible home maps do not hide Expedition as a map-art overlay")
 	ok(hx.content.find_child("MapCardExpeditionButton", true, false) == null, "map cards no longer carry a floating Expedition icon button")
+	hx.queue_free()
+
+# The home bottom row is a TAB BAR bled to the screen edge (mock: palette_a_meadow_sky_board.png): every
+# tile's box ends ON the screen bottom (its paper runs off past it), the ACTIVE tab is raised above its
+# neighbours, and every tile carries a DRAWN caption, not just a tooltip. Control geometry is float32, so
+# every comparison here is is_equal_approx / a strict inequality — never ==.
+func _test_bottom_bar_tab_geometry() -> void:
+	fresh("bottom_bar_tabs")
+	var hx = map_host()
+	hx._open_map(G.hub_map())
+	await create_timer(0.05).timeout
+	# the row SITS on the safe-area inset (0 off-device) and bleeds its paper through it, so the BOX
+	# bottom is the screen bottom less that inset.
+	var view_h: float = hx.get_viewport_rect().size.y - Look.safe_bottom(hx)
+	var names := ["MapTile", "ResidentsTile", "DailyTile", "BoardTile"]
+	var tiles: Array = []
+	for tile_name in names:
+		var btn := hx.get_node_or_null(NodePath(tile_name)) as Button
+		ok(btn != null, "the bottom bar carries the %s" % tile_name)
+		if btn == null:
+			continue
+		tiles.append(btn)
+		# the box BOTTOM lands on the screen bottom — no margin under the row at all
+		ok(is_equal_approx(btn.position.y + btn.size.y, view_h),
+			"%s reaches the screen bottom (%.1f of %.1f)" % [tile_name, btn.position.y + btn.size.y, view_h])
+		# the caption is a real node with real text (Kit.action_button's white face label)
+		var cap := btn.find_child("ActionButtonCaption", true, false) as Label
+		ok(cap != null and cap.text != "", "%s draws a caption (%s)" % [tile_name, "" if cap == null else cap.text])
+		# …and it fits inside the tile: the longest live caption ("Residents") must not clip or wrap
+		if cap != null:
+			var f: Font = Kit.bold_font()
+			var fsz: int = cap.get_theme_font_size("font")
+			ok(cap.get_line_count() == 1, "%s keeps its caption on one line" % tile_name)
+			ok(f == null or f.get_string_size(cap.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fsz).x < btn.size.x,
+				"%s caption fits the tile width" % tile_name)
+	# the ACTIVE tab (Board) is the tallest thing in the row, and wears its cream rim
+	var board := hx.get_node_or_null("BoardTile") as Button
+	if board != null:
+		for btn2 in tiles:
+			if btn2 == board:
+				continue
+			ok(board.size.y > (btn2 as Button).size.y,
+				"the active Board tab is taller than %s (%.1f > %.1f)" % [(btn2 as Button).name, board.size.y, (btn2 as Button).size.y])
+			ok(not is_equal_approx(board.size.y, (btn2 as Button).size.y), "…measurably, not a rounding tie")
+		ok(board.find_child("ActionButtonActiveRim", true, false) != null, "the active tab wears its cream rim")
+		# it grows OUTWARD from its own slot without reflowing anyone: the neighbours keep an even pitch
+		var daily := hx.get_node_or_null("DailyTile") as Button
+		var residents := hx.get_node_or_null("ResidentsTile") as Button
+		if daily != null and residents != null:
+			ok(is_equal_approx(daily.position.x - residents.position.x, residents.position.x - (tiles[0] as Button).position.x),
+				"the plain tiles keep an even pitch — the raised tab did not reflow the row")
+	# a plain tile carries NO rim (the rim marks the one active destination)
+	var plain := hx.get_node_or_null("DailyTile") as Button
+	ok(plain == null or plain.find_child("ActionButtonActiveRim", true, false) == null,
+		"a plain tab wears no rim")
 	hx.queue_free()
 
 func _test_dock_collect_chip() -> void:

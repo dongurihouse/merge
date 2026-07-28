@@ -334,11 +334,49 @@ static func _apply_deckle_button_surface(
 				panel.queue_redraw())
 	return panel
 
+## The largest font size ≤ `want_px` at which `text` still fits in `room` px on the BOLD face — the same
+## shrink-to-fit rule dialog_title_font applies to a long sheet title, here for any single-line label.
+static func fit_bold_font_px(text: String, want_px: int, room: float) -> int:
+	var f: Font = bold_font()
+	if f == null or text == "" or room <= 0.0:
+		return want_px
+	var tw: float = f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, want_px).x
+	if tw <= room:
+		return want_px
+	return maxi(8, int(floor(float(want_px) * room / tw)))
+
+## One caption layer: the tile's bold caption pinned so its BASELINE sits `baseline_px` above the
+## button's bottom edge, nudged down by `dy` and tinted `color`. Stacking a few darkened copies under
+## the white face is the SAME layered-silhouette shadow the glyph wears (GLYPH_SHADOW) — a hard font
+## outline would read as a sticker, which the paper look does not have anywhere else.
+static func _caption_layer(text: String, fsz: int, color: Color, box_h: float, baseline_px: float, dy: float) -> Label:
+	var f: Font = bold_font()
+	var ascent: float = f.get_ascent(fsz) if f != null else float(fsz) * 0.8
+	var lbl := _kit_label(text, fsz, color)
+	lbl.add_theme_font_override("font", f)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	lbl.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	lbl.offset_left = 0.0
+	lbl.offset_right = 0.0
+	lbl.offset_top = box_h - baseline_px - ascent + dy
+	lbl.offset_bottom = lbl.offset_top + float(fsz) * 2.0
+	return lbl
+
 ## The shared ACTION BUTTON: a flat Button wearing the code-drawn rugged cut-paper edge (a CutPaperPanel,
 ## the SAME applier the pill/frame/rows use) filled by its per-button paper-role tint, with a centered
 ## transparent glyph on top. ONE source for the home bottom bar and the board Home/Bag wells — the baked
 ## nav_<x>.png tiles are retired. `opts`: cp (cut-paper opts) · tints (role→paper-role map) · icon_scale ·
 ## shadow · shadow_params · fill (explicit override) · glyph_rel (explicit override) · name · tooltip.
+## NAV-TAB opts (all off by default, so every existing caller is untouched — see NavBar.tab_opts, which
+## derives the px values for a whole row so the taller ACTIVE tile still matches its neighbours):
+##   caption / caption_font_px / caption_baseline_px — a bold white caption under the glyph;
+##   glyph_box_px / glyph_center_frac — the glyph shrinks and rides high once a caption shares the tile;
+##   active / rim_px — the raised current tab's cream rim, drawn OUTSIDE the fill;
+##   bleed_bottom — px the PAPER extends below the button rect (a tab bled off the screen edge rounds
+##                  only its top corners); the button's own rect, and its hit area, stay on-screen;
+##   smooth_edge — the mock's smooth rounded corners instead of the shared torn edge (one flag apart:
+##                 it zeroes the tear on the SAME CutPaperPanel, so fill/rim/shadow are identical).
 static func action_button(role: String, size: Vector2, action: Callable, opts: Dictionary = {}) -> Button:
 	var b := Button.new()
 	b.name = String(opts.get("name", "ActionButton_" + role))
@@ -364,20 +402,68 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 	var paper_role := String(tints.get(role, "cream"))
 	var surface: Dictionary = PAPER_SURFACES.get(paper_role, PAPER_SURFACES["cream"])
 	var fill: Color = opts.get("fill", surface.get("fill", Pal.CREAM))
-	var cp: Dictionary = opts.get("cp", cut_paper_opts_from_config(load_config(CONFIG_PATH), "action_button", ACTION_BUTTON_CP_DEFAULTS))
+	var cp: Dictionary = opts.get("cp", cut_paper_opts_from_config(load_config(CONFIG_PATH), "action_button", ACTION_BUTTON_CP_DEFAULTS)).duplicate()
+	if opts.has("corner"):
+		cp["corner"] = float(opts["corner"])          # the caller's own corner (a nav tab's is a fraction of its width)
+	if bool(opts.get("smooth_edge", false)):
+		cp["deckle_amp"] = 0.0                        # smooth rounded corners: the SAME panel with its tear zeroed
 	var corner := float(cp.get("corner", 20.0))
 	b.set_meta(Look.SHADOW_CORNER_META, corner)
+	# `bleed_bottom` lets the PAPER run past the button's bottom edge (a tab bled off the screen edge):
+	# the rounded box keeps its full radius but the bottom corners fall off-screen, so only the top two
+	# read as round. The Button's own rect is untouched, so its hit area never leaves the screen.
+	var bleed := maxf(0.0, float(opts.get("bleed_bottom", 0.0)))
 	# (no behind-tile drop shadow: the cut-paper edge carries its own edge shadow; the only shadow this
 	# button wears is the ICON's, gated by `icon_shadow` below.)
+	# the ACTIVE tab's cream rim: the SAME edge, one rim thickness bigger on every side, drawn UNDER the
+	# face so it shows as a rim around it. Added FIRST so it sits behind the face among the behind-parent
+	# children (the face's own edge shadow then separates the two sheets, as with the paper backer).
+	if bool(opts.get("active", false)):
+		var rim_px := maxf(0.0, float(opts.get("rim_px", size.x * 0.037)))
+		if rim_px > 0.0:
+			var rim_cp: Dictionary = cp.duplicate()
+			rim_cp["corner"] = corner + rim_px
+			var rim: Control = load(CUT_PAPER).new()
+			rim.name = "ActionButtonActiveRim"
+			rim.show_behind_parent = true
+			rim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			rim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			rim.offset_left = -rim_px
+			rim.offset_top = -rim_px
+			rim.offset_right = rim_px
+			rim.offset_bottom = bleed + rim_px
+			rim.configure(rim_cp, Pal.CREAM, null, cut_paper_tile())
+			rim.corner = float(rim_cp["corner"])
+			b.add_child(rim)
 	# the code-drawn rugged edge — the ONE shared applier
 	var panel: Control = load(CUT_PAPER).new()
 	panel.name = "ActionButtonDeckleSurface"
 	panel.show_behind_parent = true
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel.offset_bottom = bleed
 	panel.configure(cp, fill, null, cut_paper_tile())
 	panel.corner = corner
 	b.add_child(panel)
+	# the caption (a nav tab): bold white type on the shared layered-silhouette shadow, shrunk to fit the
+	# tile width so the longest live caption ("Residents") neither clips nor wraps.
+	var caption := String(opts.get("caption", ""))
+	if caption != "":
+		var want: int = int(opts.get("caption_font_px", int(round(size.x * 0.16))))
+		var pad := maxf(4.0, corner * 0.35)
+		var fsz := fit_bold_font_px(caption, want, size.x - pad * 2.0)
+		var baseline := float(opts.get("caption_baseline_px", size.x * 0.055))
+		var cap_host := Control.new()
+		cap_host.name = "ActionButtonCaptionHost"
+		cap_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cap_host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		for layer in GLYPH_SHADOW:
+			cap_host.add_child(_caption_layer(caption, fsz, Look.shadow_color(float(layer["a"])),
+				size.y, baseline, float(fsz) * float(layer["dy"])))
+		var cap := _caption_layer(caption, fsz, Color.WHITE, size.y, baseline, 0.0)
+		cap.name = "ActionButtonCaption"
+		cap_host.add_child(cap)
+		b.add_child(cap_host)
 	# the centered glyph (mouse-transparent, globally polished) — only if its sprite exists
 	var glyph_rel := String(opts.get("glyph_rel", ACTION_GLYPHS.get(role, "")))
 	if glyph_rel != "" and ResourceLoader.exists(Game.art(glyph_rel)):
@@ -389,6 +475,14 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 		var icwrap := CenterContainer.new()
 		icwrap.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		icwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if caption != "":
+			# a caption shares the tile: the glyph drops to its own box and rides HIGH — its centre sits at
+			# `glyph_center_frac` of the tile's OWN height, not in the middle, leaving the foot to the type.
+			icon_px = float(opts.get("glyph_box_px", size.x * 0.62))
+			var cy := size.y * float(opts.get("glyph_center_frac", 0.42))
+			icwrap.set_anchors_preset(Control.PRESET_TOP_WIDE)   # full width, a glyph-tall band at `cy`
+			icwrap.offset_top = cy - icon_px * 0.5
+			icwrap.offset_bottom = cy + icon_px * 0.5
 		# an icon_px square block holding (optionally) the glyph's soft runtime drop shadow (darkened
 		# silhouette copies nudged down) UNDER the glyph, so it lifts off the paper tile (see GLYPH_SHADOW).
 		# The block is centred on the tile; STRETCH_KEEP_ASPECT_CENTERED keeps a square glyph filling icon_px.
