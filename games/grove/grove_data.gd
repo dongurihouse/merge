@@ -214,7 +214,6 @@ const STARS_PER_QUEST_EST := 2            # representative ★/quest for sizing 
 const BURST_ODDS       := [0.80, 0.15, 0.05]   # no boost: 1 / 2 / 3 items — a single item is the norm
 const BURST_ODDS_BOOST := [0.20, 0.45, 0.35]   # boost live: 1 / 2 / 3 items — multiples are the norm
 const BURST_MAX        := 3                     # the flat tables' ceiling (the burst_count clamp)
-const BOOST_BONUS := 2                    # legacy: the boost's old flat +items add. The boost is an odds swap now (burst_count takes a bool) — unread.
 const BOOST_TAPS := 10                    # how many generator taps one boost lasts
 const BOOST_COST := 120                   # coins to activate one boost (the §10 coin sink)
 
