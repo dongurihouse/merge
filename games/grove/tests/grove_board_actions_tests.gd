@@ -3,9 +3,9 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ## (deliver a quest) applies its whole state transition — consume the tile, drop the quest,
 ## advance exp, pay coins — as a headless call on BoardModel + Save, with NO Control / Tween /
 ## Board scene. This is the "change the rule, assert without UI validation" gate.
-## TWO exceptions, at the end: the info bar's two tier numbers (an item's subtitle, a generator's
-## mastery badge) are scene-only strings, so those guards mount the Board and drive the real
-## selection paths.
+## THREE exceptions, at the end: the info bar's two tier numbers (an item's subtitle, a generator's
+## mastery badge) are scene-only strings, and a freshly opened cell's DRAW ORDER is a scene-only fact,
+## so those guards mount the Board and drive the real paths.
 
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
@@ -28,6 +28,7 @@ func _initialize() -> void:
 	_test_generator_swaps()
 	await _test_info_bar_max_tier_subtitle()
 	await _test_gen_info_max_mastery_badge()
+	await _test_opened_cell_face_draws_above_mat()
 	finish()
 
 # Delivering a quest is the ONE place exp advances. The action consumes the asked tile, drops the
@@ -592,4 +593,47 @@ func _test_gen_info_max_mastery_badge() -> void:
 	scn._select_generator(gcell)
 	var mid_title := String(scn._info_label.text)
 	ok(mid_title.ends_with("· Tier 1"), "a below-max generator still wears its mastery tier number (got %s)" % mid_title)
+	await drop(scn)
+
+# A cell opened in the SAME FRAME as a full rebuild must still show its cream tile face. `queue_free`
+# is deferred, so wiping board_area with bare queue_frees left ~111 stale children parented for the
+# rest of the frame and pushed the fresh mat off index 0 — _open_bramble's hard-coded `move_child(slot, 1)`
+# then seated the face UNDERNEATH the mat and the cell rendered as bare board panel until the next
+# rebuild. That pairing is real play: ~17 sites call _rebuild_all then _after_board_change, whose
+# _scan_magnets -> _after_magnet_merge -> _open_bramble runs before the frame ends.
+func _test_opened_cell_face_draws_above_mat() -> void:
+	fresh("opened_cell_face_above_mat")
+	Save.mark_board_tutorial_seen()
+	await process_frame
+	var scn = board_host()
+	await process_frame
+	var cell := Vector2i(3, 5)
+	scn.board.terrain[BoardModel.idx(cell)] = 1        # seal it, so there is a bramble to open
+	scn.board.place(cell, 0)
+
+	scn._rebuild_all()                                 # ...and stay inside that frame from here on
+
+	# The direct invariant: the wipe UNPARENTS, so no dead child is left skewing indices.
+	var stale := 0
+	for n in scn.board_area.get_children():
+		if n.is_queued_for_deletion():
+			stale += 1
+	ok(stale == 0, "_rebuild_all leaves no queued-for-deletion children under board_area (got %d)" % stale)
+	# The board panel is the first node _rebuild_all adds back, so the first LIVE child is the mat on
+	# fixed and broken code alike — derived from the tree, not from a scene field, so this reads the
+	# same fact either way.
+	var mat: Node = null
+	for n in scn.board_area.get_children():
+		if not n.is_queued_for_deletion():
+			mat = n
+			break
+	ok(mat != null and mat.get_index() == 0, "the fresh board mat is board_area's child 0 right after _rebuild_all (got %d)" % (mat.get_index() if mat != null else -1))
+
+	# The symptom: open a bramble in that same frame and the new face must DRAW above the mat.
+	scn._open_bramble(cell, true)
+	var face: Control = scn.slot_nodes.get(cell)
+	ok(face != null and is_instance_valid(face), "opening the bramble built a tile face for the cell")
+	if face != null and mat != null:
+		ok(face.get_index() > mat.get_index(), \
+			"a cell opened in the rebuild's own frame draws its face ABOVE the mat (face=%d mat=%d)" % [face.get_index(), mat.get_index()])
 	await drop(scn)

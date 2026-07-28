@@ -236,6 +236,7 @@ const SEL_GENERATOR := 2    # generators live in board.gens, never board.items �
 const SEL_IMPROVEMENT := 3  # an EMPTY improved cell (soil/magnet/…) — the improvement itself is the subject
 const SEL_SKY := 4          # a powered Sunbeam/Rain cell — an empty cell whose subject is the weather
 var _selection_kind := SEL_NONE
+var _board_mat: Control = null       # the board panel — board_area's BOTTOM child; every other layer seats above it
 var _focus_ring: Control = null      # the corner-bracket frame drawn on the selected cell (lazily built in board_area)
 var _split_preview: Control = null   # scissors hover preview: dashed target + twin ghosts
 var _info_icon: CenterContainer      # the selected piece preview
@@ -2739,14 +2740,20 @@ func _rebuild_all() -> void:
 	_grow_generators()                        # a staged second generator grows in once its level is reached
 	_sync_accumulators()                      # §6.C place any newly-unlocked utility accumulators
 	for n in board_area.get_children():
-		n.queue_free()
+		_free_now(n)                          # UNPARENT now, not at end of frame — see below
 	slot_nodes.clear()
 	piece_nodes.clear()
 	bramble_nodes.clear()
 	_focus_ring = null
 	_improvement_art_nodes.clear()
 	_soil_overlay_nodes.clear()
-	board_area.add_child(_make_board_mat())   # contrast: the garden bed under the grid
+	# The wipe above uses _free_now, NOT a bare queue_free, and that is load-bearing: queue_free runs at
+	# the END of the frame, so bare-queued children stay parented and the fresh mat lands AFTER ~111 of
+	# them instead of at index 0. Every index computation for the rest of the frame (_open_bramble's
+	# seat, _sky_patch_insert_index, _position_cascade_outline, _sync_sky_cell_glyph) then reads a lie —
+	# _open_bramble seated a freshly opened cell's face UNDER the mat, so the cell rendered as bare board.
+	_board_mat = _make_board_mat()            # contrast: the garden bed under the grid
+	board_area.add_child(_board_mat)          # ...and the BOTTOM child: everything else stacks above it
 	for r in G.ROWS:
 		for c in G.COLS:
 			var cell := Vector2i(r, c)
@@ -2844,6 +2851,14 @@ func _make_board_mat() -> Control:
 	var panel: Control = Kit.board_panel(size, Kit.board_panel_opts_from_config(Game.kit_config()))
 	panel.position = Vector2(-FRAME_OUT, -FRAME_OUT)
 	return panel
+
+## The lowest board_area index anything may be seated at and still DRAW — one above the board panel.
+## Derived from the mat's live index, never hard-coded, so a future ordering change cannot bury a layer.
+func _board_mat_seat() -> int:
+	if _board_mat != null and is_instance_valid(_board_mat) and _board_mat.get_parent() == board_area \
+			and not _board_mat.is_queued_for_deletion():
+		return _board_mat.get_index() + 1
+	return 1
 
 # #7: the per-cell empty "well" — a single shared builder so both creation sites
 # (full rebuild + bramble-clear) stay identical. A soft warm well with a gentle,
@@ -5481,9 +5496,11 @@ func _open_bramble(cell: Vector2i, deterministic := false) -> void:
 		t.chain().tween_callback(br.queue_free)
 	var slot := _make_slot(cell)   # #7: same shared soft-well builder as _rebuild_all
 	board_area.add_child(slot)
-	# right ABOVE the mat (child 0), under brambles/pieces — index 0 hid the
-	# tile behind the moss until the next full rebuild (owner's "no border" bug)
-	board_area.move_child(slot, 1)
+	# Seat the face directly ABOVE the mat, under brambles/pieces. Read the mat's ACTUAL index rather
+	# than assuming it is child 0: seating below the mat hides the cream tile behind the bare board
+	# panel until the next full rebuild (owner's "no border" bug), and a hard-coded 1 was wrong for the
+	# whole frame in which _rebuild_all ran. Falls back to 1 only if the mat is gone.
+	board_area.move_child(slot, mini(_board_mat_seat(), board_area.get_child_count() - 1))
 	slot_nodes[cell] = slot
 	var n := _make_piece(contents, csz)
 	n.position = _cell_pos(cell)
