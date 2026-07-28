@@ -11,6 +11,7 @@ const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const Mastery = preload("res://engine/scripts/core/mastery.gd")
 const Improvements = preload("res://engine/scripts/core/improvements.gd")
+const FX = preload("res://engine/scripts/ui/fx.gd")
 
 func _initialize() -> void:
 	begin("grove · board actions")
@@ -29,6 +30,7 @@ func _initialize() -> void:
 	await _test_info_bar_max_tier_subtitle()
 	await _test_gen_info_max_mastery_badge()
 	await _test_opened_cell_face_draws_above_mat()
+	await _test_sweep_holds_the_wallet_while_the_payout_flies()
 	finish()
 
 # Delivering a quest is the ONE place exp advances. The action consumes the asked tile, drops the
@@ -637,3 +639,85 @@ func _test_opened_cell_face_draws_above_mat() -> void:
 		ok(face.get_index() > mat.get_index(), \
 			"a cell opened in the rebuild's own frame draws its face ABOVE the mat (face=%d mat=%d)" % [face.get_index(), mat.get_index()])
 	await drop(scn)
+
+const SWEEP_HOLD_LINE := 2
+
+# THE SWEEP BANKS UP FRONT BUT PAYS OUT IN THE AIR. BoardActions.sweep_line credits the WHOLE farewell
+# payout to Save the instant the card closes, yet the money is meant to ARRIVE one flying piece at a
+# time — so _sweep_farewell seeds the wallet at the PRE-sweep total and ticks it up per arrival. The
+# same beat also rebuilds the board, and _rebuild_all ends in _update_hud, which read Save straight:
+# the FINAL number flashed on the pill at launch and the flight then counted up to it from a lower
+# one. Both pills are guarded — a t10+ piece pays acorns, not coins (§9 ladder), and the gem label had
+# the identical defect. Scene-only (the defect IS the label's text), so this mounts the Board and
+# drives the real sweep, and it asserts the release too: a hold that stuck would freeze the wallet.
+func _test_sweep_holds_the_wallet_while_the_payout_flies() -> void:
+	var old_fly := bool(Feat.FLAGS.get("fly_to_wallet", true))
+	FX.configure_reward_fx_config_for_test("user://tu_grove_wallet_hold_fx.json")
+	Feat.FLAGS["fly_to_wallet"] = true                 # the pieces must really animate, or there is
+	FX.set_reward_fx_enabled("farewell_sweep", true)   # nothing in flight for the wallet to wait on
+	FX.set_reward_fx_enabled("farewell_sweep_acorn", true)
+
+	var scn = await _wallet_hold_fixture()
+	var preview := BoardActions.farewell_preview(scn.board, SWEEP_HOLD_LINE)
+	ok(int(preview.coins) > 0 and int(preview.acorns) > 0, \
+		"fixture: the seeded line pays BOTH currencies (coins=%d acorns=%d)" % [int(preview.coins), int(preview.acorns)])
+	var coins_before := Save.coins()
+	var gems_before := Save.diamonds()
+
+	scn._sweep_farewell(SWEEP_HOLD_LINE, G.next_need(SWEEP_HOLD_LINE, scn._quest_level()))
+
+	ok(Save.coins() == coins_before + int(preview.coins) and Save.diamonds() == gems_before + int(preview.acorns), \
+		"fixture: the sweep banks the whole payout before a single piece has landed")
+	ok(String(scn.coins_label.text) == str(coins_before), \
+		"the coin pill still reads the PRE-sweep total while the coins fly (got %s, want %d, banked %d)" \
+			% [scn.coins_label.text, coins_before, Save.coins()])
+	ok(String(scn.diamonds_label.text) == str(gems_before), \
+		"the acorn pill still reads the PRE-sweep total while the acorns fly (got %s, want %d, banked %d)" \
+			% [scn.diamonds_label.text, gems_before, Save.diamonds()])
+
+	# ...and the hold RELEASES. Once the last piece has landed, a plain repaint must settle on the
+	# banked total — this is the guard against a stuck hold freezing the wallet for the whole session.
+	await create_timer(1.6).timeout
+	scn._update_hud()
+	ok(String(scn.coins_label.text) == str(Save.coins()), \
+		"the coin pill settles on the banked total once the flight is over (got %s, banked %d)" % [scn.coins_label.text, Save.coins()])
+	ok(String(scn.diamonds_label.text) == str(Save.diamonds()), \
+		"the acorn pill settles on the banked total once the flight is over (got %s, banked %d)" % [scn.diamonds_label.text, Save.diamonds()])
+	await drop(scn, 3)
+	Feat.FLAGS["fly_to_wallet"] = old_fly
+	FX.configure_reward_fx_config_for_test("")
+
+# A board carrying nothing but the away line: its generator (the keepsake), two shallow pieces and two
+# deep ones, so the sweep pays coins AND acorns and both wallet pills have something in flight.
+func _wallet_hold_fixture() -> Node:
+	fresh("sweep_wallet_hold")
+	Save.grove()["coins_earned"] = G.coins_at_level(G.zone_unlock_level(10))   # L65: line 2 is away
+	Save.grove_write()
+	Save.mark_board_tutorial_seen()
+	Save.mark_ftue_seen("soil")
+	Save.mark_ftue_seen("soil_seed")
+	Save.add_coins(40)                  # a NON-ZERO, non-default wallet on both pills, so "held the
+	Save.add_diamonds(7)                # pre-sweep total" cannot be met by a label that reads 0
+	await process_frame
+	var scn = board_host()
+	await process_frame
+	var stale := scn.find_child("FarewellCardOverlay", true, false) as Control
+	if stale != null:
+		stale.queue_free()
+		await process_frame
+	for r in G.ROWS:
+		for c in G.COLS:
+			scn.board.terrain[BoardModel.idx(Vector2i(r, c))] = 0
+			scn.board.take(Vector2i(r, c))
+	for cell in scn.board.gens.keys():
+		scn.board.remove_gen(cell)
+	var free_cells: Array = scn.board.empty_ground_cells()
+	ok(free_cells.size() >= 5, "fixture: the cleared board has room for the generator and four pieces")
+	scn.board.place_gen(G.gen_for_line(SWEEP_HOLD_LINE), free_cells[0])
+	scn.board.place(free_cells[1], SWEEP_HOLD_LINE * 100 + 1)                    # shallow tiers pay coins
+	scn.board.place(free_cells[2], SWEEP_HOLD_LINE * 100 + 2)
+	scn.board.place(free_cells[3], SWEEP_HOLD_LINE * 100 + G.SELL_ACORN_TIER)    # ...the deep ones pay acorns
+	scn.board.place(free_cells[4], SWEEP_HOLD_LINE * 100 + G.SELL_ACORN_TIER + 1)
+	scn._rebuild_all()
+	await process_frame
+	return scn
