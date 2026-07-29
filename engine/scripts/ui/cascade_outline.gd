@@ -13,6 +13,11 @@ const STAGE_WIDTH_SCALE := 0.72
 const RIBBON_WIDTH_FRAC := 0.26      # ribbon width as a share of the cell
 const PAPER_TEX_PX := 64
 const PAPER_SEED := 20260727         # fixed: `make shot` compares captures byte for byte
+const PAPER_AMP := 0.18              # grain depth; measured against the board's own paper, see paper_grain
+const PAPER_FIBRE_PX := 7            # how far a fibre runs — smearing the noise this way gives it direction
+# Up and a little left. Every lit face on the ribbon uses this one vector so the highlight stays on
+# the same side of the strip through a bend.
+const RIBBON_LIGHT := Vector2(-0.33, -1.0)
 const JOINT_SIDES := 12
 
 static var _paper: ImageTexture = null
@@ -22,12 +27,33 @@ static var _paper: ImageTexture = null
 static func paper_grain() -> ImageTexture:
 	if _paper != null:
 		return _paper
-	var img := Image.create(PAPER_TEX_PX, PAPER_TEX_PX, false, Image.FORMAT_RGB8)
+	# Paper is not white noise. A flat RNG field measured FLATTER than the board it lies on
+	# (2.3 vs 2.9 luminance std) — the ribbon read smoother than the surface under it, which is
+	# backwards for cut card. So: smear the noise along one axis to make fibre that runs, keep a
+	# little fine tooth on top, and drop occasional darker flecks. Seeded, because `make shot`
+	# compares captures byte for byte.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = PAPER_SEED
+	var fine := PackedFloat32Array()
+	fine.resize(PAPER_TEX_PX * PAPER_TEX_PX)
+	for i in fine.size():
+		fine[i] = rng.randf()
+	var img := Image.create(PAPER_TEX_PX, PAPER_TEX_PX, false, Image.FORMAT_RGB8)
 	for y in PAPER_TEX_PX:
 		for x in PAPER_TEX_PX:
-			var v := 0.93 + rng.randf() * 0.07
+			var fibre := 0.0
+			for k in PAPER_FIBRE_PX:
+				fibre += fine[y * PAPER_TEX_PX + ((x + k) % PAPER_TEX_PX)]
+			fibre /= float(PAPER_FIBRE_PX)                       # runs along x
+			var tooth := fine[y * PAPER_TEX_PX + x]
+			# Weighted toward the fine tooth on purpose. Smearing 7 samples into a fibre also
+			# averages its variance away — a fibre-heavy mix measured SMOOTHER than the flat noise
+			# it replaced (1.95 vs 3.10 against the board's 2.93). Fibre gives direction; the tooth
+			# has to carry the texture.
+			var v := 1.0 - PAPER_AMP * (0.45 * (1.0 - fibre) + 0.55 * (1.0 - tooth))
+			if rng.randf() < 0.010:
+				v -= PAPER_AMP * 0.9                              # a fleck in the pulp
+			v = clampf(v, 0.0, 1.0)
 			img.set_pixel(x, y, Color(v, v, v))
 	_paper = ImageTexture.create_from_image(img)
 	return _paper
@@ -141,14 +167,18 @@ func _draw_ribbon(raw_cells: Array, base: Color, width: float, strength: float, 
 	var lift := maxf(1.5, cell_size * 0.035)
 	# Cut-paper stack, bottom to top: contact shadow, the warm cut edge the fill sits inside,
 	# the grained face, then a light top plane along the upper side.
-	_ribbon_pass(links, width * 1.02, Color(Pal.INK, 0.20 * strength), Vector2(0.0, lift), null)
-	_ribbon_pass(links, width * 1.14, Color(tape.darkened(0.26), 0.80 * strength), Vector2.ZERO, null)
-	_ribbon_pass(links, width, Color(tape, 0.88 * strength), Vector2.ZERO, paper_grain())
+	_ribbon_pass(links, width * 1.02, Color(Pal.INK, 0.20 * strength), Vector2(0.0, lift), 0.0, null)
+	_ribbon_pass(links, width * 1.14, Color(tape.darkened(0.26), 0.80 * strength), Vector2.ZERO, 0.0, null)
+	_ribbon_pass(links, width, Color(tape, 0.88 * strength), Vector2.ZERO, 0.0, paper_grain())
+	# The lit top plane rides ACROSS the strip, not up the screen. A fixed upward offset works on a
+	# horizontal run and collapses on a vertical one — there the shift slides along the ribbon's own
+	# axis, so the highlight overlaps itself and the segment reads flat. Every bend showed it.
 	_ribbon_pass(links, width * 0.42, Color(tape.lightened(0.30), 0.40 * strength),
-		Vector2(0.0, -width * 0.24), null)
+		Vector2.ZERO, width * 0.24, null)
 
-func _ribbon_pass(links: Dictionary, width: float, colour: Color, offset: Vector2, tex: Texture2D) -> void:
+func _ribbon_pass(links: Dictionary, width: float, colour: Color, offset: Vector2, perp: float, tex: Texture2D) -> void:
 	var half := width * 0.5
+	var light := RIBBON_LIGHT.normalized()
 	for raw_cell in links:
 		var cell := Vector2i(raw_cell)
 		var centre := _cell_pos(cell) + Vector2.ONE * (cell_size * 0.5) + offset
@@ -158,9 +188,13 @@ func _ribbon_pass(links: Dictionary, width: float, colour: Color, offset: Vector
 			var dir := (b - centre)
 			if dir.length() <= 0.01:
 				continue
-			var nrm := Vector2(-dir.y, dir.x).normalized() * half
-			_poly([centre + nrm, b + nrm, b - nrm, centre - nrm], colour, tex)
-		_disc(centre, half, colour, tex)          # rounds the joint AND caps a lone end
+			var unit := Vector2(-dir.y, dir.x).normalized()
+			# whichever face of THIS segment points at the light
+			var lit := unit if unit.dot(light) >= 0.0 else -unit
+			var shift := lit * perp
+			var nrm := unit * half
+			_poly([centre + shift + nrm, b + shift + nrm, b + shift - nrm, centre + shift - nrm], colour, tex)
+		_disc(centre + light * perp, half, colour, tex)   # rounds the joint AND caps a lone end
 
 func _ribbon_links(raw_cells: Array, ordered_path := true) -> Dictionary:
 	var links := {}
