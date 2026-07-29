@@ -1,0 +1,68 @@
+{
+  "_doc": [
+    "THE JUDGEMENT half of the mock-compare rig (docs/design/verifying-against-a-mock.md).",
+    "mock_compare_shot.gd is deterministic — it crops, paints and lays out exactly what is written here",
+    "and never guesses a rect, a colour or a scale. Everything a human had to LOOK at to decide lives in",
+    "this file: which mock, which pixels of it are the element, which pixels beside it are genuinely",
+    "empty ground, and which patches of it are flat field.",
+    "",
+    "Adding a region: open the mock, measure the element's FACE rect (the drawn sheet, NOT its shadow —",
+    "the shadow is the thing being measured and must sit outside the rect), then measure how far the",
+    "clean ground really runs on each side before the next element, the canvas edge, or any painted",
+    "detail. `clean` is that window; the tool derives `real_ground` per side from it and the profiler",
+    "refuses to report past it. Overstating `clean` by 6px is how a profile reports a serene 0.000 and",
+    "gets believed.",
+    "",
+    "rect format is [x, y, w, h] in the mock's OWN pixels."
+  ],
+
+  "mocks": {
+    "meadow_board": {
+      "png": "res://games/grove/assets/_concepts/screens/palette_a_meadow_sky_board.png",
+      "size": [931, 1690],
+      "note": "the board screen the whole cut-paper skin was drawn from: flat sky field, one light from the upper left"
+    }
+  },
+
+  "regions": {
+    "nav_home": {
+      "mock": "meadow_board",
+      "element": "nav",
+      "args": {"role": "home"},
+      "face": [24, 1551, 162, 139],
+      "clean": [0, 1546, 191, 144],
+      "field": [[0, 1560, 15, 128], [916, 1560, 15, 128]],
+      "bleed": "bottom",
+      "note": "the LEFTMOST tab — the only one in the row with real sky to its LEFT (24px, to the canvas edge). Its right side runs into Board's gap 10px away, and the info card crosses the full width 20px above it, so `clean` opens only 5px above the tab. The row's paper runs off the canvas bottom, hence bleed."
+    },
+    "nav_shop": {
+      "mock": "meadow_board",
+      "element": "nav",
+      "args": {"role": "shop"},
+      "face": [728, 1553, 166, 137],
+      "clean": [722, 1548, 209, 142],
+      "field": [[0, 1560, 15, 128], [916, 1560, 15, 128]],
+      "bleed": "bottom",
+      "note": "the RIGHTMOST tab — 37px of real sky to its RIGHT. Pair it with nav_home: one carries the lit edge, the other the shadow edge, and no single symmetric ring is both."
+    },
+
+    "wallet_water": {
+      "mock": "meadow_board",
+      "element": "wallet",
+      "args": {"icon": "water", "count": 91},
+      "face": [223, 28, 241, 102],
+      "clean": [158, 6, 314, 144],
+      "field": [[158, 8, 58, 116], [300, 2, 160, 20], [920, 30, 10, 100]],
+      "note": "the LEFTMOST wallet pill. 65px of clean sky to its left (the level star ends at x=147 and its own shadow a few px later), 22px above, 20px below before the giver cards. Its right side is 11px from the coin pill and half of that is shadow, so `clean` stops 8px out."
+    },
+    "wallet_acorn": {
+      "mock": "meadow_board",
+      "element": "wallet",
+      "args": {"icon": "gem", "count": 7},
+      "face": [692, 28, 219, 102],
+      "clean": [688, 6, 243, 144],
+      "field": [[158, 8, 58, 116], [300, 2, 160, 20], [920, 30, 10, 100]],
+      "note": "the RIGHTMOST wallet pill — 20px of real sky to its RIGHT before the canvas edge, which is the only pill edge in the row where the shadow side falls on plain sky. Its LEFT gets only 4px: the coin pill's face ends 11px away and its own right-side shadow runs ~10px into that gap, so there is barely any clean ground on this side at all — measured with `clean` opened to 8px, the profile turned back UPWARDS at 6-8px, which was the neighbour's shadow, not this pill's. The mock draws an acorn; the game's id for that currency is `gem`."
+    }
+  }
+}

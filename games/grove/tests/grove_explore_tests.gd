@@ -18,6 +18,7 @@ const Kit = preload("res://games/grove/ui_kit.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 const MapScript = preload("res://engine/scripts/scenes/map.gd")
 const NavBarKit = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared nav-tab metric table (flare · halo · bevel)
+const CutPaper = preload("res://engine/scripts/ui/cut_paper.gd")  # …and the shadow falloff curve it tunes
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
 
 func _initialize() -> void:
@@ -1270,6 +1271,23 @@ func _test_bottom_bar_tab_geometry() -> void:
 # bevel. The geometry here is measured off the outline the CutPaperPanel actually draws, in GLOBAL space,
 # so it covers the real thing rather than the knob values. Control geometry is float32 → is_equal_approx
 # or a strict inequality, never ==.
+## The darkening below which a cast shadow has stopped being a shadow and is just noise on the ground.
+## The mock's own sky grain is ±0.016, so nothing under this is separable from the paper it falls on.
+const VISIBLE_DARKENING := 0.02
+
+## How far out from a tab's edge its halo is still VISIBLE on one side, in px. `halo_reach` is not that
+## number and never was: it is the DILATION the ring stack spans, and `halo_offset` then hands one side
+## more of it than the other (down-right, where the light throws it) — `dir` is +1 for that side and -1
+## for the lit one. Bounding the reach alone let a symmetric halo pass a test written off a measurement
+## of the mock's SHADOW side, which is exactly how this row shipped a left-hand shadow four times the
+## mock's while its suite stayed green.
+func _halo_visible_px(reach: float, falloff: float, alpha: float, offset: float, dir: float) -> float:
+	for i in 400:
+		var x := float(i) * 0.25
+		if alpha * CutPaper.halo_profile(falloff, (x - dir * offset) / maxf(reach, 0.001)) < VISIBLE_DARKENING:
+			return x
+	return 999.0
+
 func _check_tab_paper(hx: Node, names: Array) -> void:
 	var spans: Array = []          # per tile: {min_x, max_x, top_w, bot_w} over the ON-SCREEN band
 	for tile_name in names:
@@ -1284,6 +1302,44 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 		ok(float(panel.get("flare")) > 0.0, "%s paper is flared (%.3f)" % [tile_name, panel.get("flare")])
 		ok(float(panel.get("halo_reach")) > 0.0,
 			"%s casts the all-sides halo (%.1f px)" % [tile_name, panel.get("halo_reach")])
+		# …and that halo has a DIRECTION, because the mock's does. Measured on the rig that puts one of our
+		# tabs and one of the mock's on the same flat sky at the same 162px width
+		# (games/grove/tools/mock_compare_shot.gd + mock_profile.py), the mock's leftmost tab darkens the sky
+		# beside it by 0.168 at 1px and nothing by 9px, while its rightmost darkens by 0.388 and still
+		# reads 0.010 at 16px — and the info card above the row splits the same way. The light is upper
+		# left. A symmetric halo is four times too heavy on one side at any reach that fits the other.
+		var halo := float(panel.get("halo_reach"))
+		var off: Vector2 = panel.get("halo_offset")
+		var alpha := float(panel.get("halo_alpha"))
+		var fall := float(panel.get("halo_falloff"))
+		var casts_on_art := btn.find_child("ActionButtonActiveRim", true, false) == null
+		ok(off.x > 0.0 and off.y > 0.0 and off.length() < halo,
+			"%s halo is thrown down-right by the light (%.2f px inside a %.1f px reach)"
+				% [tile_name, off.x, halo])
+		# …and it is a CONTACT shadow on BOTH sides, not a smudge. Bounded on what is SEEN — the distance
+		# at which each side dies — never on `halo_reach`, which is the dilation the rings span and is the
+		# same number for a symmetric smudge and for this.
+		var lit := _halo_visible_px(halo, fall, alpha, off.x, -1.0)
+		var dark := _halo_visible_px(halo, fall, alpha, off.x, 1.0)
+		ok(dark >= lit * 1.3,
+			"%s throws further on the shadow side than the lit one (%.1f px vs %.1f)" % [tile_name, dark, lit])
+		ok(lit <= panel.size.x * 0.075 and dark <= panel.size.x * 0.105,
+			("…and both sides die like a contact shadow (lit %.3f W, shadow %.3f W; the mock's own are"
+			+ " 0.037 and 0.080 W)") % [lit / panel.size.x, dark / panel.size.x])
+		if casts_on_art:
+			ok(lit >= panel.size.x * 0.03,
+				"…while still lifting the sheet off the art on its lit side (%.1f px = %.3f W)"
+					% [lit, lit / panel.size.x])
+		# …and it DECAYS like one. A stack of evenly spaced copies at one alpha draws a straight LINE from
+		# the contact edge to the fringe; a real cast shadow falls off exponentially (the mock's shadow
+		# side runs 0.388 → 0.164 → 0.039 over 1 → 6 → 12 px, a ~4px constant). The linear ramp is what
+		# carried twice the alpha through the middle of the run, so the FALLOFF — not just the reach — is
+		# part of the fix.
+		ok(fall > 0.0, "%s halo decays, it does not ramp linearly (falloff %.2f)" % [tile_name, fall])
+		# by HALF the reach a linear ramp still holds half its alpha; the mock is down to about a third.
+		var mid := CutPaper.halo_profile(fall, 0.5)
+		ok(mid < 0.36, "…at half the reach it holds %.2f of the contact alpha (a linear ramp holds %.2f)"
+			% [mid, CutPaper.halo_profile(0.0, 0.5)])
 		# the lit cut edge is a HAIRLINE. It is the mock's 1px lit paper edge, not a slab: a band reaching
 		# several px in reads as an inward gradient and the tab inflates into a button (measured on the
 		# render: 0.045 W put a 9px ramp with a peak 43 luma deep inside the face; the mock's own tiles
@@ -1327,9 +1383,21 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 			ok(float(panel.get("halo_reach")) <= rim_w * 0.5,
 				"%s face casts only a CONTACT shadow onto its own rim (%.1f px ≤ half the %.1f px rim)"
 					% [tile_name, panel.get("halo_reach"), rim_w])
-			ok(float(rim_sheet2.get("halo_reach")) > float(panel.get("halo_reach")) * 2.0,
-				"…while the rim still casts the row's full halo onto the art (%.1f px)"
-					% [rim_sheet2.get("halo_reach")])
+			var rim_halo := float(rim_sheet2.get("halo_reach"))
+			# the rim's halo keeps the row's own LIGHT too — same offset-to-reach ratio, so the sheet the
+			# player actually sees against the map art is lit from the same corner as its neighbours. The
+			# face's clamp scales BOTH (Kit.action_button), which is why this compares the ratio and not
+			# the raw px.
+			var rim_off: Vector2 = rim_sheet2.get("halo_offset")
+			ok(is_equal_approx(rim_off.x / maxf(rim_halo, 0.001), off.x / maxf(halo, 0.001)),
+				"%s rim is lit from the same corner as the row (%.3f vs %.3f of its reach)"
+					% [tile_name, rim_off.x / maxf(rim_halo, 0.001), off.x / maxf(halo, 0.001)])
+			var rim_lit := _halo_visible_px(rim_halo, float(rim_sheet2.get("halo_falloff")),
+				float(rim_sheet2.get("halo_alpha")), rim_off.x, -1.0)
+			ok(rim_halo > float(panel.get("halo_reach")) * 2.0
+				and rim_lit >= panel.size.x * 0.03 and rim_lit <= panel.size.x * 0.075,
+				"…while the rim still casts the row's full — and equally tight — halo onto the art (%.1f px)"
+					% [rim_halo])
 		else:
 			ok(is_equal_approx(float(panel.get("rim_width")), 0.0),
 				"%s is an inactive tab and draws NO rim (%.1f px)" % [tile_name, panel.get("rim_width")])
@@ -1347,30 +1415,49 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 		# a pool all round the glyph; the mock's own icons darken their tile by ~0.40 one pixel out.
 		var shadow_layers: Array = btn.find_children("*", "TextureRect", true, false).filter(
 			func(tr: TextureRect) -> bool: return tr.modulate.a < 0.999)
-		ok(shadow_layers.size() == NavBarKit.GLYPH_SHADOW.size(),
-			"%s glyph wears the row's %d-layer shadow (found %d)"
-				% [tile_name, NavBarKit.GLYPH_SHADOW.size(), shadow_layers.size()])
 		ok(shadow_layers.size() > Kit.GLYPH_SHADOW.size(),
-			"…deeper than the shared stack every other action button keeps (%d vs %d layers)"
-				% [shadow_layers.size(), Kit.GLYPH_SHADOW.size()])
-		var peak_a := 0.0
+			"%s glyph wears a deeper stack than the shared one every other action button keeps (%d vs %d)"
+				% [tile_name, shadow_layers.size(), Kit.GLYPH_SHADOW.size()])
 		var widest_grow := 0.0
+		var grows: Array[float] = []
 		for tr in shadow_layers:
-			peak_a = maxf(peak_a, (tr as TextureRect).modulate.a)
 			# `grow` is applied as a symmetric offset patch, so it is readable without a layout pass
-			widest_grow = maxf(widest_grow, -(tr as TextureRect).offset_left)
+			var g := -(tr as TextureRect).offset_left
+			grows.append(g)
+			widest_grow = maxf(widest_grow, g)
 			ok((tr as TextureRect).offset_left < 0.0 and (tr as TextureRect).offset_right > 0.0,
 				"%s shadow layer reaches OUT past the glyph, not only down (%.1f px each side)"
-					% [tile_name, -(tr as TextureRect).offset_left])
-		var kit_peak := 0.0
-		for layer in Kit.GLYPH_SHADOW:
-			kit_peak = maxf(kit_peak, float(layer["a"]))
-		ok(peak_a >= 0.25 and peak_a > kit_peak,
-			"%s glyph shadow lands harder at the contact (a %.2f ≥ 0.25, shared %.2f)"
-				% [tile_name, peak_a, kit_peak])
+					% [tile_name, g])
 		ok(widest_grow > panel.size.x * 0.04,
 			"%s glyph shadow skirts a real distance out (%.1f px on a %.0f px tile)"
 				% [tile_name, widest_grow, panel.size.x])
+		# THE STACK IS DENSE. This is the whole reason it is generated rather than hand-authored: the copies
+		# have to step ~1px at a time so they OVERLAP into one smooth pool. The hand-written five-layer table
+		# the row shipped put its copies 1.5 · 3.3 · 5.4 · 7.6 · 10.4 px out — ~2px apart, each carrying an
+		# alpha jump of 0.05-0.19 — and the accumulation read as five flat plateaus with hard rings between
+		# them (measured on the render, stepping out of the Board glyph's left edge: the darkening went
+		# 0.142 → 0.127 → 0.058, a plateau then a cliff). That is exactly what cut_paper.gd's own drop-shadow
+		# comment warns about: "a sparse few-copy stack (3/7/11px) shows as discrete stepped bands on small
+		# elements (a button), so keep the step ≈ 1px".
+		grows.sort()
+		var widest_step := 0.0
+		for i in range(1, grows.size()):
+			widest_step = maxf(widest_step, grows[i] - grows[i - 1])
+		# The bound is a LITERAL 1.3px on purpose — writing it as `GLYPH_SHADOW_STEP_PX × 1.3` would move
+		# with the very constant under test, and a stack respaced to 2.1px steps would sail through it.
+		ok(widest_step > 0.0 and widest_step <= 1.3,
+			"%s glyph shadow steps ~1px at a time (widest gap %.2f px over %d copies)"
+				% [tile_name, widest_step, shadow_layers.size()])
+		# …and the DARKNESS is carried by the accumulation, not by any one copy: densifying the stack has to
+		# leave the envelope where it was, or the fix for the banding would quietly relight the row.
+		var contact := 1.0 - _stack_transmittance(shadow_layers)
+		var kit_contact := 1.0
+		for layer in Kit.GLYPH_SHADOW:
+			kit_contact *= 1.0 - float(layer["a"])
+		kit_contact = 1.0 - kit_contact
+		ok(contact >= 0.40 and contact > kit_contact,
+			"%s glyph shadow accumulates a real contact pool (%.2f ≥ 0.40, shared %.2f)"
+				% [tile_name, contact, kit_contact])
 		# the drawn outline, tear and all — the sheet runs from the tile's top edge to BELOW the screen
 		var pts: PackedVector2Array = panel.call("_deckle_polygon", panel.size, panel.corner)
 		ok(pts.size() > 8, "%s draws a real sheet outline (%d points)" % [tile_name, pts.size()])
@@ -1548,6 +1635,15 @@ func _flare_gain(pts: PackedVector2Array, cx: float, y_lo: float, y_hi: float, v
 	var b := (n * syh - sy * sh) / det        # half-width gained per px of height
 	var a := (sh - b * sy) / n                # half-width extrapolated back to the box's top edge
 	return 0.0 if absf(a) < 0.001 else b * vis_h / a
+
+## What a stack of same-coloured shadow copies LETS THROUGH: Π(1-a). Alpha-over of one colour composes
+## the same whatever order the copies are drawn in, so this is the stack's accumulated darkness (1 - it)
+## wherever every copy covers — i.e. right at the glyph's own edge.
+func _stack_transmittance(layers: Array) -> float:
+	var keep := 1.0
+	for tr in layers:
+		keep *= 1.0 - (tr as CanvasItem).modulate.a
+	return keep
 
 ## min/max x of the outline points whose y falls in [y0, y1] — the sheet's width across one band.
 func _span_x(pts: PackedVector2Array, y0: float, y1: float) -> Vector2:

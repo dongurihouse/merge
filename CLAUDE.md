@@ -38,6 +38,17 @@ owner's machine, and the owner is at the keyboard.
 
 `make test` / `test-fast` / `test-grove` / `import` are headless: no window, no focus, run them freely.
 
+## Matching a concept mock — read the method first
+
+**Before claiming a UI element matches the mock it was drawn from** (or measuring anything off
+`games/grove/assets/_concepts/`), read `docs/design/verifying-against-a-mock.md`. It is the rule set
+for a like-for-like comparison and the guide to the rig that makes one: `make shot-mock` puts our
+element and the mock's own pixels on ONE flat field at ONE scale, and
+`games/grove/tools/mock_profile.py` reads the sheet back. Measuring our element on our screen against
+the mock's on its screen is not evidence — it was done five times running before anyone noticed.
+Which mock, which rect of it, and how much of the ground beside it is REAL is judgement, and lives in
+`games/grove/tools/mock_targets.json`; the scripts never guess.
+
 ## Testing — run `make test-fast` first
 
 After **every change**, run the fast inner-loop check before anything else:
