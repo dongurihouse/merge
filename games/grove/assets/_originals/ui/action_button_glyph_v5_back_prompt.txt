@@ -1,0 +1,89 @@
+Generate an image (do not write code).
+
+Use case: game UI icon master. Asset type: ONE single flat, front-on UI glyph — a left-pointing
+back arrow — drawn as a new MEMBER OF AN EXISTING FAMILY.
+
+Input images and their roles:
+- Image 1 is the FAMILY, MATERIAL and PALETTE AUTHORITY: the nine accepted glyphs of this exact icon
+  set (map, residents, calendar, envelope, play triangle, piggy bank, cottage, satchel, open book) on
+  the same flat magenta. Your arrow must look like it was cut from the same cardstock, by the same
+  hand, in the same session, at the same optical weight and the same amount of visible paper depth.
+  This is the single most important reference. Do NOT copy any of its subjects — copy its MATERIAL.
+- Image 2 is the Meadow Sky palette and cut-paper material authority. Do not copy its layout or UI.
+- Image 3 is the camera / scale / detail-budget authority for the wider art system. Do not copy its
+  farm content, buildings or UI.
+
+THE SUBJECT: exactly one plain LEFT-POINTING ARROW. A classic back arrow — a triangular arrowhead on
+the left joined to a straight rectangular shaft running to the right, with softly rounded corners and
+a rounded shaft end. One single connected shape. Nothing else in the image.
+
+MATERIAL — this is the whole job, and it is where the previous attempt failed. The arrow is a piece of
+matte hand-cut cardstock, not a flat vector fill:
+
+- VISIBLE SHEET THICKNESS. The cardstock has real, perceptible depth where it has been cut. You can see
+  that the paper is a physical sheet with a cut side wall, exactly as every icon in image 1 does.
+- THE FINE WARM CUT EDGE AND THE THIN LOCALLY-DARKER EDGE, WITHIN THE DRAWING. A warm light catch runs
+  along the upper-left cut of the arrow where the single upper-left light rakes across the cut face;
+  a thin, locally darker line sits in the lower-right cut where the sheet turns away. These edges are
+  REQUIRED — they are the entire reason the art reads as cut paper. They belong to the arrow's own
+  mass and are made of the arrow's own colour, lighter or darker.
+- ONE SAME-HUE SHADOW PLANE across part of the arrow's face — the lower-right portion of the face sits
+  in a slightly deeper shade of the same blue. One plane only, not a gradient, not airbrushing.
+- THE PAPER FIBRE: a subtle matte tooth, about 2-4% local value variation across the face, exactly the
+  amount visible in image 1. Not noise, not brushwork, not grain overlay.
+- ONE UPPER-LEFT LIGHT SOURCE.
+
+COLOUR. The arrow is a mid blue cut-paper shape, drawn to be read against a WARM CREAM ground. Use the
+structural slate #3F6D7D as the arrow's base plane and the sky blue #6FA9C0 as its lit plane and warm
+cut edge catch, staying inside the family's palette in image 1. Deep and warm, never mint, teal, aqua,
+seafoam, navy, neon or electric. It must stay clearly darker than warm cream #F6EBDD so it reads as a
+dark glyph on a light button.
+
+TWO THINGS ARE ABSOLUTELY FORBIDDEN. Both of them were shipped by a previous attempt and rejected:
+
+(1) NO CONTINUOUS OUTLINE RING OF ANY KIND. Do not put a pale cream, ivory, white or dark keyline,
+    backing plate, offset sticker plate, die-cut rim, halo, border, outer duplicate or uniform band of
+    any colour around the arrow's complete outer silhouette. The arrow's outermost edge meets the flat
+    magenta directly, in the arrow's OWN local blue. If you trace the whole silhouette with one uniform
+    colour, the image is rejected. Interior cut edges are wanted everywhere; a ring around the outside
+    is banned.
+
+(2) NO BAKED SHADOW ANYWHERE. No drop shadow under the arrow, no soft cream or grey glow around it, no
+    darker offset duplicate of the silhouette tucked below and to the right, no contact shadow, no
+    ambient darkening or dirty smudge OUTSIDE the arrow's own shape. The game engine adds the shadow at
+    runtime, so this master ships completely shadow-free. The magenta immediately outside the arrow must
+    be the same pure flat magenta as the magenta in the far corners of the image.
+
+Composition: one arrow, centred, filling the frame generously but with a wide margin of flat magenta on
+ALL FOUR sides. The arrow must not touch or approach the image border. Flat front-on glyph only — no
+horizon, no scene, no perspective, no ground plane, no base plate, no pedestal, no rounded-square badge,
+tile or card behind it.
+
+Background: one perfectly flat, solid, opaque #FF00FF magenta. Nothing else on it — no gradient, no
+vignette, no texture, no panel, no card, no frame, no grid lines, no shadow.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Palette (hex): sky #6FA9C0, structural slate #3F6D7D, meadow green #A8D3B9, warm cream #F6EBDD,
+ink #243B4B, action green #5F9B6D, coral #D87865, reward gold #D6A94C.
+
+No text, numerals, labels or watermark anywhere.
+
+Do NOT key out, erase, or make the background transparent. Save the file with its solid opaque #FF00FF
+magenta background intact — a downstream deterministic keyer handles the cut.
+
+Save the PNG into: <scratchpad>/codex
+Name it: back_glyph_c.png
+Report the absolute path.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is
+already approved. Do NOT offer a visual companion or read any skills. Generate the
+image NOW with your built-in image generation and save it to the path above. Then report the saved path.

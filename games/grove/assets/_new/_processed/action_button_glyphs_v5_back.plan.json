@@ -1,0 +1,24 @@
+{
+  "source": "_new/action_button_glyphs_v5_back/action_button_glyph_v5_back_raw.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": {
+    "key": "#FF00FF",
+    "tol": 0.22,
+    "hue": true,
+    "soft": 30,
+    "hard": 110,
+    "min_area": 3000,
+    "pad": 8
+  },
+  "_note": "The back arrow, GENERATED into the v4 nav glyph family instead of cut out of a baked tile. The first glyph_back (c2c56598) was keyed out of the baked composite ui/nav/nav_back.png with chroma_key key=#FAE5C6 -> slice_islands -> process_icon, and that approach was wrong for that source: keying a flat background colour cannot remove a SHADOW, because the shadow is not the key colour, it is the key colour DARKENED. The tile's cream drop shadow therefore survived the cut and shipped attached to the arrow — measured on the shipped 512 master, the outermost 3 alpha shells ran (190.0,176.2,152.6) cream-tan against a (62.3,114.3,146.0) blue interior, with 89.3% of the ring band far lighter than the interior, visible at 4x as a ragged cream fringe along the arrow's bottom and right. That breaks the guide's 0 ruling (UI sprites ship shadow-free) and reads as the sticker outline 2's STYLE BLOCK bans. It also passed every existing gate, which is why the two tests below are the ones that matter. Same class of defect a previous pass removed from the whole nav glyph family. This raw is a fresh codex generation on flat magenta, prompted as a new MEMBER of the accepted v4 family: the nine shipped v4 glyphs composited onto one magenta sheet as image 1 / the family, material and palette authority, plus the guide's two 1 mandatory references as image 2 (palette/material) and image 3 (camera/scale/detail budget). The prompt is archived beside the raw as action_button_glyph_v5_back_prompt.txt; it enumerates the material the family is made of (visible sheet thickness, the warm cut edge and thin locally-darker edge WITHIN the drawing, one same-hue shadow plane, 2-4% paper fibre, one upper-left light) and forbids the two things by name (a continuous outline ring of any colour around the silhouette; any baked shadow). MEASURED against the nine shipped v4 glyphs as known positives and the defective glyph_back as the known negative, since a shadow test that cannot find the defect proves nothing. (a) The BANNED thing. Ring colour vs interior: (97.0,127.4,136.6) band against a (61.3,124.4,155.4) interior — the band is the arrow's own blue, not cream. The band's colour spread across 16 angular sectors separates a uniform ring from a local cut edge: 66.2 here against 16.9 on the defect (a single flat colour tracing the whole silhouette), inside the v4 family's 31.6-72.2. Sharpest form: of the band pixels far lighter than the interior, the defect's are cream (R-B +45.7) and sit at median 200deg, the shadow side; ours are BLUE (R-B -30.6) at median 109deg, the upper-left, which is where the one light source puts a lit cut edge — same signature as v4's glyph_home (-10.8 at 125deg). (b) The REQUIRED thing. inEdge%, the share of deep-interior px on an internal luma edge, which a flat fill drives toward 0: 55.4 here against 9.4 on the defect (a flat blue fill with a keyline), inside the v4 family's 14.3-67.7. 8 acceptance gate: key fringe 0, edge-clipped px 0, leftover key pockets 0, enclosed holes 0. Inspected at 4x over dark, light checker, board cream #ECDFC2 and warm cream #F6EBDD. Containment verified pre-cut on the 1491x1055 raw: 1 island at 247,131 1013x785, zero subject px on any canvas edge, min clearance 131 px to the frame. Three candidates were generated from this one prompt and cut identically; this is candidate c, chosen because it is the deepest slate blue of the three (best read on the button's CREAM face, which is the ground this glyph is drawn for) and because its lit cut edge is blue rather than the near-white (214,220,216) of candidate b, which trended back toward the banned rim. Keying and the icon:512:despill post-op are unchanged from the v4/v4b plans — see action_button_glyphs_v3.plan.json for why both chroma passes and the post-resize despill are needed.",
+  "outputs": [
+    {
+      "island": 0,
+      "name": "glyph_back",
+      "path": "ui/nav/glyphs/glyph_back.png",
+      "post": "icon:512:despill"
+    }
+  ],
+  "archive": "_originals/ui/action_button_glyph_v5_back_raw.png"
+}
