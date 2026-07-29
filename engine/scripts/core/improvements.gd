@@ -104,12 +104,12 @@ static func soil_step_seconds(code: int, rank: int) -> float:
 		return 0.0
 	var tier := clampi(int(code % 100), 1, G.SOIL_STEP_SECONDS.size())
 	var secs := float(G.SOIL_STEP_SECONDS[tier - 1])
-	if rank >= 2:
+	if int(G.SOIL_MAX_RANK) > 1 and rank >= 2:
 		secs *= 0.70
 	return secs
 
 static func grow_amount(rank: int) -> int:
-	return 2 if rank >= 3 else 1
+	return 2 if int(G.SOIL_MAX_RANK) > 1 and rank >= 3 else 1
 
 static func normalize_activity(raw: Dictionary) -> Dictionary:
 	var kind := String(raw.get("kind", ""))

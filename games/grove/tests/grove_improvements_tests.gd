@@ -8,8 +8,8 @@ const Ambient = preload("res://engine/scripts/ui/ambient.gd")   # the selection-
 func _initialize() -> void:
 	begin("grove · cell improvements")
 	await process_frame
-	await _test_seed_info_bar_places_bags_and_sells()
-	await _test_unsocket_info_bar_returns_ranked_seed()
+	await _test_seed_info_bar_places_and_sells_without_bag_chip()
+	await _test_unsocket_info_bar_returns_plain_seed_without_rank_chip()
 	await _test_growing_piece_info_row_surfaces_actions()
 	await _test_growing_piece_keeps_ordinary_actions()
 	await _test_normal_drag_to_bag_stashes_without_soil_confirm()
@@ -40,9 +40,9 @@ func _initialize() -> void:
 	await _test_soil_ftue_waits_when_seed_has_no_destination()
 	await _test_improvements_flag_blocks_seed_drops()
 	await _test_bagged_soil_seed_survives_the_round_trip()
-	await _test_bagged_soil_rank_survives_save_and_load()
-	await _test_bag_removal_keeps_every_slot_with_its_own_rank()
-	await _test_rank_one_and_magnet_seeds_store_nothing()
+	await _test_bagged_soil_rank_data_loads_as_plain_seed()
+	await _test_bag_removal_keeps_seed_rank_disabled()
+	await _test_seed_rank_metadata_stays_disabled()
 	await _test_scissors_bag_fallback_keeps_arrays_aligned()
 	await _test_growing_countdown_chip_stays_inside_its_cell()
 	await _test_debug_pop_soil_lands_the_step()
@@ -205,7 +205,7 @@ func _open_soil_ftue_teach_scene(save_id: String) -> Dictionary:
 	ok(_hint_covers_rect(scn, _cell_rect_in_scene(scn, seed_cell)), "%s setup: the teach cutout covers the seed cell" % save_id)
 	return {"scn": scn, "seed_cell": seed_cell, "code": soil_seed}
 
-func _test_seed_info_bar_places_bags_and_sells() -> void:
+func _test_seed_info_bar_places_and_sells_without_bag_chip() -> void:
 	fresh("improve_scene_seed_actions")
 	Save.mark_board_tutorial_seen()
 	Save.add_coins(2000)
@@ -218,35 +218,41 @@ func _test_seed_info_bar_places_bags_and_sells() -> void:
 	scn._rebuild_all()
 	var coins_b := Save.coins()
 	scn._select_item(soil)
+	await _settle()
 	ok(scn._info_seed_place != null and scn._info_seed_place.visible, "a selected seed shows the Place chip")
-	ok(scn._info_seed_bag != null and scn._info_seed_bag.visible, "a selected seed shows the Bag chip")
+	ok(scn._info_seed_bag == null or not scn._info_seed_bag.visible, "a selected seed no longer shows a Bag chip")
 	ok(scn._info_trash != null and scn._info_trash.visible, "a selected seed remains sellable")
 	ok(scn._info_buy == null or not scn._info_buy.visible, "a seed is not buyable as a copy")
+	ok(scn._info_seed_place.get_parent() == scn._info_trash.get_parent() and scn._info_seed_place.get_index() + 1 == scn._info_trash.get_index(), "Place sits directly next to Sell")
+	ok(_visible_chip_captions(scn) == ["Place", "Sell"], "the selected-seed action row is exactly Place, Sell")
+	ok(scn._info_trash_count.text == "520", "a Soil seed shows the 520 sell price")
+	var check: Control = scn._info_seed_place_coin.get_child(0) if scn._info_seed_place_coin.get_child_count() > 0 else null
+	var badge := scn._info_seed_place_coin.get_parent().get_parent() as Control
+	ok(check != null and badge != null and check.get_global_rect().get_center().distance_to(badge.get_global_rect().get_center()) <= 2.0, "the Place check mark is centered in the green badge")
 	ok(scn._place_seed(soil), "scene Place action installs the seed as a cell improvement")
 	ok(Save.coins() == coins_b, "placing a seed is free")
-	ok(scn.board.item_at(soil) == 0 and String(scn.board.improvement_at(soil).kind) == Improvements.KIND_SOIL and int(scn.board.improvement_at(soil).rank) == 2, "placed seed consumes the item and carries Soil rank")
+	ok(scn.board.item_at(soil) == 0 and String(scn.board.improvement_at(soil).kind) == Improvements.KIND_SOIL and int(scn.board.improvement_at(soil).rank) == 1, "placed seed consumes the item and ignores stale Soil rank")
 	ok(scn.board_area.find_child("ImprovementArt_%d_%d" % [soil.x, soil.y], true, false) != null, "the board renders improvement art after seed placement")
 
-	var bag_cell := Vector2i(3, 4)
-	scn.board.place(bag_cell, Improvements.seed_code_for_kind(Improvements.KIND_SOIL))
-	scn.board.set_seed_rank(bag_cell, 3)
+	var soil_sell := Vector2i(3, 4)
+	scn.board.place(soil_sell, Improvements.seed_code_for_kind(Improvements.KIND_SOIL))
 	scn._rebuild_all()
-	scn._select_item(bag_cell)
-	scn._on_seed_bag()
-	ok(scn.bag.size() == 1 and int(scn.bag[0]) == Improvements.seed_code_for_kind(Improvements.KIND_SOIL), "the seed Bag chip stashes the seed")
-	ok(scn.bag_seed_ranks.size() == 1 and int(scn.bag_seed_ranks[0]) == 3, "bagged Soil seed keeps its rank metadata")
-	ok(scn.board.item_at(bag_cell) == 0, "bagging a seed removes it from the board")
+	scn._select_item(soil_sell)
+	var coins_before_soil_sell := Save.coins()
+	scn._on_trash_pressed()
+	ok(Save.coins() == coins_before_soil_sell + 520 and scn.board.item_at(soil_sell) == 0, "selling a Soil seed pays 520 coins")
 
 	var sell_cell := Vector2i(3, 5)
 	scn.board.place(sell_cell, Improvements.seed_code_for_kind(Improvements.KIND_MAGNET))
 	scn._rebuild_all()
 	scn._select_item(sell_cell)
+	ok(scn._info_trash_count.text == "520", "a Magnet seed shows the 520 sell price")
 	var coins_before_sell := Save.coins()
 	scn._on_trash_pressed()
-	ok(Save.coins() == coins_before_sell + 1000 and scn.board.item_at(sell_cell) == 0, "selling a magnet seed pays its seed sell value")
+	ok(Save.coins() == coins_before_sell + 520 and scn.board.item_at(sell_cell) == 0, "selling a Magnet seed pays 520 coins")
 	scn.queue_free()
 
-func _test_unsocket_info_bar_returns_ranked_seed() -> void:
+func _test_unsocket_info_bar_returns_plain_seed_without_rank_chip() -> void:
 	fresh("improve_unsocket")
 	Save.mark_board_tutorial_seen()
 	Save.add_coins(500)
@@ -258,12 +264,13 @@ func _test_unsocket_info_bar_returns_ranked_seed() -> void:
 	scn._rebuild_all()
 	_board_tap(scn, cell)
 	ok(scn._info_unsocket != null and scn._info_unsocket.visible, "empty improved cell selection shows Unsocket")
-	ok(scn._info_soil_rank != null and scn._info_soil_rank.visible, "empty Soil cell selection shows the Rank chip")
+	ok(scn._info_label.text == "Soil", "empty Soil selection no longer names a rank")
+	ok(scn._info_soil_rank == null or not scn._info_soil_rank.visible, "empty Soil cell selection hides the Rank chip")
 	var coins_b := Save.coins()
 	scn._on_unsocket_improvement()
 	ok(Save.coins() == coins_b - 100, "unsocketing Soil charges the unsocket coin cost")
 	ok(not scn.board.has_improvement(cell) and scn.board.item_at(cell) == Improvements.seed_code_for_kind(Improvements.KIND_SOIL), "Unsocket returns a seed to the same cell")
-	ok(scn.board.seed_rank_at(cell) == 3, "Unsocket keeps the Soil rank on the returned seed")
+	ok(scn.board.seed_rank_at(cell) == 1, "Unsocket returns a plain rank-1 Soil seed")
 	scn.queue_free()
 
 func _test_growing_piece_info_row_surfaces_actions() -> void:
@@ -956,7 +963,7 @@ func _assert_selection_kind_survives(kind: String) -> void:
 		"improvement":
 			_clear_board_model(scn.board)
 			scn.board.build_improvement(cell, Improvements.KIND_SOIL)
-			mark = "Soil rank"
+			mark = "Soil"
 		"growing":
 			_clear_board_model(scn.board)
 			scn.board.build_improvement(cell, Improvements.KIND_SOIL)
@@ -1134,10 +1141,10 @@ func _test_improvements_flag_blocks_seed_drops() -> void:
 	scn.queue_free()
 	Feat.FLAGS["improvements"] = original
 
-# --- the bag carries Soil rank ---------------------------------------------------
-# bag_seed_ranks is PARALLEL to bag (invariant: equal sizes), the same shape gen_bag_boost
-# uses for generators. These four cover the invariant end to end: the live round
-# trip, the save/load round trip, per-slot identity across a removal, and the sparse default.
+# --- Soil rank is disabled, but old bag rank data stays harmless ----------------
+# bag_seed_ranks remains PARALLEL to bag for save compatibility with older builds, but every Soil
+# seed now reads as rank 1. These cover the live round trip, save/load normalization, removal
+# alignment, and the sparse default.
 
 # The bag's parallel-array invariant. An off-by-one here hands a seed the WRONG rank, so every
 # bag test asserts it rather than only the value it cares about.
@@ -1152,25 +1159,25 @@ func _test_bagged_soil_seed_survives_the_round_trip() -> void:
 	await _settle()
 	_clear_board_model(scn.board)
 	var cell := Vector2i(3, 3)
-	ok(scn.board.build_improvement(cell, Improvements.KIND_SOIL, 3), "test setup installs rank-3 soil")
+	ok(scn.board.build_improvement(cell, Improvements.KIND_SOIL, 3), "test setup installs stale rank-3 soil")
 	scn._rebuild_all()
 	_board_tap(scn, cell)
 	scn._on_unsocket_improvement()
 	scn._rebuild_all()
-	ok(scn.board.seed_rank_at(cell) == 3, "unsocket leaves a rank-3 seed on the cell")
+	ok(scn.board.seed_rank_at(cell) == 1, "unsocket leaves a plain Soil seed on the cell")
 	scn._select_item(cell)
 	scn._on_seed_bag()
 	ok(_bag_arrays_aligned(scn), "stashing a seed keeps bag_seed_ranks the same size as bag")
-	ok(scn.bag.size() == 1 and int(scn.bag_seed_ranks[0]) == 3, "the bagged seed carries rank 3")
+	ok(scn.bag.size() == 1 and int(scn.bag_seed_ranks[0]) == 1, "the bagged seed carries only the default rank")
 	var back := Vector2i(4, 4)
 	ok(scn._retrieve_from_bag(0, back), "the bagged seed pulls back onto an empty cell")
 	ok(_bag_arrays_aligned(scn), "pulling a seed back keeps bag_seed_ranks the same size as bag")
-	ok(scn.board.seed_rank_at(back) == 3, "the pulled-back seed still reports rank 3")
+	ok(scn.board.seed_rank_at(back) == 1, "the pulled-back seed still reports rank 1")
 	ok(scn._place_seed(back), "the pulled-back seed places as a cell improvement")
-	ok(int(scn.board.improvement_at(back).rank) == 3, "unsocket → bag → pull back → Place keeps Soil rank 3")
+	ok(int(scn.board.improvement_at(back).rank) == 1, "unsocket -> bag -> pull back -> Place keeps Soil at rank 1")
 	scn.queue_free()
 
-func _test_bagged_soil_rank_survives_save_and_load() -> void:
+func _test_bagged_soil_rank_data_loads_as_plain_seed() -> void:
 	fresh("improve_bag_rank_save_load")
 	Save.mark_board_tutorial_seen()
 	var scn := _open_board()
@@ -1182,7 +1189,7 @@ func _test_bagged_soil_rank_survives_save_and_load() -> void:
 	scn._rebuild_all()
 	scn._select_item(cell)
 	scn._on_seed_bag()
-	ok(scn.bag.size() == 1 and int(scn.bag_seed_ranks[0]) == 3, "test setup parks a rank-3 seed in the bag")
+	ok(scn.bag.size() == 1 and int(scn.bag_seed_ranks[0]) == 1, "test setup parks a plain Soil seed in the bag")
 	scn._persist()
 	Save.save_now()
 	scn.queue_free()
@@ -1192,26 +1199,26 @@ func _test_bagged_soil_rank_survives_save_and_load() -> void:
 	var scn2 := _open_board()
 	await _settle()
 	ok(_bag_arrays_aligned(scn2), "a loaded bag keeps bag_seed_ranks the same size as bag")
-	ok(scn2.bag.size() == 1 and int(scn2.bag_seed_ranks[0]) == 3, "the bagged seed's rank survives save + load")
+	ok(scn2.bag.size() == 1 and int(scn2.bag_seed_ranks[0]) == 1, "the bagged seed loads as plain rank 1")
 	var back := Vector2i(4, 2)
 	ok(scn2._retrieve_from_bag(0, back), "the reloaded bagged seed pulls back onto an empty cell")
-	ok(scn2.board.seed_rank_at(back) == 3, "the reloaded seed still reports rank 3")
+	ok(scn2.board.seed_rank_at(back) == 1, "the reloaded seed still reports rank 1")
 	ok(scn2._place_seed(back), "the reloaded seed places as a cell improvement")
-	ok(int(scn2.board.improvement_at(back).rank) == 3, "bag → save → load → pull back → Place keeps Soil rank 3")
+	ok(int(scn2.board.improvement_at(back).rank) == 1, "bag -> save -> load -> pull back -> Place keeps Soil at rank 1")
 	scn2.queue_free()
 
-	# An OLD save (a bag, no bag_seed_ranks key at all) must load as rank 1, never crash.
+	# OLD saves must load as rank 1, whether their rank data is absent or stale.
 	var g := Save.grove()
 	g["bag"] = [Improvements.seed_code_for_kind(Improvements.KIND_SOIL), 101]
-	g.erase("bag_seed_ranks")
+	g["bag_seed_ranks"] = [3, 9]
 	Save.grove_write()
 	var scn3 := _open_board()
 	await _settle()
-	ok(_bag_arrays_aligned(scn3), "a pre-rank save loads with the parallel arrays aligned")
-	ok(scn3.bag.size() == 2 and int(scn3.bag_seed_ranks[0]) == 1, "a bagged seed from a pre-rank save defaults to rank 1")
+	ok(_bag_arrays_aligned(scn3), "an old ranked save loads with the parallel arrays aligned")
+	ok(scn3.bag.size() == 2 and int(scn3.bag_seed_ranks[0]) == 1 and int(scn3.bag_seed_ranks[1]) == 1, "old bag rank data is normalized to 1")
 	scn3.queue_free()
 
-func _test_bag_removal_keeps_every_slot_with_its_own_rank() -> void:
+func _test_bag_removal_keeps_seed_rank_disabled() -> void:
 	fresh("improve_bag_slot_integrity")
 	Save.mark_board_tutorial_seen()
 	var scn := _open_board()
@@ -1223,27 +1230,27 @@ func _test_bag_removal_keeps_every_slot_with_its_own_rank() -> void:
 	var c := Vector2i(1, 3)
 	scn.board.place(a, soil_code)
 	scn.board.set_seed_rank(a, 3)
-	scn.board.place(b, 101)                    # a plain item between the two ranked seeds
+	scn.board.place(b, 101)                    # a plain item between the two stale-ranked seeds
 	scn.board.place(c, soil_code)
 	scn.board.set_seed_rank(c, 2)
 	scn._rebuild_all()
 	for cell in [a, b, c]:
 		scn._select_item(cell)
 		scn._on_seed_bag()
-	ok(scn.bag.size() == 3 and _bag_arrays_aligned(scn), "test setup bags [rank-3 seed, plain item, rank-2 seed]")
-	ok(scn._bag_seed_rank_at(0) == 3 and scn._bag_seed_rank_at(2) == 2, "each bagged seed starts on its own rank")
+	ok(scn.bag.size() == 3 and _bag_arrays_aligned(scn), "test setup bags [Soil seed, plain item, Soil seed]")
+	ok(scn._bag_seed_rank_at(0) == 1 and scn._bag_seed_rank_at(2) == 1, "each bagged seed reads as rank 1")
 
 	var mid := Vector2i(5, 5)
 	ok(scn._retrieve_from_bag(1, mid), "the middle bag entry pulls back out")
 	ok(_bag_arrays_aligned(scn), "removing a middle bag entry keeps the parallel arrays aligned")
 	ok(scn.bag.size() == 2 and int(scn.bag[0]) == soil_code and int(scn.bag[1]) == soil_code, "the two seeds are what is left in the bag")
-	ok(scn._bag_seed_rank_at(0) == 3, "the first seed keeps ITS rank after the middle entry is removed")
-	ok(scn._bag_seed_rank_at(1) == 2, "the second seed keeps ITS rank after the middle entry is removed")
+	ok(scn._bag_seed_rank_at(0) == 1, "the first seed stays rank 1 after the middle entry is removed")
+	ok(scn._bag_seed_rank_at(1) == 1, "the second seed stays rank 1 after the middle entry is removed")
 	var back := Vector2i(5, 6)
-	ok(scn._retrieve_from_bag(1, back) and scn.board.seed_rank_at(back) == 2, "the shifted seed pulls back on rank 2, not its neighbour's rank")
+	ok(scn._retrieve_from_bag(1, back) and scn.board.seed_rank_at(back) == 1, "the shifted seed pulls back as rank 1")
 	scn.queue_free()
 
-func _test_rank_one_and_magnet_seeds_store_nothing() -> void:
+func _test_seed_rank_metadata_stays_disabled() -> void:
 	fresh("improve_bag_sparse_ranks")
 	Save.mark_board_tutorial_seen()
 	var scn := _open_board()
@@ -1287,8 +1294,8 @@ func _test_scissors_bag_fallback_keeps_arrays_aligned() -> void:
 	ok(_bag_arrays_aligned(scn), "the scissors bag fallback keeps bag_seed_ranks aligned with bag")
 	scn._select_item(seed_cell)
 	scn._on_seed_bag()
-	ok(scn.bag.size() == 2 and _bag_arrays_aligned(scn), "a ranked seed still bags in behind the scissors tool")
-	ok(scn._bag_seed_rank_at(1) == 3, "a seed bagged AFTER the scissors tool keeps its own rank 3")
+	ok(scn.bag.size() == 2 and _bag_arrays_aligned(scn), "a Soil seed still bags in behind the scissors tool")
+	ok(scn._bag_seed_rank_at(1) == 1, "a seed bagged after the scissors tool reads as rank 1")
 	scn.queue_free()
 
 # The growing-piece countdown chip used to be hand-placed at (0.56·csz, -0.05·csz), which hung a
@@ -1389,7 +1396,7 @@ func _test_debug_pop_soil_lands_the_step() -> void:
 	await _settle()
 	scn.debug_pop_soil()
 	ok(scn.board.item_at(plain) == 102, "Pop soil finishes the running step — the rank-1 soil's t1 becomes t2")
-	ok(scn.board.item_at(ranked) == 103, "Pop soil grows the rank-3 soil TWO tiers, like a real step")
+	ok(scn.board.item_at(ranked) == 102, "Pop soil treats stale rank-3 Soil as rank 1 and grows one tier")
 	var after: Dictionary = scn.board.improvement_at(plain)
 	ok(int(after.get("code", 0)) == 102, "the popped soil's next step tracks the item it just grew")
 	# a REAL restart, not the fixture's leftover hour: the new step is exactly a t2 step long
