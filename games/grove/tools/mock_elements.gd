@@ -33,9 +33,10 @@ extends RefCounted
 
 const Game = preload("res://engine/scripts/core/game.gd")
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")
+const Paper = preload("res://engine/scripts/ui/paper_button.gd")   # the shared paper-button surface treatment
 
 ## Every element name a region may name. An unknown one REFUSES the run rather than rendering a blank.
-const NAMES := ["nav", "wallet"]
+const NAMES := ["nav", "wallet", "well"]
 
 ## The cut-paper knobs that are LENGTHS in px, and so must be rescaled with the face (see the header).
 ## Knobs that are fractions, percentages, counts or colours are deliberately absent.
@@ -71,6 +72,7 @@ static func build(element: String, args: Dictionary, face_w: float, mods: Dictio
 	match element:
 		"nav": return _build_nav(args, face_w, mods)
 		"wallet": return _build_wallet(args, face_w, mods)
+		"well": return _build_well(args, face_w, mods)
 	push_error("mock_elements: no adapter named '%s' (have: %s)" % [element, ", ".join(NAMES)])
 	return {}
 
@@ -78,7 +80,7 @@ static func build(element: String, args: Dictionary, face_w: float, mods: Dictio
 ## Does this element accept a forced face colour? `fill=` is the rig's way of removing the fill as a
 ## variable, and an adapter that cannot honour it must say so rather than quietly ignoring it.
 static func takes_fill(element: String) -> bool:
-	return element in ["nav", "wallet"]
+	return element in ["nav", "wallet", "well"]
 
 
 # --- shared -------------------------------------------------------------------------------
@@ -230,6 +232,57 @@ static func _glyph_stack(s: String) -> Array:
 		if f.size() >= 3:
 			out.append({"dy": float(f[0]), "grow": float(f[1]), "a": float(f[2])})
 	return out
+
+
+# --- free-standing paper WELL ---------------------------------------------------------------
+
+## ONE free-standing paper button — the board's Home / Bag wells, its almanac chip, the place-picker's
+## back button — built through the two calls those screens make: Kit.action_button_opts_from_config, then
+## the shared material (Paper.apply). No flare, no bleed, no caption: a well is not a tab.
+##
+## SCALE (rule 3). Unlike `nav`, this element does NOT derive its geometry from one width: the config's
+## cut-paper knobs (corner, deckle_amp, rim_width, shadow_reach) are absolute px authored for the size the
+## button SHIPS at, so they are rescaled by mock_face_w / native_px before the treatment goes on. The
+## treatment's own knobs are already fractions of the face width and are therefore correct at any size —
+## which is why they are applied AFTER the rescale and not scaled again.
+##
+## `args`: role (the kit action role) · face_h (the mock's own face HEIGHT — a well's aspect is the
+## board's layout choice, not the material's, so the rig takes the mock's) · native_px (the size this
+## button ships at, for the rescale) · tint (a paper role for a role the kit's tint map does not carry) ·
+## glyph_rel / icon_scale (overrides, as the shipping caller passes them).
+static func _build_well(args: Dictionary, face_w: float, mods: Dictionary) -> Dictionary:
+	var Kit := _kit()
+	if Kit == null:
+		return {}
+	var role := String(args.get("role", "bag"))
+	var box := Vector2(face_w, float(args.get("face_h", face_w)))
+	var cfg: Dictionary = Game.kit_config()
+	var native_px := maxf(1.0, float(args.get("native_px",
+		float((cfg.get("action_button", {}) as Dictionary).get("px", 158.0)))))
+
+	var o: Dictionary = Kit.action_button_opts_from_config(cfg)
+	o["name"] = "Well_" + role
+	if args.has("icon_scale"):
+		o["icon_scale"] = float(args["icon_scale"])
+	if args.has("glyph_rel"):
+		o["glyph_rel"] = String(args["glyph_rel"])
+	if args.has("tint"):
+		var tints: Dictionary = (o.get("tints", {}) as Dictionary).duplicate()
+		tints[role] = String(args["tint"])
+		o["tints"] = tints
+	o["cp"] = scale_cp((o.get("cp", {}) as Dictionary).duplicate(), face_w / native_px)
+	Paper.apply(o, box)
+
+	var cp: Dictionary = o["cp"]
+	if not _report(patch(o, cp, mods, face_w)):
+		return {}
+	o["cp"] = cp
+	if mods.has("glyph"):
+		o["glyph_shadow"] = _glyph_stack(String(mods["glyph"]))
+
+	var b: Button = Kit.action_button(role, box, Callable(), o)
+	b.size = box
+	return {"node": b, "drawn_w": box.x, "face_w": box.x, "face_h": box.y, "face_dx": 0.0}
 
 
 # --- wallet pill --------------------------------------------------------------------------

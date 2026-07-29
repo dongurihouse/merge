@@ -127,6 +127,16 @@ Each of these cost a wrong conclusion.
     mock reads 0.168 because the ring stack is ~1px granular and the mock's value falls between two
     rings: one pixel column 6% light.
 
+16. **The mock's counterpart may be sitting on something else.** A region is like-for-like on ground,
+    scale and fill — it is NOT like-for-like on how far the element is RAISED. The mock draws its bag
+    well INSIDE the info bar's cream sheet, nearly flush with it, so it darkens that sheet by 0.032 at
+    contact and nothing by 3px; the same mock's nav tabs, lying on the scene's own ground, run 0.168 and
+    0.388. Ours is a free-standing tile on the board art, so it is the TAB curves it should match and the
+    inset bag is only a bound — read the other way it says "your shadow is twice the mock's, re-tune",
+    which would have flattened every paper button in the game. Before scoring, ask what the mock's copy is
+    lying on. (`infobar_bag` says so in its own note, and it cannot share a sheet with the sky regions
+    anyway — the field tolerance refuses it.)
+
 ## What this cannot do
 
 Only an element that can stand ALONE on a flat field can be rigged this way. Anything whose look

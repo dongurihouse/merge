@@ -519,6 +519,13 @@ func _initialize() -> void:
 		"the board Bag well wears the shared code-drawn rugged edge")
 	ok(bag_well != null and bag_well.get_node_or_null("BagContent") != null,
 		"the Bag well keeps its stashed-item overlay host")
+	# …and both wells are made of the SAME MATERIAL as the bottom nav tabs — the shared paper-button
+	# surface treatment (engine/scripts/ui/paper_button.gd), minus the tab geometry that only makes sense
+	# for a tile anchored to the screen edge. Verified against the mock on the like-for-like rig
+	# (`make shot-mock CELLS="mock:infobar_bag infobar_bag:fill=#A798C0"`; the mock draws this same bag
+	# well in its info bar): left-side rms 0.009 against the mock's own paper grain of 0.009.
+	assert_paper_button(home_tile, "the board Home well")
+	assert_paper_button(bag_well, "the board Bag well")
 	var unlock_bar := bx.find_child("NextUnlockBar", true, false) as Control
 	ok(unlock_bar != null and unlock_bar.find_child("UnlockDeckleSurface", true, false) != null,
 		"the NEXT UNLOCK bar wears a code-drawn rugged paper edge")

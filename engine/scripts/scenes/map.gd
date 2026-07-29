@@ -28,7 +28,8 @@ const Overlay = preload("res://engine/scripts/ui/overlay.gd")   # shared modal-o
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")   # selected resident cells use the same corner focus as the board
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge → the level screen
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared bottom nav row (board + map)
-const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")   # cut-paper sprite tile (Back/gear)
+const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")   # cut-paper sprite tile (the gear)
+const Paper = preload("res://engine/scripts/ui/paper_button.gd")   # the shared paper-button SURFACE treatment (nav tabs wear it too)
 # The bottom-bar tiles build through the shared code-drawn Kit.action_button (rugged edge + glyph) —
 # the baked nav_<x>.png sprites are retired. Map each bottom-bar node name to its action role.
 const NAV_ROLE := {
@@ -94,7 +95,7 @@ const CARD_CORNER := 22.0   # the maps-card panel radius; edge-bleed thumbs roun
 # recipe the game renders here (the currency-pill / settings pattern). map.gd resolves each card's DATA (open/locked ·
 # locale art · star count · the "after <prev>" prerequisite) and owns the back-arrow chrome below; the
 # card LOOK is workbench-saved config. The back arrow returns to the map you were viewing.
-const CARD_BACK := "map/back_arrow.png"          # the back button's arrow mark (on the shared home disc)
+const BACK_GLYPH := "ui/nav/glyphs/glyph_back.png"   # the back button's arrow, in the nav glyph family's transparent 512² contract
 
 var unlocks := {}
 
@@ -2000,10 +2001,20 @@ func _open_expedition(z: int = -1) -> void:
 # the same rect paper tile as its neighbours. _refresh_play_cta still swaps its icon/action between
 # Play and Restore in place, and it still breathes — see _build_bottom_chrome.)
 
-# The place-picker's bottom-left BACK button. It is the SAME shared home button (Kit.home_button) the
-# bottom nav + the live-ops rail build from, in its ROUNDED-RECT form (shape:"rect") — matching the Map
-# button — so a button tweak (size · shell · icon scale · polish) flows here too. It just carries the
-# back-arrow icon (CARD_BACK, outside the icon_<id> convention → passed as icon_rel) and no caption.
+# The place-picker's bottom-left BACK button. It is the SAME code-drawn paper button the bottom nav
+# tabs and the board's Home/Bag wells are — Kit.action_button wearing the shared paper-button material
+# (Paper.apply: smooth feathered edge · the scene's directional cast shadow · lit hairline · dense glyph
+# shadow · no rim), on the sky paper role, carrying the back-arrow glyph and no caption.
+#
+# IT USED TO BE A BAKED SPRITE TILE (`ui/nav/nav_back.png`, drawn with a scalloped deckle rim and its
+# shadow painted in), and that is why it could not be brought onto the material by tuning: baked art
+# takes no knobs. The Kit.home_button branch under it was DEAD for as long as that PNG existed, and
+# would not have been right either — `icon_rel` runs the icon through clean_tex_path, which defringes
+# and feathers but does not cut a background, so back_arrow.png's own cream tile would have rendered as
+# a cream square inside a sky square. The glyph the button now wears is that tile's arrow, cut out of it
+# deterministically (games/tools/chroma_key.gd → slice_islands.gd → process_icon.gd) into the nav glyph
+# family's own 512² transparent contract: `ui/nav/glyphs/glyph_back.png`.
+#
 # Pinned bottom-left; its press returns to the last-viewed map. Falls back to a bare square when the kit can't load.
 func _make_back_button(sb: float) -> Button:
 	var px := _rail_px                       # the workbench-saved button size (shared with the rail + nav)
@@ -2012,17 +2023,23 @@ func _make_back_button(sb: float) -> Button:
 		_open_map(_map_idx)
 	var Kit: GDScript = Game.kit_script()
 	var b: Button
-	var back_path := Look.kit("nav/nav_back.png")
-	if ResourceLoader.exists(back_path):
-		# the cut-paper back-arrow sprite tile (square), matching the nav set + its drop shadow
-		b = SpriteButton.build(load(back_path), Vector2(px, px), back, {"name": "BackButton"})
-	elif Kit != null:
-		var opts := _home_opts.duplicate()
-		opts["shape"] = "rect"
-		opts["surface_role"] = "sky"
-		opts["shadow"] = true
+	if Kit != null:
+		var opts: Dictionary = Kit.action_button_opts_from_config(Game.kit_config())
+		opts["name"] = "BackButton"
+		opts["glyph_rel"] = BACK_GLYPH
 		opts["icon_scale"] = HOME_ICON_ONLY_SCALE
-		b = Kit.home_button({"icon_rel": CARD_BACK, "caption": "", "action": back}, opts)
+		# `back` is not one of the kit's ACTION_ROLES (adding it there would put a tile in the workbench's
+		# role preview row), so its paper role is named here, through the same tint map every other action
+		# button resolves its fill from. CREAM, not the sky blue the baked tile wore: the arrow glyph is a
+		# mid-blue cut-paper shape drawn for a cream ground, and on a sky face it renders blue-on-blue.
+		# Measured on the rendered place picker (face vs arrow-core luma): cream 2.17:1, sky 1.41:1 — and
+		# the baked tile it replaces was 1.22:1, because it drew a PALE arrow on mid blue, which is not the
+		# shape we have. Cream is both the better read and the ground this artwork was drawn against.
+		var tints: Dictionary = (opts.get("tints", {}) as Dictionary).duplicate()
+		tints["back"] = "cream"
+		opts["tints"] = tints
+		Paper.apply(opts, Vector2(px, px))
+		b = Kit.action_button("back", Vector2(px, px), back, opts)
 	else:
 		b = Button.new()                     # defensive fallback (kit absent): a bare square
 		b.focus_mode = Control.FOCUS_NONE

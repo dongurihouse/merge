@@ -286,6 +286,9 @@ func _test_almanac_entries_and_info_chip() -> void:
 	if chip != null:
 		ok(String(chip.get_meta("action_role", "")) == "almanac",
 			"the Almanac entry is the shared action-button almanac role, not a stat chip")
+	# …and it is made of the same MATERIAL as the bottom nav tabs and the Home/Bag wells beside it — the
+	# shared paper-button surface treatment, without the tab's screen-edge geometry.
+	assert_paper_button(chip, "the Almanac chip")
 	if chip != null:
 		chip.pressed.emit()
 	await process_frame
@@ -1693,6 +1696,12 @@ func _test_dock_collect_chip() -> void:
 		chip.pressed.emit()
 		await create_timer(0.05).timeout
 	ok(Save.coins() == coins_before + 1, "pressing the chip collects the matured whole unit")
+	# THE PLACE-PICKER'S BACK BUTTON is a code-drawn paper button wearing the shared material, not the
+	# baked `nav/nav_back.png` sprite tile it used to be — baked art takes no knobs, so it could never
+	# have been brought onto the material by tuning. Its arrow is the nav glyph family's own transparent
+	# glyph, cut out of that sprite's source tile.
+	var back_btn := hx.find_child("BackButton", true, false) as Button
+	assert_paper_button(back_btn, "the place-picker Back button")
 	hx.queue_free()
 
 # --- loadout: coin cost + the Rush cfg the boosts resolve to ----------------------

@@ -24,6 +24,7 @@ const Audio = preload("res://engine/scripts/core/audio.gd")
 const Music = preload("res://engine/scripts/core/music.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const Paper = preload("res://engine/scripts/ui/paper_button.gd")   # the shared paper-button SURFACE treatment (nav tabs wear it too)
 const Tuning = preload("res://engine/scripts/core/tuning.gd")   # UI-redesign role dials (Tuning.UiSkin.*)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")   # the selected-cell corner-bracket highlight
@@ -3804,6 +3805,18 @@ func _make_bag_button(px: float, action_opts: Dictionary = {}) -> Button:
 	_bag_well_drawn_disc = false            # the code-drawn well's own centered glyph IS the empty state
 	var bag_opts: Dictionary = KitB.action_button_opts_from_config(Game.kit_config())
 	bag_opts["name"] = "BagWell"
+	# the SHARED paper-button material the nav tabs wear (Paper.surface_cp + its dense glyph shadow): a
+	# smooth feathered edge, the scene's directional cast shadow, a lit hairline, no rim. Not the tab's
+	# GEOMETRY — a free-standing well does not flare and has no screen edge to bleed off.
+	#
+	# THE FILL IS NOT CHALKED, unlike the nav row's. The chalk pass exists because the mock's TABS are
+	# pastel and the shipped role fills were poster colours; these two wells already sit in the mock's
+	# measured band (its tiles run saturation ~0.25-0.30 with nothing above ~0.40, value 0.70-0.95 —
+	# kraft is 0.333/0.789, slate 0.257/0.686). Chalking them would only cost: the Home well's separation
+	# from the cream info bar it stands beside falls 1.36:1 → 1.15:1, and the white "0/6" riding the Bag
+	# falls 1.74:1 → 1.34:1, which is under the ratio that made the nav row give its captions a heavier
+	# shadow. Material is shared; fill stays each surface's own.
+	Paper.apply(bag_opts, Vector2(px, px))
 	var b: Button = KitB.action_button("bag", Vector2(px, px), Callable(self, "_open_bag_overlay"), bag_opts)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -3906,6 +3919,7 @@ func _home_nav_button(px: float, action_opts: Dictionary = {}) -> Button:
 		# same builder the home bottom bar uses, so the two read identically off one source.
 		var ho: Dictionary = KitH.action_button_opts_from_config(Game.kit_config())
 		ho["name"] = "BoardHomeTile"
+		Paper.apply(ho, Vector2(px, px))     # the shared paper-button material — see _make_bag_button
 		b = KitH.action_button("home", Vector2(px, px), go, ho)
 	else:
 		b = ActionBar.home_well(px, "house", "nav_home.png", "", -1.0, action_opts)
@@ -4181,6 +4195,9 @@ func _build_almanac_chip(opts: Dictionary, row: Control) -> void:
 	chip_opts["name"] = "AlmanacInfoButton"
 	chip_opts["tooltip"] = Strings.t("almanac.chip")
 	chip_opts["icon_scale"] = minf(float(chip_opts.get("icon_scale", 0.9)), 0.78)
+	# the shared paper-button material — applied AFTER the chip's own icon_scale, because the glyph
+	# shadow is generated for the icon box this button will actually draw.
+	Paper.apply(chip_opts, Vector2(_info_inner_px, _info_inner_px))
 	_info_almanac = KitA.action_button("almanac", Vector2(_info_inner_px, _info_inner_px), _open_almanac, chip_opts)
 	_info_almanac.set_meta("action_role", "almanac")
 	_info_almanac.size_flags_horizontal = Control.SIZE_SHRINK_END

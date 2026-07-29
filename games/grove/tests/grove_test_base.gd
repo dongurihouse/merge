@@ -120,6 +120,62 @@ func assert_unclipped(node: Control, axes: String, tol: float, label: String) ->
 	ok(bad == "", "%s — renders unclipped (%s, ±%.1f)%s" % [label, axes, tol, bad])
 	return bad == ""
 
+# A FREE-STANDING PAPER BUTTON wears the shared surface treatment (engine/scripts/ui/paper_button.gd) —
+# the same material the bottom nav tabs are made of, WITHOUT the geometry that only makes sense for a tab
+# anchored to the screen edge. Read off the CutPaperPanel the button actually built, so this covers the
+# rendered thing rather than the knob dict that was handed to it.
+#
+# The knob VALUES themselves are pinned in engine/tests/action_button_tests.gd (the material's own unit
+# tests, with their literal px bounds); what this asserts, per button, is that the button IS on it —
+# smooth + feathered, casting the scene's directional shadow, a lit hairline, rimless — and that it did
+# NOT inherit the tab's flare. A shared module is only worth having if every caller is provably reading it.
+func assert_paper_button(btn: Button, label: String) -> void:
+	if btn == null:
+		ok(false, "%s exists to carry the shared paper-button material" % label)
+		return
+	var p := btn.find_child("ActionButtonDeckleSurface", true, false) as Control
+	if p == null:
+		ok(false, "%s wears a code-drawn cut-paper surface" % label)
+		return
+	ok(is_equal_approx(p.deckle_amp, 0.0) and p.edge_feather > 0.0,
+		"%s — smooth antialiased edge, not torn (feather %.2fpx)" % [label, p.edge_feather])
+	ok(is_equal_approx(p.rim_width, 0.0), "%s — no rim: its paper edge just ends" % label)
+	var off: Vector2 = p.halo_offset
+	ok(p.halo_reach > 0.0 and p.halo_falloff > 0.0 and off.x > 0.0 and off.y > 0.0
+			and off.length() < p.halo_reach,
+		"%s — casts the scene's directional shadow, down-right (%.2fpx in a %.1fpx reach)"
+			% [label, off.x, p.halo_reach])
+	# a LIT HAIRLINE, in literal px: at every size these buttons ship at (a ~110px almanac chip to a
+	# ~160px well) 0.008 W lands between half a pixel and two. A band reaching further reads as volume.
+	ok(p.bevel_px >= 0.4 and p.bevel_px <= 2.5 and p.bevel_strength > 0.0,
+		"%s — paper thickness is a lit hairline (%.2fpx)" % [label, p.bevel_px])
+	ok(is_equal_approx(p.flare, 0.0),
+		"%s — does NOT taper: the tab's flare is screen-edge geometry, not material" % label)
+	# the glyph's own pool. The kit default drops three copies of the icon straight DOWN at the icon's own
+	# size, so there is no lateral shadow at all and the glyph reads as a sticker laid flat. The material's
+	# stack GROWS every copy, so the widest shadow copy is measurably wider than the glyph itself — and
+	# there are many of them, because a sparse stack bands. Measured on the built nodes, not on the opts.
+	var rects: Array = btn.find_children("*", "TextureRect", true, false)
+	var glyph_w := 0.0
+	var shadow_w: Array = []
+	for tr in rects:
+		var t: TextureRect = tr
+		if t.modulate.a >= 1.0:
+			glyph_w = maxf(glyph_w, t.size.x)
+		else:
+			shadow_w.append(t.size.x)
+	shadow_w.sort()
+	# the copies must be spaced about a PIXEL apart — that is the whole reason this stack is generated
+	# rather than hand-authored, and the count alone does not say it (a small chip legitimately carries
+	# fewer copies than a well, because its pool is shorter). Each step grows the copy by twice the
+	# per-side spacing, so a ~1px step shows up here as a ~2px width step. Literal bound, per rule 12.
+	var worst := 0.0
+	for i in range(1, shadow_w.size()):
+		worst = maxf(worst, float(shadow_w[i]) - float(shadow_w[i - 1]))
+	ok(glyph_w > 0.0 and shadow_w.size() >= 4 and float(shadow_w[-1]) > glyph_w * 1.02 and worst <= 2.6,
+		"%s — its glyph sits in a soft POOL, not flat on the paper (%d copies to %.1f vs %.1f, step %.2f)"
+			% [label, shadow_w.size(), float(shadow_w[-1]) if shadow_w.size() else 0.0, glyph_w, worst])
+
 # The map's single-input-surface invariant: every Control under `node` must
 # IGNORE the mouse, or it silently eats taps before clip.gui_input (bug class ×3).
 func _all_ignore(node: Node) -> bool:

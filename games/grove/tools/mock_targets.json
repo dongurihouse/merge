@@ -46,6 +46,16 @@
       "note": "the RIGHTMOST tab — 37px of real sky to its RIGHT. Pair it with nav_home: one carries the lit edge, the other the shadow edge, and no single symmetric ring is both."
     },
 
+    "infobar_bag": {
+      "mock": "meadow_board",
+      "element": "well",
+      "args": {"role": "bag", "face_h": 128, "native_px": 158, "tint": "slate"},
+      "face": [708, 1401, 161, 128],
+      "clean": [668, 1396, 211, 140],
+      "field": [[664, 1425, 34, 90], [560, 1490, 90, 40]],
+      "note": "the BAG WELL — the mock's only free-standing square paper button, and the counterpart of the board's own Bag well. It does NOT sit on sky: the mock draws it INSIDE the cream info-bar sheet, so this region's field is that sheet's cream (250,236,217) and it cannot share a sheet with the nav/wallet regions (their sky is far outside FIELD_TOLERANCE). Ground is tight and asymmetric: 40px of clean cream to its LEFT, but only 11px to its RIGHT before the info bar's own edge, 5px above and 7px below before that sheet's edge shading — which is exactly the shadow side, so the right-hand profile must not be read past ~10px. The mock's face is 161x128; ours ships SQUARE, and the aspect is the board's layout choice rather than the material's, so the rig builds ours at the mock's own box (face_h). The mock's bag also carries a '0/6' count the board draws as a separate Label outside the shared builder — not reproduced here, and it touches no edge."
+    },
+
     "wallet_water": {
       "mock": "meadow_board",
       "element": "wallet",
