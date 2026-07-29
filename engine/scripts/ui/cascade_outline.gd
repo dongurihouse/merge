@@ -19,6 +19,7 @@ const PAPER_FIBRE_PX := 7            # how far a fibre runs — smearing the noi
 # the same side of the strip through a bend.
 const RIBBON_LIGHT := Vector2(-0.33, -1.0)
 const JOINT_SIDES := 12
+const RIBBON_CUT_STEPS := 6          # subdivisions per segment side — enough bow to read, cheap to draw
 
 static var _paper: ImageTexture = null
 
@@ -61,7 +62,7 @@ static func paper_grain() -> ImageTexture:
 @export var inset_frac := 0.10: set = _set_inset
 @export var thickness_frac := 0.035: set = _set_thickness
 @export var fill_pct := 5.0: set = _set_fill_pct
-@export var jitter_frac := 0.012: set = _set_jitter
+@export var jitter_frac := 0.032: set = _set_jitter   # cut-edge bow, as a share of the cell
 
 var ladders: Array = []
 var runways: Array = []
@@ -167,6 +168,11 @@ func _draw_ribbon(raw_cells: Array, base: Color, width: float, strength: float, 
 	var lift := maxf(1.5, cell_size * 0.035)
 	# Cut-paper stack, bottom to top: contact shadow, the warm cut edge the fill sits inside,
 	# the grained face, then a light top plane along the upper side.
+	# Two shadow passes, not one. A single hard offset copy reads as a second ribbon in the gaps
+	# between pieces — which, since the strip is drawn behind them, is most of what is on screen.
+	# A wider, fainter, further-dropped pass under a tighter one fakes the falloff a real contact
+	# shadow has, with no blur.
+	_ribbon_pass(links, width * 1.34, Color(Pal.INK, 0.10 * strength), Vector2(0.0, lift * 1.7), 0.0, null)
 	_ribbon_pass(links, width * 1.02, Color(Pal.INK, 0.20 * strength), Vector2(0.0, lift), 0.0, null)
 	_ribbon_pass(links, width * 1.14, Color(tape.darkened(0.26), 0.80 * strength), Vector2.ZERO, 0.0, null)
 	_ribbon_pass(links, width, Color(tape, 0.88 * strength), Vector2.ZERO, 0.0, paper_grain())
@@ -192,9 +198,40 @@ func _ribbon_pass(links: Dictionary, width: float, colour: Color, offset: Vector
 			# whichever face of THIS segment points at the light
 			var lit := unit if unit.dot(light) >= 0.0 else -unit
 			var shift := lit * perp
-			var nrm := unit * half
-			_poly([centre + shift + nrm, b + shift + nrm, b + shift - nrm, centre + shift - nrm], colour, tex)
+			_poly(_cut_edge_polygon(centre + shift, b + shift, unit, half, cell, end_pt), colour, tex)
 		_disc(centre + light * perp, half, colour, tex)   # rounds the joint AND caps a lone end
+
+# The strip is drawn BEHIND the pieces, so almost none of its face is ever seen — what reads is the
+# silhouette in the gaps between cells. So the silhouette is where the hand goes: each side of a
+# segment bows independently, which also makes the width vary the way a scissor cut does.
+#
+# The bow is zero at BOTH ends of every segment. That is the whole trick: segments meet at cell-edge
+# midpoints, so vanishing there means neighbours agree at the seam and no kink can appear at a joint,
+# without any cross-segment bookkeeping.
+func _cut_edge_polygon(a: Vector2, b: Vector2, unit: Vector2, half: float, cell: Vector2i, toward: Vector2) -> Array:
+	var amp := cell_size * jitter_frac
+	if amp <= 0.05:
+		return [a + unit * half, b + unit * half, b - unit * half, a - unit * half]
+	var key := _edge_key(cell, Vector2i(roundi(signf(toward.x - a.x)), roundi(signf(toward.y - a.y))))
+	var left: Array = []
+	var right: Array = []
+	for i in RIBBON_CUT_STEPS + 1:
+		var t := float(i) / float(RIBBON_CUT_STEPS)
+		var p := a.lerp(b, t)
+		left.append(p + unit * (half + _cut_bow(key, t)))
+		right.append(p - unit * (half + _cut_bow(key + 7919, t)))
+	right.reverse()
+	return left + right
+
+# Two lobes, both vanishing at t=0 and t=1, with deterministic per-edge amplitudes.
+func _cut_bow(key: int, t: float) -> float:
+	var amp := cell_size * jitter_frac
+	var h1 := _hash_unit(key) * 2.0 - 1.0
+	var h2 := _hash_unit(key + 104729) * 2.0 - 1.0
+	return amp * (sin(PI * t) * h1 + sin(TAU * t) * h2 * 0.45)
+
+func _hash_unit(key: int) -> float:
+	return float(absi(key * 1103515245 + 12345) % 1000) / 999.0
 
 func _ribbon_links(raw_cells: Array, ordered_path := true) -> Dictionary:
 	var links := {}
