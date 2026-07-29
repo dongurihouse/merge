@@ -289,11 +289,8 @@ func _rebuild_tags() -> void:
 		child.queue_free()
 	if not cell_pos_fn.is_valid():
 		return
-	# ONE tag per cell, loudest wins. These three sources overlap in the ordinary case — a runway
-	# anchors its needed-tier chip on the very cell that becomes the drop target once you pick that
-	# tier up — and two Labels at one position just overprint into gibberish ("t×3").
-	# Order is the order of authority: what you can do NOW, then what is armed, then what is merely
-	# wanted. The runway's "needs a t2" is redundant anyway while you are holding the t2.
+	# ONE tag per cell, loudest wins. Drag tags name the exact occupied drop target; resting armed
+	# tags name the chain end. Empty staging pads and inert runways stay unnumbered.
 	var taken := {}
 	if drag_ladders.is_empty():
 		for entry in ghost_pads:
@@ -309,7 +306,7 @@ func _rebuild_tags() -> void:
 		for entry in drag_ladders:
 			if not (entry is Dictionary):
 				continue
-			var cell := Vector2i((entry as Dictionary).get("top_cell", Vector2i(-1, -1)))
+			var cell := Vector2i((entry as Dictionary).get("tag_cell", (entry as Dictionary).get("top_cell", Vector2i(-1, -1))))
 			if cell.x < 0 or taken.has(cell):
 				continue
 			taken[cell] = true
@@ -325,25 +322,6 @@ func _rebuild_tags() -> void:
 			taken[top_cell] = true
 			var n := int((entry as Dictionary).get("n", 2))
 			_add_tag(top_cell, "×%d" % n, n, false)
-		for entry in runways:
-			if not (entry is Dictionary):
-				continue
-			var need := int((entry as Dictionary).get("needs_code", 0))
-			if need <= 0:
-				continue
-			# Anchor on the ribbon's own first cell, not the component's: cells[0] is row-major over the
-			# whole same-line blob, which can be a stray the ribbon deliberately does not cover — the tag
-			# then floats on a cell with no mark under it.
-			var anchor: Array = Array((entry as Dictionary).get("run", []))
-			if anchor.is_empty():
-				anchor = Array((entry as Dictionary).get("cells", []))
-			if anchor.is_empty():
-				continue
-			var at := Vector2i(anchor[0])
-			if taken.has(at):
-				continue
-			taken[at] = true
-			_add_tag(at, "t%d" % (need % 100), int((entry as Dictionary).get("would_be_n", 3)), true)
 
 func _add_tag(cell: Vector2i, text: String, n: int, weak: bool) -> void:
 	var chip := Label.new()

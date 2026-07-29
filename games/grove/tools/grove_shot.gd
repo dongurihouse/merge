@@ -150,6 +150,14 @@ func _initialize() -> void:
 					Vector2i(3, 4): 103,
 					Vector2i(6, 6): 102,
 				}
+			elif phase == "tagtarget":
+				ready = {
+					Vector2i(3, 1): 101,
+					Vector2i(3, 2): 102,
+					Vector2i(3, 3): 103,
+					Vector2i(3, 4): 104,
+					Vector2i(6, 6): 101,
+				}
 			elif phase == "runway":
 				ready = {
 					Vector2i(3, 1): 102,
@@ -230,6 +238,12 @@ func _initialize() -> void:
 				scn._on_press(scn._cell_pos(held_seed) + chalf)
 				scn._begin_drag()
 				scn._drag_follow(scn._cell_pos(Vector2i(5, 5)) + chalf + Vector2(18.0, -24.0))
+				await create_timer(0.35).timeout
+			elif phase == "tagtarget":
+				var held_tag := Vector2i(6, 6)
+				scn._on_press(scn._cell_pos(held_tag) + chalf)
+				scn._begin_drag()
+				scn._drag_follow(scn._cell_pos(Vector2i(3, 1)) + chalf + Vector2(-56.0, -52.0))
 				await create_timer(0.35).timeout
 			elif phase == "run":
 				scn._on_press(scn._cell_pos(Vector2i(3, 1)) + chalf)

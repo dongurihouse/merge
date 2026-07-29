@@ -419,16 +419,16 @@ static func _best_tip_in_component(board: BoardModel, cells: Array) -> Dictionar
 	return best
 
 
-# The cells a tipped run actually walks: the two that merge, then each partner it slides onto.
+# The cells a tipped run actually walks after the player drops: the merge destination, then each
+# partner it slides onto. The dragged/source duplicate is not part of the background ribbon.
 # NOT the same as the component. `cells` is a same-LINE flood fill with no tier condition, so a
 # stray high tier sitting next to the ladder joins it while being unable to feed it — drawing a
 # ribbon over that claims a connection which does not exist.
 static func _run_cells(tip: Dictionary) -> Array:
-	var from := Vector2i(tip.get("from", Vector2i(-1, -1)))
 	var to := Vector2i(tip.get("to", Vector2i(-1, -1)))
-	if from.x < 0 or to.x < 0:
+	if to.x < 0:
 		return []
-	var out: Array = [from, to]
+	var out: Array = [to]
 	for raw in Array(tip.get("path", [])):
 		out.append(Vector2i(raw))
 	return out

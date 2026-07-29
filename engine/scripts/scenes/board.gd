@@ -2633,6 +2633,7 @@ func _merge_target_guides(from: Vector2i) -> Dictionary:
 				"run": run,
 				"line": BoardModel.line_of(code),
 				"n": n,
+				"tag_cell": target,
 				"top_cell": Vector2i(run[run.size() - 1]),
 			})
 	out.sort_custom(func(a, b): return BoardModel.idx(Vector2i((a as Dictionary).get("cell", Vector2i.ZERO))) < BoardModel.idx(Vector2i((b as Dictionary).get("cell", Vector2i.ZERO))))

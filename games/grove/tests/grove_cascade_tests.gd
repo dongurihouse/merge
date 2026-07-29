@@ -25,8 +25,9 @@ func _initialize() -> void:
 	await _test_drag_merge_targets_are_highlighted()
 	await _test_drag_focuses_the_held_cascade_path()
 	await _test_drag_stage_starts_from_single_tier_neighbors()
-	await _test_runway_resting_outline_and_tag()
-	await _test_one_tag_per_cell_when_marks_collide()
+	await _test_runway_resting_outline_without_needed_tier_tag()
+	await _test_drag_cascade_tag_sits_on_drop_target()
+	await _test_ready_ladder_ribbon_excludes_duplicate_tip_source()
 	await _test_runway_drag_guide_strengths_use_real_input()
 	await _test_ready_outline_stays_between_slots_and_pieces_with_stale_generator_nodes()
 	await _test_ready_outline_and_flag_off()
@@ -164,6 +165,16 @@ func _outline_drag_ladder_run(b: Node) -> Array:
 	var entry: Variant = (drag_ladders as Array)[0]
 	return Array((entry as Dictionary).get("run", [])) if entry is Dictionary else []
 
+func _outline_ready_ladder_run(b: Node) -> Array:
+	var o := _outline(b)
+	if o == null:
+		return []
+	var ladders = o.get("ladders")
+	if not (ladders is Array) or (ladders as Array).is_empty():
+		return []
+	var entry: Variant = (ladders as Array)[0]
+	return Array((entry as Dictionary).get("run", [])) if entry is Dictionary else []
+
 func _cells_equal(got: Array, want: Array) -> bool:
 	if got.size() != want.size():
 		return false
@@ -216,8 +227,7 @@ func _outline_has_pad_kind_at(b: Node, kind: String, cell: Vector2i) -> bool:
 				return true
 	return false
 
-# Count only the ×n chips. The runway's needed-tier chip ("t2") is a different statement and
-# must not be mistaken for a cascade promise — that conflation is the bug this grammar fixes.
+# Count only the ×n chips. Empty staging pads and inert runways stay unnumbered.
 func _outline_number_tag_count(b: Node) -> int:
 	var o := _outline(b)
 	if o == null:
@@ -236,6 +246,30 @@ func _outline_has_tag(b: Node, text: String) -> bool:
 	for raw in o.find_children("*", "Label", true, false):
 		var lbl := raw as Label
 		if lbl != null and not lbl.is_queued_for_deletion() and lbl.text == text:
+			return true
+	return false
+
+func _outline_label_texts(b: Node) -> Array:
+	var out: Array = []
+	var o := _outline(b)
+	if o == null:
+		return out
+	for raw in o.find_children("*", "Label", true, false):
+		var lbl := raw as Label
+		if lbl != null and not lbl.is_queued_for_deletion():
+			out.append(lbl.text)
+	out.sort()
+	return out
+
+func _outline_has_tag_at(b: Node, text: String, cell: Vector2i) -> bool:
+	var o := _outline(b)
+	if o == null:
+		return false
+	var want: Vector2 = b._cell_pos(cell) + Vector2(float(b.csz) * 0.58, -float(b.csz) * 0.08)
+	for raw in o.find_children("*", "Label", true, false):
+		var lbl := raw as Label
+		if lbl != null and not lbl.is_queued_for_deletion() and lbl.text == text \
+				and lbl.position.distance_to(want) <= 1.5:
 			return true
 	return false
 
@@ -635,6 +669,8 @@ func _test_drag_focuses_the_held_cascade_path() -> void:
 		"drag focus follows the held piece's actual cascade path, not the component's lower-tier best")
 	ok(_outline_has_tag(b, "×3") and not _outline_has_tag(b, "×5"),
 		"drag focus hides the resting ×5 tag so the player sees the chain they are creating")
+	ok(_outline_has_tag_at(b, "×3", target) and not _outline_has_tag_at(b, "×3", t5),
+		"drag focus puts the cascade number on the occupied drop target, not the chain end")
 	_input_release(b, from)
 	await process_frame
 	ok(_outline_drag_ladder_count(b) == 0 and _outline_has_tag(b, "×5"),
@@ -666,7 +702,7 @@ func _test_drag_stage_starts_from_single_tier_neighbors() -> void:
 	await process_frame
 	b.queue_free()
 
-func _test_runway_resting_outline_and_tag() -> void:
+func _test_runway_resting_outline_without_needed_tier_tag() -> void:
 	var b := _open_board("cascade_runway_outline")
 	await process_frame
 	_blank_fixture(b, {
@@ -677,8 +713,8 @@ func _test_runway_resting_outline_and_tag() -> void:
 	var o := _outline(b)
 	var armed_width := float(o.call("_mark_thickness", {"kind": "armed", "n": 3})) if o != null and o.has_method("_mark_thickness") else 0.0
 	var runway_width := float(o.call("_mark_thickness", {"kind": "runway", "would_be_n": 3})) if o != null and o.has_method("_mark_thickness") else 0.0
-	ok(_outline_ladder_count(b) == 0 and _outline_runway_count(b) == 1 and _outline_has_tag(b, "t2"),
-		"an inert t2-t3-t4 runway draws a needed-tier resting mark")
+	ok(_outline_ladder_count(b) == 0 and _outline_runway_count(b) == 1 and _outline_label_texts(b).is_empty(),
+		"an inert runway draws only the ribbon, without a tN needed-tier label")
 	ok(runway_width > 0.0 and runway_width < armed_width,
 		"runway resting mark is visibly weaker than an armed ladder")
 	ok(_outline_stack_is_visible_between_board_and_items(b),
@@ -694,39 +730,49 @@ func _test_runway_resting_outline_and_tag() -> void:
 		"an armed ladder keeps the stronger xN mark instead of the runway tag")
 	b.queue_free()
 
-# Two Labels at one position overprint into gibberish. A runway anchors its needed-tier chip on the
-# exact cell that becomes the drop target the moment you pick that tier up, so the ordinary case
-# stacked "t2" behind "×3" and rendered "t×3".
-func _test_one_tag_per_cell_when_marks_collide() -> void:
-	var b := _open_board("cascade_tag_collision")
+func _test_drag_cascade_tag_sits_on_drop_target() -> void:
+	var b := _open_board("cascade_drag_tag_drop_target")
 	await process_frame
 	var from := Vector2i(6, 6)
+	var target := Vector2i(3, 1)
+	var t2 := Vector2i(3, 2)
+	var t3 := Vector2i(3, 3)
+	var t4 := Vector2i(3, 4)
 	_blank_fixture(b, {
-		Vector2i(3, 1): 102,
-		Vector2i(3, 2): 103,
-		Vector2i(3, 3): 104,
-		from: 102,                      # holding exactly what the runway is waiting for
+		target: 101,
+		t2: 102,
+		t3: 103,
+		t4: 104,
+		from: 101,
 	})
 	_input_begin_drag(b, from)
 	await process_frame
-	var o := _outline(b)
-	var seen := {}
-	var collisions := 0
-	var texts: Array = []
-	for raw in o.find_children("*", "Label", true, false):
-		var lbl := raw as Label
-		if lbl == null:
-			continue
-		texts.append(lbl.text)
-		var key := "%d,%d" % [int(lbl.position.x), int(lbl.position.y)]
-		if seen.has(key):
-			collisions += 1
-		seen[key] = true
-	ok(collisions == 0, "no two cascade tags share a cell (tags: %s)" % str(texts))
-	ok(texts.has("×3") and not texts.has("t2"), \
-		"the actionable ×n wins the cell; the runway's needed-tier chip yields (tags: %s)" % str(texts))
+	ok(_outline_has_pad_kind_at(b, "cascade", target), "dragging t1 highlights the occupied t1 drop target")
+	ok(_cells_equal(_outline_drag_ladder_run(b), [target, t2, t3, t4]),
+		"drag ladder follows the exact post-merge x4 chain")
+	ok(_outline_has_tag_at(b, "×4", target) and not _outline_has_tag_at(b, "×4", t4),
+		"the x4 number sits on the drop target, not at the end of the chain")
 	_input_release(b, from)
 	await process_frame
+	b.queue_free()
+
+func _test_ready_ladder_ribbon_excludes_duplicate_tip_source() -> void:
+	var b := _open_board("cascade_ready_ribbon_exact_chain")
+	await process_frame
+	var duplicate_source := Vector2i(3, 0)
+	var target := Vector2i(3, 1)
+	var t2 := Vector2i(3, 2)
+	var t3 := Vector2i(3, 3)
+	_blank_fixture(b, {
+		duplicate_source: 101,
+		target: 101,
+		t2: 102,
+		t3: 103,
+	})
+	ok(_outline_ladder_count(b) == 1 and _outline_has_tag(b, "×3"),
+		"1,1,2,3 still arms a ready ladder")
+	ok(_cells_equal(_outline_ready_ladder_run(b), [target, t2, t3]),
+		"ready ribbon starts at the merge destination and excludes the duplicate source")
 	b.queue_free()
 
 func _test_runway_drag_guide_strengths_use_real_input() -> void:

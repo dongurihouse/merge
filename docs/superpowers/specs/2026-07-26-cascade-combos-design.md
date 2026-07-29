@@ -68,15 +68,16 @@ One DFS, three thin consumers. Branching ≤ 3, depth ≤ 11 — brute force, no
 static func chain_path(board: BoardModel, a: Vector2i, b: Vector2i) -> Array
 
 # Outline data: per qualifying same-line component (best chain ≥ 2):
-# { cells, line, n, top_cell }
+# { cells, run, line, n, top_cell }
 #   n        = best chain over every in-component tip-over (direction matters)
+#   run      = merge destination + auto-chain path; excludes the duplicate source
 #   top_cell = the best run's final landing cell (anchors the ×n tag)
 static func ready_ladders(board: BoardModel) -> Array
 
 # Runway data: same-line components that have no equal pair today, but adding
 # one duplicate of a present tier would reach min_n. Ignite cells are the empty
 # ground cells where dropping needs_code would fire the cascade.
-# { cells, line, needs_code, would_be_n, ignite_cells }
+# { cells, run, line, needs_code, would_be_n, ignite_cells }
 static func runways(board: BoardModel, min_n: int) -> Array
 
 # Drag guide: empty ground cells (≠ from) where placing `code` raises the joined
@@ -150,24 +151,24 @@ vacated — always free, synchronously, before the lucky rolls.
   `focus_ring.gd` (`@tool`, `@export` knobs, `_draw`).
 - Per armed `ready_ladders` component: a **paper ribbon** threading the run. Entries with `run`
   data link only consecutive path cells; touching cells that are not consecutive chain steps do
-  not draw false rungs. Fallback component data links each shared edge, so T/cross/ring shapes
-  remain supported for non-ordered callers. Round the joint and cap a lone end (`_ribbon_ends`);
-  `grove_cascade_tests` pins ordered bends, unordered T/ring fallback, isolated cells, and
-  landscape endpoint mapping. Redraw only on recompute — in `_after_board_change()` and after
-  `_rebuild_all`.
+  not draw false rungs. A tipped `1,1,2,3` run starts at the merge destination, so the duplicate
+  source cell does not get a background ribbon. Fallback component data links each shared edge,
+  so T/cross/ring shapes remain supported for non-ordered callers. Round the joint and cap a
+  lone end (`_ribbon_ends`); `grove_cascade_tests` pins ordered bends, unordered T/ring
+  fallback, isolated cells, and landscape endpoint mapping. Redraw only on recompute — in
+  `_after_board_change()` and after `_rebuild_all`.
 - Material: cut-paper stack, bottom to top — contact shadow, warm cut edge, grained face, light
   top plane. The grain is a seeded 64² `ImageTexture` (`PAPER_SEED`) drawn with board-space UVs
   so it runs unbroken along the strip; seeded because `make shot` compares captures byte for
   byte. The line colour is pulled ~40 % toward cream first (`tape`): at full saturation the band
   reads as a new game object competing with the pieces instead of tape laid on the board.
-- Per `runways` component: the same ribbon, thinner and at half strength. Tag text names the
-  needed tier, derived from `needs_code`, not ×n. Armed and runway marks must be
-  distinguishable in still captures.
+- Per `runways` component: the same ribbon, thinner and at half strength. It carries no tier
+  text; the ribbon is the only resting runway hint.
 - Color: `G.line_color(code)` reads `G.LINES[line].color`, fallback `Pal.TEXT_MUTED`
   (mirrors `piece_view.gd:297`). No hex literals (`palette_ssot_tests`).
-- Tags: armed ladders show a small code-drawn ×n paper chip on `top_cell`'s corner; runways
-  show a smaller needed-tier chip on the ribbon's first cell. Tags sit above the drawn
-  mark and update per recompute.
+- Tags: resting armed ladders show a small code-drawn ×n paper chip on `top_cell`'s corner.
+  During drag, the same ×n anchors on the occupied drop target (`tag_cell`) so the player sees
+  which item to drop onto. Empty staging pads and inert runways never carry text.
 - Geometry via `_cell_pos` (`board.gd:1704`, owns the landscape transpose).
 
 ## 8 · Drag guide
@@ -193,7 +194,7 @@ margins, so a saturated line colour tints the art itself rather than reading as 
 `modulate` brighten: that clamps to nothing on art this bright.
 
 - **A ×n appears only for a drop that really runs a chain.** During drag focus it anchors on the
-  focused run's top cell so the lifted piece cannot cover it; empty staging cells never carry ×n.
+  occupied drop target, not the chain end; empty staging cells never carry ×n.
 - **`stage` starts from one adjacent tier.** Holding `t2`, for example, marks every empty ground
   cell beside same-line `t1` and `t3` pieces. These are build hints only: they do not promote the
   single neighbor to `merge`/`cascade`, and they never show ×n.
@@ -218,8 +219,8 @@ margins, so a saturated line colour tints the art itself rather than reading as 
     runs, B→A doesn't); longest-beats-greedy (two partners, only one extends); tie-break
     determinism; `merge_top` stops the walk (chest t5 cap); recipes/other codes never chain.
   - `ready_ladders`: minimal t·t·t+1 → n 2; +t4 → n 3; gap → none; duplicate rung doesn't
-    extend; stray singleton doesn't disqualify; n is direction-aware; two components → two
-    entries.
+    extend or draw as part of `run`; stray singleton doesn't disqualify; n is direction-aware;
+    two components → two entries.
   - `chain_placements`: completes a ladder → candidate; lengthens → n+1; spare beside a ready
     ladder → not a candidate; bridges two clusters → candidate; `d == from` excluded; no kin →
     empty.
@@ -236,6 +237,8 @@ margins, so a saturated line colour tints the art itself rather than reading as 
   - Guide pads on `_begin_drag`, cleared on release; generator drag → none.
   - Weak guide pads start from a single lower/higher neighboring tier; they stay unnumbered and
     below cascade strength.
+  - Resting runways draw no `tN` label, drag cascade tags sit on the occupied drop target, and
+    ready ribbons exclude the duplicate source cell.
   - A mixed component with a lower-tier `×5` at rest focuses to the held item's `×3` run while
     dragging; ordered ribbon links do not connect touching non-consecutive path cells.
   - Outline present iff an armed ladder exists; tag text ×n; stack index above mat/slots and below

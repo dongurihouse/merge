@@ -145,8 +145,8 @@ func _test_run_excludes_unreachable_tiers() -> void:
 	var cells: Array = [] if entries.is_empty() else Array((entries[0] as Dictionary).get("cells", []))
 	var run: Array = [] if entries.is_empty() else Array((entries[0] as Dictionary).get("run", []))
 	ok(cells.has(Vector2i(2, 4)), "the raw component still gathers the unreachable tier")
-	ok(not run.has(Vector2i(2, 4)) and run.size() == 4, \
-		"the run drops it: only the cells the cascade walks (%s)" % str(run))
+	ok(not run.has(Vector2i(2, 4)) and _cells_equal(run, [Vector2i(3, 2), Vector2i(3, 3), Vector2i(3, 4)]), \
+		"the run drops unreachable and duplicate-source cells: only the cells the cascade walks (%s)" % str(run))
 
 	var r := _blank_board()                # a runway with the same stray hanging off it
 	r.place(Vector2i(5, 1), 102)
