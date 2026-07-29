@@ -1271,6 +1271,23 @@ func _test_bottom_bar_tab_geometry() -> void:
 # bevel. The geometry here is measured off the outline the CutPaperPanel actually draws, in GLOBAL space,
 # so it covers the real thing rather than the knob values. Control geometry is float32 → is_equal_approx
 # or a strict inequality, never ==.
+## The darkening below which a cast shadow has stopped being a shadow and is just noise on the ground.
+## The mock's own sky grain is ±0.016, so nothing under this is separable from the paper it falls on.
+const VISIBLE_DARKENING := 0.02
+
+## How far out from a tab's edge its halo is still VISIBLE on one side, in px. `halo_reach` is not that
+## number and never was: it is the DILATION the ring stack spans, and `halo_offset` then hands one side
+## more of it than the other (down-right, where the light throws it) — `dir` is +1 for that side and -1
+## for the lit one. Bounding the reach alone let a symmetric halo pass a test written off a measurement
+## of the mock's SHADOW side, which is exactly how this row shipped a left-hand shadow four times the
+## mock's while its suite stayed green.
+func _halo_visible_px(reach: float, falloff: float, alpha: float, offset: float, dir: float) -> float:
+	for i in 400:
+		var x := float(i) * 0.25
+		if alpha * CutPaper.halo_profile(falloff, (x - dir * offset) / maxf(reach, 0.001)) < VISIBLE_DARKENING:
+			return x
+	return 999.0
+
 func _check_tab_paper(hx: Node, names: Array) -> void:
 	var spans: Array = []          # per tile: {min_x, max_x, top_w, bot_w} over the ON-SCREEN band
 	for tile_name in names:
@@ -1285,29 +1302,39 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 		ok(float(panel.get("flare")) > 0.0, "%s paper is flared (%.3f)" % [tile_name, panel.get("flare")])
 		ok(float(panel.get("halo_reach")) > 0.0,
 			"%s casts the all-sides halo (%.1f px)" % [tile_name, panel.get("halo_reach")])
-		# …and that halo is a CONTACT shadow, not a smudge. Bounded in BOTH directions: it has to reach far
-		# enough to separate the sheet from the art, and no further than the mock's own shadow does. Measured
-		# off the mock (the Shop tile's right edge, on the flat sky of its 931px canvas → ×1.16 for our 1080),
-		# the darkening dies by ~15px, i.e. ~0.085 W. At 0.11 W the row rendered 0.18 darkening still 8px out
-		# and 0.08 at 16px — the same contact alpha dragged across twice the run, which on the FLAT gallery
-		# background (where no leaf art hides it) read as a grey wash under the whole row.
-		# (the ACTIVE tab's FACE is the one exception: what sits behind IT is its own rim, not the art, so it
-		# keeps only a hairline contact reach — asserted on its own terms below. Its RIM sheet is the one
-		# that casts onto the map, and that one is bounded here like every plain tile.)
+		# …and that halo has a DIRECTION, because the mock's does. Measured on the rig that puts one of our
+		# tabs and one of the mock's on the same flat sky at the same 162px width
+		# (games/grove/tools/navtab_shot.gd + navtab_profile.py), the mock's leftmost tab darkens the sky
+		# beside it by 0.168 at 1px and nothing by 9px, while its rightmost darkens by 0.388 and still
+		# reads 0.010 at 16px — and the info card above the row splits the same way. The light is upper
+		# left. A symmetric halo is four times too heavy on one side at any reach that fits the other.
 		var halo := float(panel.get("halo_reach"))
-		var casts_on_art := btn.find_child("ActionButtonActiveRim", true, false) == null
-		ok(halo <= panel.size.x * 0.09,
-			"%s halo is a contact shadow, not a smudge (%.1f px = %.3f W, mock ~0.085 W)"
-				% [tile_name, halo, halo / panel.size.x])
-		if casts_on_art:
-			ok(halo >= panel.size.x * 0.04,
-				"…and still reaches far enough to lift the sheet off the art (%.1f px = %.3f W)"
-					% [halo, halo / panel.size.x])
-		# …and it DECAYS like one. A stack of evenly spaced copies at one alpha draws a straight LINE from
-		# the contact edge to the fringe; a real cast shadow falls off exponentially (the mock's own runs
-		# 0.30 → 0.12 → 0.03 over 1 → 6 → 13 px, a ~5.5px constant). The linear ramp is what carried twice
-		# the alpha through the middle of the run, so the FALLOFF — not just the reach — is the fix.
+		var off: Vector2 = panel.get("halo_offset")
+		var alpha := float(panel.get("halo_alpha"))
 		var fall := float(panel.get("halo_falloff"))
+		var casts_on_art := btn.find_child("ActionButtonActiveRim", true, false) == null
+		ok(off.x > 0.0 and off.y > 0.0 and off.length() < halo,
+			"%s halo is thrown down-right by the light (%.2f px inside a %.1f px reach)"
+				% [tile_name, off.x, halo])
+		# …and it is a CONTACT shadow on BOTH sides, not a smudge. Bounded on what is SEEN — the distance
+		# at which each side dies — never on `halo_reach`, which is the dilation the rings span and is the
+		# same number for a symmetric smudge and for this.
+		var lit := _halo_visible_px(halo, fall, alpha, off.x, -1.0)
+		var dark := _halo_visible_px(halo, fall, alpha, off.x, 1.0)
+		ok(dark >= lit * 1.3,
+			"%s throws further on the shadow side than the lit one (%.1f px vs %.1f)" % [tile_name, dark, lit])
+		ok(lit <= panel.size.x * 0.075 and dark <= panel.size.x * 0.105,
+			("…and both sides die like a contact shadow (lit %.3f W, shadow %.3f W; the mock's own are"
+			+ " 0.037 and 0.080 W)") % [lit / panel.size.x, dark / panel.size.x])
+		if casts_on_art:
+			ok(lit >= panel.size.x * 0.03,
+				"…while still lifting the sheet off the art on its lit side (%.1f px = %.3f W)"
+					% [lit, lit / panel.size.x])
+		# …and it DECAYS like one. A stack of evenly spaced copies at one alpha draws a straight LINE from
+		# the contact edge to the fringe; a real cast shadow falls off exponentially (the mock's shadow
+		# side runs 0.388 → 0.164 → 0.039 over 1 → 6 → 12 px, a ~4px constant). The linear ramp is what
+		# carried twice the alpha through the middle of the run, so the FALLOFF — not just the reach — is
+		# part of the fix.
 		ok(fall > 0.0, "%s halo decays, it does not ramp linearly (falloff %.2f)" % [tile_name, fall])
 		# by HALF the reach a linear ramp still holds half its alpha; the mock is down to about a third.
 		var mid := CutPaper.halo_profile(fall, 0.5)
@@ -1357,8 +1384,18 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 				"%s face casts only a CONTACT shadow onto its own rim (%.1f px ≤ half the %.1f px rim)"
 					% [tile_name, panel.get("halo_reach"), rim_w])
 			var rim_halo := float(rim_sheet2.get("halo_reach"))
+			# the rim's halo keeps the row's own LIGHT too — same offset-to-reach ratio, so the sheet the
+			# player actually sees against the map art is lit from the same corner as its neighbours. The
+			# face's clamp scales BOTH (Kit.action_button), which is why this compares the ratio and not
+			# the raw px.
+			var rim_off: Vector2 = rim_sheet2.get("halo_offset")
+			ok(is_equal_approx(rim_off.x / maxf(rim_halo, 0.001), off.x / maxf(halo, 0.001)),
+				"%s rim is lit from the same corner as the row (%.3f vs %.3f of its reach)"
+					% [tile_name, rim_off.x / maxf(rim_halo, 0.001), off.x / maxf(halo, 0.001)])
+			var rim_lit := _halo_visible_px(rim_halo, float(rim_sheet2.get("halo_falloff")),
+				float(rim_sheet2.get("halo_alpha")), rim_off.x, -1.0)
 			ok(rim_halo > float(panel.get("halo_reach")) * 2.0
-				and rim_halo >= panel.size.x * 0.04 and rim_halo <= panel.size.x * 0.09,
+				and rim_lit >= panel.size.x * 0.03 and rim_lit <= panel.size.x * 0.075,
 				"…while the rim still casts the row's full — and equally tight — halo onto the art (%.1f px)"
 					% [rim_halo])
 		else:

@@ -444,7 +444,16 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 			# The face keeps the contact darkness (halo_strength is the alpha AT the edge, so it is unchanged)
 			# over a short reach: the two sheets still separate, and the rim's outer half stays the fill it
 			# was given. Scoped to `active` — the only caller that draws a rim at all is the nav row.
-			cp["halo_reach"] = minf(float(cp.get("halo_reach", 0.0)), rim_px * 0.45)
+			var want_reach := float(cp.get("halo_reach", 0.0))
+			var capped := minf(want_reach, rim_px * 0.45)
+			# the halo's LIGHT DIRECTION shortens with it. `halo_offset` slides the rings by a fixed px
+			# amount; left at the full-reach value over a reach cut to a sixth it would push every ring
+			# clean off the lit side and pile them past the fringe on the other, which is not a shorter
+			# shadow but a different one. Scaling keeps the offset the same FRACTION of the reach, so the
+			# face's contact shadow stays the shape the row was tuned to, only shorter.
+			if want_reach > 0.0 and cp.has("halo_offset"):
+				cp["halo_offset"] = (cp["halo_offset"] as Vector2) * (capped / want_reach)
+			cp["halo_reach"] = capped
 			var rim: Control = load(CUT_PAPER).new()
 			rim.name = "ActionButtonActiveRim"
 			rim.show_behind_parent = true

@@ -47,28 +47,42 @@ const GAP_MAX_PX := 12.0              # …and capped so a tablet does not sprea
 
 # The tab's PAPER look — the things that separate a bled tab from the art behind it. All of them are
 # shared cut-paper knobs whose defaults are inert, so they bite on this row and nowhere else. All but one
-# are in the workbench's picker set (Kit.CUT_PAPER_KNOBS) too; `halo_falloff` is code-set only, because it
-# is meaningless on a surface whose `halo_reach` is 0 and every surface but this row's is.
+# are in the workbench's picker set (Kit.CUT_PAPER_KNOBS) too; `halo_falloff` and `halo_offset` are
+# code-set only, because both are meaningless on a surface whose `halo_reach` is 0 and every surface but
+# this row's is.
 const FLARE := 0.055                  # the VISIBLE bottom edge reads 5.5% wider than the top (a trapezoid)
-# THE TAB'S CAST SHADOW. The tile bleeds off the bottom of the screen, so a DOWNWARD offset is wasted —
-# the lift has to come from the ambient halo on the top and the sides. What that halo must NOT be is a
-# broad smudge. Measured off the mock's own Shop tile (its right edge, against the flat sky, on the 931px
-# concept canvas → ×1.16 for our 1080), the darkening beside a tile runs
-#     0.30 at 1px · 0.21 at 3.5px · 0.12 at 6px · 0.08 at 8px · 0.03 at 13px · 0 by ~15px
-# — an exponential decay with a ~5.5px constant. Reaching 0.11 W (~21px) on a LINEAR ramp instead put
-# 0.18 at 8px and 0.08 still at 16px: the same contact darkness smeared across twice the run, which on a
-# flat ground (the map gallery, where nothing hides it) reads as a grey wash under the row rather than a
-# card sitting on the art. The reach comes back to the mock's own, and the ramp gets the mock's curve.
-const HALO_REACH_FRAC := 0.083        # ~16px at our 1080 — where the mock's own shadow dies
-const HALO_FALLOFF := 2.2             # …spent as this many e-folds across that reach (0 = the old linear
-                                      # ramp). 2.2 over 16px is the mock's ~5.5px decay constant.
-const HALO_ALPHA_PCT := 45.0          # …and its alpha where it touches the paper (%). This is the alpha at
-                                      # t = 0; the innermost RING bounds the first ~1px band and so samples
-                                      # the curve a little way down it, which on a decay this steep costs
-                                      # ~15% of the contact that a linear ramp handed over for free. 45%
-                                      # renders back the 0.26 the row already shipped (and which the mock
-                                      # measures at ~0.30), so the CONTACT is unchanged and only the reach
-                                      # and the shape of the falloff moved.
+# THE TAB'S CAST SHADOW. The tile bleeds off the bottom of the screen, so a shadow that only drops
+# DOWNWARD is wasted — the lift has to come from the ambient halo on the top and the sides.
+#
+# THE MOCK'S SHADOW IS DIRECTIONAL, and every tuning of this row before this one missed that, because
+# every one of them measured OUR row on a leafy home screen (or a blue-grey gallery), in our chalked
+# fills, at 1080px, against THE MOCK's row on its flat sky, in its own fills, at 931px. A shadow's alpha
+# is INFERRED from a luma ratio, so it is a function of the ground it lands on; none of those numbers
+# were comparable, and each round drew a conclusion from them anyway. `games/grove/tools/navtab_shot.gd`
+# exists to end that: it puts ONE of our tabs and ONE of the mock's on the same flat field of the mock's
+# own sky, at the mock's own 162px tab width, with `fill=` forcing our paper to the mock tab's own
+# colour — so the only thing left varying between the two cells is the shadow.
+# Measured there (`navtab_profile.py`, darkening = 1 - sampled/field, stepping out from each tab's own
+# per-row edge), the mock's LEFTMOST tab and its RIGHTMOST tab do not carry the same shadow at all:
+#     left   0.168 at 1px · 0.077 at 3 · 0.052 at 4 · 0.020 at 6 · 0.006 at 8 · gone by 9
+#     right  0.388 at 1px · 0.278 at 3 · 0.237 at 4 · 0.164 at 6 · 0.112 at 8 · 0.010 at 16
+# The info card above the row splits the same way (0.23 left, 0.36 right), so this is the scene's light —
+# upper left — and not one tile's quirk. A SYMMETRIC halo cannot be both: at the reach that fits the
+# right, the left is four times too heavy; at the reach that fits the left, the right disappears. The
+# 0.11 W linear ramp scored rms 0.144 against those two curves and a 0.083 W / 2.2-e-fold one scored
+# 0.084 — better on the left, WORSE on the right, and neither within reach of the mock.
+# So the halo gains a direction (CutPaper.halo_offset, inert at its default everywhere else) and the
+# three numbers below were re-fitted on the rig against BOTH curves at once. Rendered, this tuning scores
+# rms 0.018 — the mock's own paper grain is 0.016 — with one residual worth naming: the left contact
+# reads 0.108 where the mock reads 0.168, because the ring stack is ~1px granular and the mock's value
+# falls between two rings. That is one pixel column 6% light, and it is not visible at 1x.
+const HALO_REACH_FRAC := 0.105        # the DILATION reach; the light then splits it into ~9px on the lit
+                                      # side and ~19px on the shadow side (at our 1080 canvas)
+const HALO_FALLOFF := 3.6             # …spent as this many e-folds across that reach (0 = a linear ramp)
+const HALO_ALPHA_PCT := 40.0          # …and its alpha at the contact edge (%), which the shadow side
+                                      # renders at 0.366 against the mock's 0.388
+const HALO_OFFSET_FRAC := 0.0139      # THE LIGHT: the halo slides this far down and right (~2.6px at our
+                                      # 1080), which is what makes the two sides differ at all
 const BEVEL_FRAC := 0.008             # the lit cut edge's depth in from the edge — a HAIRLINE (~1.5px).
                                       # Measured off the mock: stepping inward from a tile's edge onto its
                                       # face, the mock gains ~+8 luma on the FIRST pixel and is flat by the
@@ -132,18 +146,32 @@ const ACTIVE_RIM_FILL := Color.WHITE
 # larger than the glyph (a fraction of the icon box, split evenly), which is what puts a soft pool all
 # round it. `grow` defaults to 0 in the shared applier, so no other action button changes.
 #
-# THE STACK IS GENERATED, NOT HAND-AUTHORED, and that is the whole point. A hand-written five-layer table
-# (grow 0.025/0.055/0.090/0.128/0.175) puts its copies 1.5 · 3.3 · 5.4 · 7.6 · 10.4 px out from the glyph
-# on a 119px icon — steps of ~2px, each carrying an alpha JUMP of 0.05-0.19. The accumulation is therefore
-# not a pool at all but five flat plateaus with hard rings between them, which is exactly the failure
-# cut_paper.gd's own drop-shadow comment warns about: "a sparse few-copy stack (3/7/11px) shows as discrete
-# stepped bands on small elements (a button), so keep the step ≈ 1px". So this stack keeps the ENVELOPE the
-# five layers drew — the same contact darkness, the same outer reach, the same ~exponential decay fitted
-# through them (0.51 at the foot, e-folding every ~3px, gone by 10.4) — and resamples it at ~1px steps, so
-# the copies overlap into one concrete pool. `grow` and `dy` both vary smoothly across the stack.
-# NOTE: the glyph SPRITES still ship a baked cream sticker outline, which holds this shadow off the
-# artwork's own edge. That outline is being removed in a parallel pass; when it lands the same stack will
-# read heavier still, and GLYPH_SHADOW_CONTACT is the one place to pull it back.
+# THE STACK IS GENERATED, NOT HAND-AUTHORED. A hand-written five-layer table (grow
+# 0.025/0.055/0.090/0.128/0.175) puts its copies 1.5 · 3.3 · 5.4 · 7.6 · 10.4 px out from the glyph on a
+# 119px icon — steps of ~2px, each carrying an alpha JUMP of 0.05-0.19. The accumulation is therefore not
+# a pool at all but flat plateaus with rings between them, which is exactly the failure cut_paper.gd's own
+# drop-shadow comment warns about: "a sparse few-copy stack (3/7/11px) shows as discrete stepped bands on
+# small elements (a button), so keep the step ≈ 1px". This stack fits an envelope through those five and
+# resamples it at ~1px steps instead; `grow` and `dy` both vary smoothly across it.
+#
+# THAT MUCH IS MEASURED, on the rig (games/grove/tools/navtab_shot.gd renders the same tab twice, once
+# with each stack, on ONE face colour — so the art, the geometry and the ground are identical and only
+# the stack differs; navtab_profile.py's `--probe` then steps sideways off the house's own wall edge):
+#     five-layer  0.289 · 0.145 · 0.092 · 0.094 · 0.035 · 0.028   ← 2px and 3px are the SAME: a plateau,
+#     generated   0.221 · 0.120 · 0.052 · 0.030 · 0.022 · 0.027      then a cliff. The banding is real.
+# The generated stack is monotone through the same run, so the ring is gone.
+#
+# TWO THINGS THAT ARE NOT TRUE, and were claimed when this stack landed:
+#  * it does NOT keep the five-layer envelope. On the same probe it is 24% lighter at the contact and
+#    reaches about half as far (down to the 0.015 noise floor by 4px, where the table took 6).
+#  * neither stack is anywhere near the MOCK's own icon shadow, which on the same face colour holds
+#    ≥ 0.40 for 9px and only dies at ~19px. That comparison is a bound, not a target: the mock's house is
+#    a different drawing with an overhanging roof, so a ray out of its wall crosses the roof's cast shadow
+#    too, and the rig cannot separate the two.
+# It is left alone anyway, for a reason that outranks the gap: the glyph SPRITES still ship a baked cream
+# sticker outline, which holds this shadow off the artwork's own edge, and a parallel pass is removing it.
+# Both the contact and the reach move when that lands. GLYPH_SHADOW_CONTACT is the knob to re-fit then,
+# on the rig, in one pass.
 const GLYPH_SHADOW_GROW := 0.175      # the OUTERMOST copy's size gain, as a fraction of the icon box …
 const GLYPH_SHADOW_DY := 0.058        # … and its drop. Both split across the stack, `dy` on a √ so the
                                       # near copies keep the mock's down-bias without smearing the far ones.
@@ -197,6 +225,7 @@ static func tab_cp(w: float, box_h: float, sheet_h: float, active := false) -> D
 		"halo_reach": w * HALO_REACH_FRAC,
 		"halo_strength": HALO_ALPHA_PCT,
 		"halo_falloff": HALO_FALLOFF,
+		"halo_offset": Vector2(w, w) * HALO_OFFSET_FRAC,   # down AND right: the mock's light is upper-left
 		"bevel_px": w * BEVEL_FRAC,
 		"bevel_strength": BEVEL_STRENGTH_PCT,
 		"edge_feather": EDGE_FEATHER_PX,

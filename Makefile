@@ -49,7 +49,7 @@ export GODOT JOBS                             # so $(RUNNER) (a python script) s
 .DEFAULT_GOAL := help
 
 .PHONY: help run g g-phone debug editor w fx test test-fast test-config test-engine test-grove test-one smoke import bake bake-textures \
-        shot-map shot-grove shot-widget shot shot-workbench shot-fx-workbench sw shot-sw \
+        shot-map shot-grove shot-widget shot-navtab shot shot-workbench shot-fx-workbench sw shot-sw \
         decor icon sfx sfx-test ios ios-plugins release-ios get-ios clean clean-cache intake intake-test c l
 
 help: ## list available targets
@@ -161,6 +161,9 @@ shot-grove: ## capture the board (byte-deterministic per MODE):  make shot-grove
 
 shot-widget: ## render board widgets in isolation (SEE a UI change cheaply):  make shot-widget OUT=/tmp/w.png TILES="104 104:glow"
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/widget_shot.gd -- $(or $(OUT),/tmp/widget.png) $(TILES)
+
+shot-navtab: ## ONE nav tab on the mock's own flat sky at the mock's own size, beside the mock's own tab:  make shot-navtab OUT=/tmp/navtab.png TABS="mock:home home"
+	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/navtab_shot.gd -- $(or $(OUT),/tmp/navtab.png) $(TABS)
 
 shot: ## any quiet capture by path:  make shot TOOL=games/grove/tools/grove_shot ARGS="hud /tmp/x.png"
 	$(QUIET) --path $(PROJECT) -s res://$(TOOL).gd -- $(ARGS)

@@ -54,6 +54,21 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 # shadow. > 0 selects that decay: the value is the number of e-folds spent across the whole reach, so the
 # curve is the same shape whatever the reach is (see `halo_profile`).
 @export var halo_falloff: float = 0.0
+# …and WHERE THE LIGHT IS. Zero (the default everywhere) is a symmetric ring: the same darkening on the
+# left of a sheet as on its right. Nothing in the world casts that, and neither does the mock — measured
+# on `_concepts/screens/palette_a_meadow_sky_board.png` with a rig that puts our tab and its tab on ONE
+# flat sky at ONE scale (games/grove/tools/navtab_shot.gd), the darkening beside the LEFTMOST tab runs
+# 0.168 at 1px and is gone by 9px, while beside the RIGHTMOST it runs 0.388 and still reads 0.010 at 16px.
+# The info card above the row splits the same way (0.23 left, 0.36 right), so it is the scene's light —
+# upper left — and not one tile's quirk. No symmetric reach can be both: tuned to the right side the left
+# is four times too heavy, tuned to the left the right disappears.
+# This slides each dilated ring by `halo_offset` before it is drawn, which is the ordinary offset drop
+# shadow: on the lit side the inner rings land back UNDER the sheet and never show, so that side loses
+# both contact and reach; on the shadow side every ring clears the edge, so the first `|offset|` px sit at
+# the full contact alpha and the decay starts beyond them. Analytically the accumulation becomes
+# `halo_alpha · halo_profile((x ± offset) / halo_reach)` — the same curve, its ORIGIN moved — so the two
+# sides come out with reaches of `halo_reach - offset` and `halo_reach + offset`.
+@export var halo_offset: Vector2 = Vector2.ZERO
 # PAPER THICKNESS — the lit cut edge. A dense stack of INSET outlines hugging the sheet's own perimeter:
 # the edges facing the light (up) pick up a pale highlight off the paper colour, the sides take half of
 # it, only the foot darkens with the shared shadow tint, and the band fades out reading inward. Keep the
@@ -113,6 +128,8 @@ func configure(o: Dictionary, fill: Color, rim: Variant = null, tile: Texture2D 
 	if o.has("halo_strength"):
 		halo_alpha = clampf(float(o["halo_strength"]) / 100.0, 0.0, 1.0)
 	halo_falloff = maxf(0.0, float(o.get("halo_falloff", halo_falloff)))
+	if o.has("halo_offset"):
+		halo_offset = o["halo_offset"]
 	bevel_px = maxf(0.0, float(o.get("bevel_px", bevel_px)))
 	if o.has("bevel_strength"):
 		bevel_strength = clampf(float(o["bevel_strength"]) / 100.0, 0.0, 1.0)
@@ -409,7 +426,9 @@ static func halo_profile(k: float, t: float) -> float:
 ## same low-passed tear the drop shadow uses, so the halo stays curvy and never draws the teeth as spikes.
 ## `halo_alpha` is the TOTAL alpha at the sheet's own edge and `halo_falloff` the SHAPE of its decay; each
 ## ring's own alpha is solved from the pair, so the accumulation lands on `halo_profile` whatever the reach
-## (and hence the ring count) turns out to be.
+## (and hence the ring count) turns out to be. `halo_offset` then slides the whole stack toward the side
+## the light is NOT on, which is what makes the two sides differ; at its default of zero this is the
+## symmetric ring it has always been.
 func _draw_edge_halo() -> void:
 	if not draw_shadow or halo_reach <= 0.0 or halo_alpha <= 0.0:
 		return
@@ -417,7 +436,9 @@ func _draw_edge_halo() -> void:
 	var base := _deckle_polygon(size, corner, -1.0, blur_r)
 	if base.size() < 3:
 		return
-	var steps := maxi(4, int(round(halo_reach)))
+	# ~1px between rings on the side the offset REACHES FURTHEST, not on the mean of the two — a sparse
+	# stack shows as stepped bands, and the shadow side is where the stack is stretched thinnest.
+	var steps := maxi(4, int(round(halo_reach + maxf(absf(halo_offset.x), absf(halo_offset.y)))))
 	var peak := clampf(halo_alpha, 0.0, 1.0)
 	# Outermost ring FIRST, so `keep` is the transmittance the rings already laid down leave behind: a ring
 	# drawn at `per` takes the band it bounds from `keep` to the profile's target, which is exactly the
@@ -432,7 +453,18 @@ func _draw_edge_halo() -> void:
 		keep = target
 		if per <= 0.0:
 			continue
-		draw_colored_polygon(_offset_loop(base, halo_reach * float(i) / float(steps)), Look.shadow_color(per))
+		var ring := _offset_loop(base, halo_reach * float(i) / float(steps))
+		if halo_offset != Vector2.ZERO:
+			ring = _translated(ring, halo_offset)
+		draw_colored_polygon(ring, Look.shadow_color(per))
+
+## `pts` slid bodily by `d` — the halo's light direction (see `halo_offset`). A translation, NOT another
+## normal offset: sliding is what makes the ring asymmetric about the sheet, dilating it never can.
+static func _translated(pts: PackedVector2Array, d: Vector2) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for p in pts:
+		out.append(p + d)
+	return out
 
 ## ── THE ANTIALIASED SILHOUETTE ───────────────────────────────────────────────────────────────────
 ## How far the opaque CORE is inset PAST the feather's inner lip. The core is itself an un-antialiased
