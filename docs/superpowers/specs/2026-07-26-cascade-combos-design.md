@@ -107,8 +107,8 @@ placement search.
 - Per step ≥ ×2: a "×n" floater at the run origin cell (`FX.floating_text`, `fx.gd:330`), size
   stepping up with n. `CHAIN_COUNTER_ANCHOR_ORIGIN` falls back to the step merge cell. `FX.burst`
   (`fx.gd:664`) stays at the ×5+ merge cell. Offset from the streak's milestone words.
-- During an armed run, `CHAIN_LOCK_DIM_ENABLED` dims `board_area` to `CHAIN_LOCK_DIM_ALPHA`
-  (`0.86`); `_finish_chain()` restores it.
+- During an armed run, input stays locked but `board_area` remains fully visible; no board-wide
+  dimming is applied.
 
 ## 5 · Rewards
 

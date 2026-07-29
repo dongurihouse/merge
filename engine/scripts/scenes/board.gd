@@ -119,8 +119,6 @@ const CHAIN_STEP_START_MS := 320
 const CHAIN_STEP_END_MS := 180
 const CHAIN_STEP_RAMP_END_N := 5
 const CHAIN_COUNTER_ANCHOR_ORIGIN := true
-const CHAIN_LOCK_DIM_ENABLED := true
-const CHAIN_LOCK_DIM_ALPHA := 0.86
 const CHAIN_AUTO_STEPS_ROLL_LUCKY := true
 # §4 Magnet: a rendered magnet sweep commits ONE pair per beat instead of draining the whole board in a
 # single frame, so a multi-pair sweep reads as a sequence. Kept under ANIM_WATCHDOG_SECS — each beat's
@@ -5428,7 +5426,7 @@ func _prepare_chain(a: Vector2i, b: Vector2i) -> void:
 	_chain_origin_cell = Vector2i(-1, -1)
 	_chain_reward_cell = Vector2i(-1, -1)
 	if not Features.on("cascade"):
-		_refresh_chain_lock_dim()
+		_refresh_chain_board_visibility()
 		return
 	_chain_run = BoardLogic.chain_path(board, a, b)
 	if 1 + _chain_run.size() >= CHAIN_MIN_N:
@@ -5437,7 +5435,7 @@ func _prepare_chain(a: Vector2i, b: Vector2i) -> void:
 		_chain_origin_cell = b
 	else:
 		_chain_run = []
-	_refresh_chain_lock_dim()
+	_refresh_chain_board_visibility()
 
 func _schedule_chain_step(current: Vector2i) -> void:
 	if not _chain_active or _chain_run.is_empty():
@@ -5510,7 +5508,7 @@ func _finish_chain() -> void:
 	_chain_reward_cell = Vector2i(-1, -1)
 	animating = false
 	_anim_t = 0.0
-	_refresh_chain_lock_dim()
+	_refresh_chain_board_visibility()
 
 func _chain_step_ms_for_n(n: int) -> int:
 	if not CHAIN_STEP_RAMP_ENABLED:
@@ -5519,11 +5517,10 @@ func _chain_step_ms_for_n(n: int) -> int:
 	var t := clampf(float(n - 2) / float(span), 0.0, 1.0)
 	return int(roundf(lerpf(float(CHAIN_STEP_START_MS), float(CHAIN_STEP_END_MS), t)))
 
-func _refresh_chain_lock_dim() -> void:
+func _refresh_chain_board_visibility() -> void:
 	if board_area == null or not is_instance_valid(board_area):
 		return
-	var alpha := CHAIN_LOCK_DIM_ALPHA if _chain_active and CHAIN_LOCK_DIM_ENABLED else 1.0
-	board_area.modulate = Color(1, 1, 1, alpha)
+	board_area.modulate = Color(1, 1, 1, 1)
 
 func _chain_reward_code(n: int) -> int:
 	return BoardLogic.chain_reward_code(n)

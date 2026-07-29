@@ -15,7 +15,7 @@ func _initialize() -> void:
 	await _test_preroll_delays_first_auto_step_and_telegraphs_run()
 	await _test_chain_step_timing_ramps()
 	await _test_chain_counter_anchors_at_run_origin()
-	await _test_chain_lock_dim_covers_the_run()
+	await _test_chain_trigger_keeps_board_undimmed()
 	await _test_cascade_watchdog_keeps_player_input_locked()
 	await _test_magnet_holds_fire_while_cascade_runs()
 	await _test_chain_bailouts_release_input_gate()
@@ -399,8 +399,8 @@ func _test_chain_counter_anchors_at_run_origin() -> void:
 		"cascade counter floater stays anchored at the run origin")
 	b.queue_free()
 
-func _test_chain_lock_dim_covers_the_run() -> void:
-	var b := _open_board("cascade_lock_dim")
+func _test_chain_trigger_keeps_board_undimmed() -> void:
+	var b := _open_board("cascade_no_board_dim")
 	await process_frame
 	_blank_fixture(b, {
 		Vector2i(3, 1): 101,
@@ -410,10 +410,10 @@ func _test_chain_lock_dim_covers_the_run() -> void:
 	})
 	_drag_merge(b, Vector2i(3, 1), Vector2i(3, 2))
 	await create_timer(0.16).timeout
-	ok(b.chain_running() and b.board_area.modulate.a < 1.0, \
-		"cascade input lock dims the board while the run owns input")
+	ok(b.chain_running() and is_equal_approx(b.board_area.modulate.a, 1.0), \
+		"cascade input lock keeps the board fully visible while the run owns input")
 	await _wait_for_idle(b, 3.0)
-	ok(is_equal_approx(b.board_area.modulate.a, 1.0), "cascade input lock dim clears when the run finishes")
+	ok(is_equal_approx(b.board_area.modulate.a, 1.0), "cascade board visibility stays restored when the run finishes")
 	b.queue_free()
 
 func _test_cascade_watchdog_keeps_player_input_locked() -> void:
