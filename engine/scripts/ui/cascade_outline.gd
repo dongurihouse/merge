@@ -13,13 +13,7 @@ const STAGE_WIDTH_SCALE := 0.72
 const RIBBON_WIDTH_FRAC := 0.26      # ribbon width as a share of the cell
 const PAPER_TEX_PX := 64
 const PAPER_SEED := 20260727         # fixed: `make shot` compares captures byte for byte
-const PAPER_AMP := 0.18              # grain depth; measured against the board's own paper, see paper_grain
-const PAPER_FIBRE_PX := 7            # how far a fibre runs — smearing the noise this way gives it direction
-# Up and a little left. Every lit face on the ribbon uses this one vector so the highlight stays on
-# the same side of the strip through a bend.
-const RIBBON_LIGHT := Vector2(-0.33, -1.0)
 const JOINT_SIDES := 12
-const RIBBON_CUT_STEPS := 6          # subdivisions per segment side — enough bow to read, cheap to draw
 
 static var _paper: ImageTexture = null
 
@@ -28,33 +22,12 @@ static var _paper: ImageTexture = null
 static func paper_grain() -> ImageTexture:
 	if _paper != null:
 		return _paper
-	# Paper is not white noise. A flat RNG field measured FLATTER than the board it lies on
-	# (2.3 vs 2.9 luminance std) — the ribbon read smoother than the surface under it, which is
-	# backwards for cut card. So: smear the noise along one axis to make fibre that runs, keep a
-	# little fine tooth on top, and drop occasional darker flecks. Seeded, because `make shot`
-	# compares captures byte for byte.
+	var img := Image.create(PAPER_TEX_PX, PAPER_TEX_PX, false, Image.FORMAT_RGB8)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = PAPER_SEED
-	var fine := PackedFloat32Array()
-	fine.resize(PAPER_TEX_PX * PAPER_TEX_PX)
-	for i in fine.size():
-		fine[i] = rng.randf()
-	var img := Image.create(PAPER_TEX_PX, PAPER_TEX_PX, false, Image.FORMAT_RGB8)
 	for y in PAPER_TEX_PX:
 		for x in PAPER_TEX_PX:
-			var fibre := 0.0
-			for k in PAPER_FIBRE_PX:
-				fibre += fine[y * PAPER_TEX_PX + ((x + k) % PAPER_TEX_PX)]
-			fibre /= float(PAPER_FIBRE_PX)                       # runs along x
-			var tooth := fine[y * PAPER_TEX_PX + x]
-			# Weighted toward the fine tooth on purpose. Smearing 7 samples into a fibre also
-			# averages its variance away — a fibre-heavy mix measured SMOOTHER than the flat noise
-			# it replaced (1.95 vs 3.10 against the board's 2.93). Fibre gives direction; the tooth
-			# has to carry the texture.
-			var v := 1.0 - PAPER_AMP * (0.45 * (1.0 - fibre) + 0.55 * (1.0 - tooth))
-			if rng.randf() < 0.010:
-				v -= PAPER_AMP * 0.9                              # a fleck in the pulp
-			v = clampf(v, 0.0, 1.0)
+			var v := 0.93 + rng.randf() * 0.07
 			img.set_pixel(x, y, Color(v, v, v))
 	_paper = ImageTexture.create_from_image(img)
 	return _paper
@@ -62,7 +35,7 @@ static func paper_grain() -> ImageTexture:
 @export var inset_frac := 0.10: set = _set_inset
 @export var thickness_frac := 0.035: set = _set_thickness
 @export var fill_pct := 5.0: set = _set_fill_pct
-@export var jitter_frac := 0.032: set = _set_jitter   # cut-edge bow, as a share of the cell
+@export var jitter_frac := 0.012: set = _set_jitter
 
 var ladders: Array = []
 var runways: Array = []
@@ -168,23 +141,14 @@ func _draw_ribbon(raw_cells: Array, base: Color, width: float, strength: float, 
 	var lift := maxf(1.5, cell_size * 0.035)
 	# Cut-paper stack, bottom to top: contact shadow, the warm cut edge the fill sits inside,
 	# the grained face, then a light top plane along the upper side.
-	# Two shadow passes, not one. A single hard offset copy reads as a second ribbon in the gaps
-	# between pieces — which, since the strip is drawn behind them, is most of what is on screen.
-	# A wider, fainter, further-dropped pass under a tighter one fakes the falloff a real contact
-	# shadow has, with no blur.
-	_ribbon_pass(links, width * 1.34, Color(Pal.INK, 0.10 * strength), Vector2(0.0, lift * 1.7), 0.0, null)
-	_ribbon_pass(links, width * 1.02, Color(Pal.INK, 0.20 * strength), Vector2(0.0, lift), 0.0, null)
-	_ribbon_pass(links, width * 1.14, Color(tape.darkened(0.26), 0.80 * strength), Vector2.ZERO, 0.0, null)
-	_ribbon_pass(links, width, Color(tape, 0.88 * strength), Vector2.ZERO, 0.0, paper_grain())
-	# The lit top plane rides ACROSS the strip, not up the screen. A fixed upward offset works on a
-	# horizontal run and collapses on a vertical one — there the shift slides along the ribbon's own
-	# axis, so the highlight overlaps itself and the segment reads flat. Every bend showed it.
+	_ribbon_pass(links, width * 1.02, Color(Pal.INK, 0.20 * strength), Vector2(0.0, lift), null)
+	_ribbon_pass(links, width * 1.14, Color(tape.darkened(0.26), 0.80 * strength), Vector2.ZERO, null)
+	_ribbon_pass(links, width, Color(tape, 0.88 * strength), Vector2.ZERO, paper_grain())
 	_ribbon_pass(links, width * 0.42, Color(tape.lightened(0.30), 0.40 * strength),
-		Vector2.ZERO, width * 0.24, null)
+		Vector2(0.0, -width * 0.24), null)
 
-func _ribbon_pass(links: Dictionary, width: float, colour: Color, offset: Vector2, perp: float, tex: Texture2D) -> void:
+func _ribbon_pass(links: Dictionary, width: float, colour: Color, offset: Vector2, tex: Texture2D) -> void:
 	var half := width * 0.5
-	var light := RIBBON_LIGHT.normalized()
 	for raw_cell in links:
 		var cell := Vector2i(raw_cell)
 		var centre := _cell_pos(cell) + Vector2.ONE * (cell_size * 0.5) + offset
@@ -194,44 +158,9 @@ func _ribbon_pass(links: Dictionary, width: float, colour: Color, offset: Vector
 			var dir := (b - centre)
 			if dir.length() <= 0.01:
 				continue
-			var unit := Vector2(-dir.y, dir.x).normalized()
-			# whichever face of THIS segment points at the light
-			var lit := unit if unit.dot(light) >= 0.0 else -unit
-			var shift := lit * perp
-			_poly(_cut_edge_polygon(centre + shift, b + shift, unit, half, cell, end_pt), colour, tex)
-		_disc(centre + light * perp, half, colour, tex)   # rounds the joint AND caps a lone end
-
-# The strip is drawn BEHIND the pieces, so almost none of its face is ever seen — what reads is the
-# silhouette in the gaps between cells. So the silhouette is where the hand goes: each side of a
-# segment bows independently, which also makes the width vary the way a scissor cut does.
-#
-# The bow is zero at BOTH ends of every segment. That is the whole trick: segments meet at cell-edge
-# midpoints, so vanishing there means neighbours agree at the seam and no kink can appear at a joint,
-# without any cross-segment bookkeeping.
-func _cut_edge_polygon(a: Vector2, b: Vector2, unit: Vector2, half: float, cell: Vector2i, toward: Vector2) -> Array:
-	var amp := cell_size * jitter_frac
-	if amp <= 0.05:
-		return [a + unit * half, b + unit * half, b - unit * half, a - unit * half]
-	var key := _edge_key(cell, Vector2i(roundi(signf(toward.x - a.x)), roundi(signf(toward.y - a.y))))
-	var left: Array = []
-	var right: Array = []
-	for i in RIBBON_CUT_STEPS + 1:
-		var t := float(i) / float(RIBBON_CUT_STEPS)
-		var p := a.lerp(b, t)
-		left.append(p + unit * (half + _cut_bow(key, t)))
-		right.append(p - unit * (half + _cut_bow(key + 7919, t)))
-	right.reverse()
-	return left + right
-
-# Two lobes, both vanishing at t=0 and t=1, with deterministic per-edge amplitudes.
-func _cut_bow(key: int, t: float) -> float:
-	var amp := cell_size * jitter_frac
-	var h1 := _hash_unit(key) * 2.0 - 1.0
-	var h2 := _hash_unit(key + 104729) * 2.0 - 1.0
-	return amp * (sin(PI * t) * h1 + sin(TAU * t) * h2 * 0.45)
-
-func _hash_unit(key: int) -> float:
-	return float(absi(key * 1103515245 + 12345) % 1000) / 999.0
+			var nrm := Vector2(-dir.y, dir.x).normalized() * half
+			_poly([centre + nrm, b + nrm, b - nrm, centre - nrm], colour, tex)
+		_disc(centre, half, colour, tex)          # rounds the joint AND caps a lone end
 
 func _ribbon_links(raw_cells: Array, ordered_path := true) -> Dictionary:
 	var links := {}
