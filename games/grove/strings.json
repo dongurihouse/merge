@@ -105,9 +105,6 @@
     "complete": "Complete",
     "ladder_back": "back at L%d for %s"
   },
-  "producing": {
-    "title": "Producing"
-  },
   "level": {
     "banner": "Level %d"
   },

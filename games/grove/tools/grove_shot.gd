@@ -5,7 +5,7 @@ extends SceneTree
 ## also makes an unknown mode refuse the run):
 ##        fresh | played | gate | fullline | ladder | farewell | flyaway | almanac | bag | level | levelup | endgame |
 ##        sky_calm | sky_sunbeam | sky_rain | sky_starfall | sky_starfall_blocked |
-##        producing (generator → ⓘ Producing dialog) | producingdrill (→ tap a line → its Tiers ladder) |
+##        gentap (tap a generator → ⓘ → its own line's Tiers ladder) |
 ##        ftue (fresh ledger → the live merge-drag hand hint) | ftuegen (merge taught → the live
 ##        generator-tap hand hint) | ftuesoil (L6 Soil-seed hand hint; phase=place for beat 2)
 ##
@@ -47,16 +47,21 @@ func _initialize() -> void:
 		"modes": ["fresh", "ftue", "ftuegen", "ftuesoil",
 			"played", "genfade", "gate", "genpreview", "hud", "endgame", "oowater", "unlock",
 			"level", "levelup", "swap", "ladder", "farewell", "flyaway", "almanac", "recipe",
-			"producingearly", "producing", "producingdrill", "infosel", "infobuy", "infoacorn", "focuscoin",
+			"gentap", "infosel", "infobuy", "infoacorn", "focuscoin",
 			"questready", "genburst", "genburstbroke", "genboost", "watershop", "bagwell", "bag",
 			"bagbroke", "bagshop", "baggen", "dragwell", "dragwellfull", "grab", "grabgen",
 			"cascade", "fullline", "mastery", "sky_calm", "sky_sunbeam", "sky_rain", "sky_starfall",
 			"sky_starfall_blocked"],
 		# Named for a compost-bin and a beehive generator the game no longer has; see the "fullline"
 		# branch for the full story. Anyone reaching for them wants the ladder capture instead.
+		# The three "producing*" modes photographed the PRODUCING dialog, which is gone: a generator
+		# makes ONE line, so its ⓘ now opens that line's Tiers ladder directly — MODE=gentap.
 		"retired": {
 			"compost": "the compost-bin generator is gone (maps 1–4 carry no spots) — use MODE=fullline [line=N]",
 			"hive": "the beehive generator is gone (maps 1–4 carry no spots) — use MODE=fullline [line=N]",
+			"producing": "the Producing dialog is gone — a generator's ⓘ opens its line's ladder: use MODE=gentap",
+			"producingearly": "the Producing dialog is gone (its line-up preview with it) — use MODE=gentap",
+			"producingdrill": "the drill-down is gone — the ⓘ IS the drill now: use MODE=gentap",
 		},
 	})
 	if ctx.is_empty():
@@ -488,29 +493,11 @@ func _initialize() -> void:
 			# opens its RECIPE view — the two ingredient items alone, each tapping through to its own tier screen.
 			scn._open_ladder(71, 1)
 			await create_timer(0.4).timeout
-		"producingearly":
-			# the BEGINNING the player first sees (low level — only Wildflower + Hearth embers have grown in).
-			# The dialog must still preview the generator's FULL line-up: the live lines as pieces, the rest as
-			# locked placeholder cells. Regression for "at the start it only shows 2 items".
-			var gpe := Save.grove()
-			gpe["pops"] = 30                       # past the FTUE so taps cost water
-			gpe["water"] = 200
-			Save.grove_write()
-			scn.water = 200
-			scn._update_hud()
-			await create_timer(0.3).timeout
-			for i in 4:                            # a few pops so the live lines get discovered (show pieces)
-				scn._pop_seed()
-				await create_timer(0.12).timeout
-			scn._select_generator(scn.board.gens.keys()[0])
-			await create_timer(0.2).timeout
-			scn._on_info_pressed()                 # tap ⓘ → open the Producing dialog
-			await create_timer(0.45).timeout
-		"producing", "producingdrill":
-			# the PRODUCING dialog (tap generator → ⓘ): the lines the anchor currently makes, at ~L6 — the live
-			# pop pool's lines wear the gold ring, popped lines show their piece, and not-yet-discovered lines
-			# fall to the locked "?". (The dialog's line-up is NOT level-gated at HEAD: board._gen_line_entries
-			# walks the whole G.GENERATORS roster, so the seed sets the HUD + board state, not the roster.)
+		"gentap":
+			# TAP A GENERATOR → ITS OWN LINE'S TIERS LADDER, driven through the real path (select the
+			# generator, then press ⓘ) rather than by calling _open_ladder directly — so the capture is
+			# proof that the tap opens the ladder, not just that the ladder renders. At ~L6, with a mix
+			# of the line's tiers discovered so the grid shows filled pieces AND locked "?" wells.
 			var gpr := Save.grove()
 			gpr["pops"] = 30                       # past the FTUE so taps cost water (and read the played state)
 			gpr["water"] = 300
@@ -520,21 +507,42 @@ func _initialize() -> void:
 			scn._update_hud()
 			scn._rebuild_givers()
 			await create_timer(0.3).timeout
-			for i in 6:                            # pop bursts → establish the live pop pool (its lines wear the ring)
+			for i in 6:                            # a few pops so the anchor's line is genuinely discovered
 				scn._pop_seed()
 				await create_timer(0.12).timeout
-			# seed a legible discovery mix: Wildflower (1) + three Farm lines discovered → filled pieces; the
-			# remaining live lines (Larder 64 · Porch 65 · Flower-box 66) stay unseen → locked "?" wells.
+			var gtcell: Vector2i = Vector2i(scn.board.gens.keys()[0])
+			var gtid: String = scn.board.gen_id_at(gtcell)
+			var gtline: int = G.gen_made_line(gtid)
+			# a legible ladder: the low tiers of THIS generator's line grown in, the rest still locked
 			var pseen: Dictionary = Save.grove().get("seen", {})
-			for sc in [101, 102, 6101, 6201, 6301]:   # Wildflower t1/t2 · Hearth t1 · Kitchen-herbs t1 · Well-water t1
-				pseen[str(sc)] = true
-			scn._select_generator(scn.board.gens.keys()[0])
+			for t in [1, 2, 3]:
+				pseen[str(gtline * 100 + t)] = true
+			scn._select_generator(gtcell)
 			await create_timer(0.2).timeout
-			scn._on_info_pressed()                 # tap ⓘ → open the Producing dialog
+			# TAP FOR REAL, through the viewport: the shipped kit config hides the floating ⓘ button
+			# (ui_kit_settings.json hide_info_button), so the live entry point is the info bar's ICON —
+			# it carries the SAME _on_info_pressed action. Pushing the event means the capture proves
+			# the player's actual gesture opens the ladder, not just that the handler does.
+			var gticon: Control = scn._info_icon
+			var gtat: Vector2 = gticon.get_global_rect().get_center()
+			for pressed in [true, false]:
+				var ev := InputEventMouseButton.new()
+				ev.button_index = MOUSE_BUTTON_LEFT
+				ev.pressed = pressed
+				ev.position = gtat
+				get_root().push_input(ev, true)
 			await create_timer(0.45).timeout
-			if mode == "producingdrill":
-				scn._open_ladder(1, 1)             # tap the Wildflower line → its tier ladder, stacked on top
-				await create_timer(0.4).timeout
+			# Self-check IN THE CAPTURE: a silent no-op here would save a believable PNG of the plain board.
+			if scn.get_node_or_null("LadderOverlay") == null:
+				print("REFUSED: tapping the info bar on generator '%s' opened no tier ladder." % gtid)
+				quit(2)
+				return
+			if scn.get_node_or_null("GenLinesOverlay") != null:
+				print("REFUSED: the retired Producing dialog is still in the way.")
+				quit(2)
+				return
+			print("GENTAP gen=%s line=%d (%s) → LadderOverlay open" % \
+				[gtid, gtline, String((G.LINES.get(gtline, {}) as Dictionary).get("name", "?"))])
 		"infosel", "infobuy", "infoacorn":
 			# the bottom-bar INFO BAR with an item SELECTED: place a known item, select it → the bar shows
 			# the piece + "<name> · Tier N" + the BUY chip (T55) + the sell button. Coins make the buy chip
@@ -849,9 +857,8 @@ static func _clock_seeds() -> Dictionary:
 		"hud": _clock_midway(3),
 		"level": _clock_midway(3),
 		"levelup": _clock_midway(3),
-		# L6 · 25🪙 — the level the Producing capture is written for.
-		"producing": G.coins_at_level(6),
-		"producingdrill": G.coins_at_level(6),
+		# L6 · 25🪙 — the level the generator-tap capture is written for.
+		"gentap": G.coins_at_level(6),
 		"ftuesoil": G.coins_at_level(6),
 		# Flyaway is a zone-transition visual, so seed by symbolic zone unlock level.
 		"flyaway": G.coins_at_level(G.zone_unlock_level(3)),

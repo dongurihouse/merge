@@ -1117,8 +1117,8 @@ func _slot_cell_gallery(p: Dictionary) -> Control:
 		["locked + cost", {"state": "locked", "cost": 120}],
 		["marked", {"state": "filled", "make_content": func(px: float) -> Control: return PieceView.make_piece(102, px, 0.0), "marked": true}],
 	], dlg_opts))
-	# PRODUCING line — the gen_lines dialog recedes just the well behind a full-colour piece (dim_bg).
-	col.add_child(_slot_row("producing (dim_bg)", [
+	# DORMANT line — the Almanac recedes just the well behind a full-colour piece (dim_bg).
+	col.add_child(_slot_row("dormant (dim_bg)", [
 		["dim well", {"state": "filled", "make_content": func(px: float) -> Control: return PieceView.make_piece(102, px, 0.0), "dim_bg": true}],
 	], dlg_opts))
 	return col
@@ -1831,7 +1831,7 @@ func _element_sidebar(_id: String) -> void:
 					+ "Shadow page. Turn this off to tune the code-drawn face instead.")
 			else:
 				# ON = the green inner well cutout; OFF = the plain cream card (the locked face, no lock).
-				# Saved — every board (main board, bag, tiers, residents, producing) reads this one knob.
+				# Saved — every board (main board, bag, tiers, residents, almanac) reads this one knob.
 				_sidebar_body.add_child(_toggle_row("Green well (inner cutout)", "well", false, "torn_cell"))
 				_section_header("Card + well colours")
 				_sidebar_body.add_child(_color_row("Card color", "cream_fill", "torn_cell"))

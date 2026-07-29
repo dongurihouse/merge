@@ -1,10 +1,11 @@
 extends "res://engine/tests/test_base.gd"
 ## Headless tests for core/save_migrate.gd (load-time save hygiene + the above-level content purge)
-## and for the DISCOVERY LOG half of core/quests.gd (mark_seen / lowest_seen_code / gen_line_entries /
-## ladder_header). Both clusters lived inside engine/scripts/scenes/board.gd until 2026-07-26, where
-## they were reachable only by booting a whole Control — and they are the code most likely to silently
-## eat a player's save. board.gd now keeps thin wrappers (`_purge_above_level_content`, `_mark_seen`,
-## `_gen_line_entries`, `_ladder_entries`) that only supply the scene's run-state / the Save read.
+## and for the DISCOVERY LOG half of core/quests.gd (mark_seen / lowest_seen_code / ladder_header)
+## plus content.gd's gen_made_line (the generator → its line rule the board's ⓘ opens). Both clusters
+## lived inside engine/scripts/scenes/board.gd until 2026-07-26, where they were reachable only by
+## booting a whole Control — and they are the code most likely to silently eat a player's save.
+## board.gd now keeps thin wrappers (`_purge_above_level_content`, `_mark_seen`, `_gen_line`,
+## `_ladder_entries`) that only supply the scene's run-state / the Save read.
 ##   godot --headless --path . -s res://engine/tests/save_migrate_tests.gd
 ##
 ## Content-derived, not content-hardcoded: every line / code / level below is looked up off the live
@@ -247,43 +248,35 @@ func _test_discovery_log() -> void:
 	ok(Quests.lowest_seen_code(line, seen) == t1, "...and drops to t1 once t1 is seen")
 	ok(Quests.lowest_seen_code(999, seen) == 0, "a wholly unseen line reads 0")
 
-	# gen_line_entries: accumulators bank currency, so they list no item lines at all.
+	# G.gen_made_line — "what line does this generator make?", the rule behind the board's ⓘ (a tap
+	# opens THAT line's tier ladder, and 0 means there is no ladder, so the button stays hidden).
+
+	# An ACCUMULATOR banks currency, so it makes no item line at all.
 	var acc_kinds: Array = G.ACCUMULATORS.keys()
 	var acc_id := String((G.ACCUMULATORS[acc_kinds[0]] as Dictionary).get("id", ""))
-	ok(Quests.gen_line_entries(acc_id, seen).is_empty(), "an ACCUMULATOR generator lists no lines")
+	ok(G.gen_made_line(acc_id) == 0, "an ACCUMULATOR generator makes no line (no ⓘ ladder)")
 
-	# A treat generator shows ONLY its own treasure line.
+	# A TREAT generator makes ONLY its own treasure line — which is NOT in the main roster, so the
+	# roster lookup alone would read 0 and wrongly hide its ladder.
 	if not G.TREAT_LINES.is_empty():
 		var tline := int(G.TREAT_LINES[0])
-		var tentries := Quests.gen_line_entries(G.treat_gen_id(tline), seen)
-		ok(tentries.size() == 1 and int((tentries[0] as Dictionary)["line"]) == tline,
-			"a TREAT generator lists exactly its own treasure line")
-		ok(bool((tentries[0] as Dictionary)["in_pool"]), "...and that line is in its pool")
+		ok(G.gen_made_line(G.treat_gen_id(tline)) == tline,
+			"a TREAT generator makes exactly its own treasure line")
 
-	# A normal generator SHOWS ALL: one entry per rostered line, its own flagged in_pool.
+	# A NORMAL generator makes its one rostered base line (one line per generator since the redesign).
 	var gid := G.gen_for_line(line)
-	var entries := Quests.gen_line_entries(gid, seen)
-	ok(entries.size() > 1, "a normal generator lists the WHOLE collection roadmap (%d lines)" % entries.size())
-	var lines_seen := {}
-	var in_pool_count := 0
-	var own: Dictionary = {}
-	for e in entries:
-		var ed: Dictionary = e
-		ok(not lines_seen.has(int(ed["line"])), "no duplicate line in the roadmap (line %d)" % int(ed["line"]))
-		lines_seen[int(ed["line"])] = true
-		if bool(ed["in_pool"]):
-			in_pool_count += 1
-		if int(ed["line"]) == line:
-			own = ed
-	ok(in_pool_count == 1, "exactly ONE listed line is the generator's own pool line")
-	ok(not own.is_empty() and bool(own["in_pool"]), "...and it is this generator's line")
-	ok(bool(own["seen"]) and int(own["code"]) == t1, "the entry carries the lowest-seen tier as its representative piece")
-	var unseen_ok := true
-	for e in entries:
-		var ed2: Dictionary = e
-		if int(ed2["line"]) != line and (bool(ed2["seen"]) or int(ed2["code"]) != 0):
-			unseen_ok = false
-	ok(unseen_ok, "every undiscovered line reads seen=false / code=0 (the locked '?' well)")
+	ok(G.gen_made_line(gid) == line, "a normal generator makes its own rostered base line")
+	var made := {}
+	for gen in G.GENERATORS:
+		var g_id := String(gen.get("id", ""))
+		var g_line := G.gen_made_line(g_id)
+		ok(g_line > 0 and G.LINES.has(g_line), "%s makes a real line (%d)" % [g_id, g_line])
+		ok(not made.has(g_line), "no two generators claim the same line (%d)" % g_line)
+		made[g_line] = true
+		ok(G.gen_for_line(g_line) == g_id, "...and the line maps back to it (gen_for_line round-trip)")
+
+	# An unknown id makes nothing rather than crashing (a stale save's pruned generator id).
+	ok(G.gen_made_line("gen_does_not_exist") == 0, "an UNKNOWN generator id makes no line")
 
 func _test_ladder_header() -> void:
 	var base_line := int(G.ZONE_BASE_LINES[0])
