@@ -40,6 +40,7 @@ TESTS        := $(ENGINE_TESTS) $(TOOLS_TESTS) $(GROVE_TESTS)
 PY_TESTS     := tools/test_boot_splash_assets.py \
                 games/grove/tests/bake_scene_composites_tests.py \
                 games/grove/tools/tests/test_extract_meadow_ui_v2.py \
+                games/grove/tools/tests/test_mock_targets.py \
                 games/tools/test_intake_apply.py \
                 tools/sfx_synth/test_synth.py \
                 tools/test_quiet_window.py
@@ -49,7 +50,7 @@ export GODOT JOBS                             # so $(RUNNER) (a python script) s
 .DEFAULT_GOAL := help
 
 .PHONY: help run g g-phone debug editor w fx test test-fast test-config test-engine test-grove test-one smoke import bake bake-textures \
-        shot-map shot-grove shot-widget shot-navtab shot shot-workbench shot-fx-workbench sw shot-sw \
+        shot-map shot-grove shot-widget shot-mock shot shot-workbench shot-fx-workbench sw shot-sw \
         decor icon sfx sfx-test ios ios-plugins release-ios get-ios clean clean-cache intake intake-test c l
 
 help: ## list available targets
@@ -162,8 +163,8 @@ shot-grove: ## capture the board (byte-deterministic per MODE):  make shot-grove
 shot-widget: ## render board widgets in isolation (SEE a UI change cheaply):  make shot-widget OUT=/tmp/w.png TILES="104 104:glow"
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/widget_shot.gd -- $(or $(OUT),/tmp/widget.png) $(TILES)
 
-shot-navtab: ## ONE nav tab on the mock's own flat sky at the mock's own size, beside the mock's own tab:  make shot-navtab OUT=/tmp/navtab.png TABS="mock:home home"
-	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/navtab_shot.gd -- $(or $(OUT),/tmp/navtab.png) $(TABS)
+shot-mock: ## ONE element on the mock's own flat field at the mock's own size, beside the mock's own pixels:  make shot-mock OUT=/tmp/m.png CELLS="mock:nav_home nav_home"
+	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/mock_compare_shot.gd -- $(or $(OUT),/tmp/mock_compare.png) $(CELLS)
 
 shot: ## any quiet capture by path:  make shot TOOL=games/grove/tools/grove_shot ARGS="hud /tmp/x.png"
 	$(QUIET) --path $(PROJECT) -s res://$(TOOL).gd -- $(ARGS)

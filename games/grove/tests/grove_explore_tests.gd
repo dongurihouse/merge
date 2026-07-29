@@ -1304,7 +1304,7 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 			"%s casts the all-sides halo (%.1f px)" % [tile_name, panel.get("halo_reach")])
 		# …and that halo has a DIRECTION, because the mock's does. Measured on the rig that puts one of our
 		# tabs and one of the mock's on the same flat sky at the same 162px width
-		# (games/grove/tools/navtab_shot.gd + navtab_profile.py), the mock's leftmost tab darkens the sky
+		# (games/grove/tools/mock_compare_shot.gd + mock_profile.py), the mock's leftmost tab darkens the sky
 		# beside it by 0.168 at 1px and nothing by 9px, while its rightmost darkens by 0.388 and still
 		# reads 0.010 at 16px — and the info card above the row splits the same way. The light is upper
 		# left. A symmetric halo is four times too heavy on one side at any reach that fits the other.

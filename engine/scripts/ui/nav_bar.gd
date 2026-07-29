@@ -58,11 +58,12 @@ const FLARE := 0.055                  # the VISIBLE bottom edge reads 5.5% wider
 # every one of them measured OUR row on a leafy home screen (or a blue-grey gallery), in our chalked
 # fills, at 1080px, against THE MOCK's row on its flat sky, in its own fills, at 931px. A shadow's alpha
 # is INFERRED from a luma ratio, so it is a function of the ground it lands on; none of those numbers
-# were comparable, and each round drew a conclusion from them anyway. `games/grove/tools/navtab_shot.gd`
+# were comparable, and each round drew a conclusion from them anyway. `make shot-mock`
 # exists to end that: it puts ONE of our tabs and ONE of the mock's on the same flat field of the mock's
 # own sky, at the mock's own 162px tab width, with `fill=` forcing our paper to the mock tab's own
-# colour — so the only thing left varying between the two cells is the shadow.
-# Measured there (`navtab_profile.py`, darkening = 1 - sampled/field, stepping out from each tab's own
+# colour — so the only thing left varying between the two cells is the shadow. The method is
+# docs/design/verifying-against-a-mock.md.
+# Measured there (`games/grove/tools/mock_profile.py`, darkening = 1 - sampled/field, stepping out from each tab's own
 # per-row edge), the mock's LEFTMOST tab and its RIGHTMOST tab do not carry the same shadow at all:
 #     left   0.168 at 1px · 0.077 at 3 · 0.052 at 4 · 0.020 at 6 · 0.006 at 8 · gone by 9
 #     right  0.388 at 1px · 0.278 at 3 · 0.237 at 4 · 0.164 at 6 · 0.112 at 8 · 0.010 at 16
@@ -154,9 +155,9 @@ const ACTIVE_RIM_FILL := Color.WHITE
 # small elements (a button), so keep the step ≈ 1px". This stack fits an envelope through those five and
 # resamples it at ~1px steps instead; `grow` and `dy` both vary smoothly across it.
 #
-# THAT MUCH IS MEASURED, on the rig (games/grove/tools/navtab_shot.gd renders the same tab twice, once
+# THAT MUCH IS MEASURED, on the rig (`make shot-mock` renders the same tab twice, once
 # with each stack, on ONE face colour — so the art, the geometry and the ground are identical and only
-# the stack differs; navtab_profile.py's `--probe` then steps sideways off the house's own wall edge):
+# the stack differs; mock_profile.py's `--probe` then steps sideways off the house's own wall edge):
 #     five-layer  0.289 · 0.145 · 0.092 · 0.094 · 0.035 · 0.028   ← 2px and 3px are the SAME: a plateau,
 #     generated   0.221 · 0.120 · 0.052 · 0.030 · 0.022 · 0.027      then a cliff. The banding is real.
 # The generated stack is monotone through the same run, so the ring is gone.

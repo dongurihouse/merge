@@ -1443,7 +1443,10 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	var cp: Dictionary = opts.get("cp", {})
 	if cp.is_empty():
 		cp = cut_paper_opts_from_config(load_config(CONFIG_PATH), "gold_currency_pill", PILL_CP_DEFAULTS)
-	var pill_fill := Pal.CREAM
+	# the pill's paper is CREAM everywhere it ships; `fill` exists so the mock-compare rig can force it
+	# to the concept mock's own face colour and stop the fill being a variable in a shadow measurement
+	# (docs/design/verifying-against-a-mock.md). No caller passes it in the game.
+	var pill_fill: Color = opts.get("fill", Pal.CREAM)
 	var pill_margins := Vector4(pad_left, style_pad_y, pad_x, style_pad_y)
 	# the capsule corner IS the shared "Corner" edge knob (tunable in the workbench); PILL_CP_DEFAULTS seeds
 	# it to the old pill_h * 0.35 look so an untuned pill is unchanged.

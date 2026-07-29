@@ -57,8 +57,9 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 # …and WHERE THE LIGHT IS. Zero (the default everywhere) is a symmetric ring: the same darkening on the
 # left of a sheet as on its right. Nothing in the world casts that, and neither does the mock — measured
 # on `_concepts/screens/palette_a_meadow_sky_board.png` with a rig that puts our tab and its tab on ONE
-# flat sky at ONE scale (games/grove/tools/navtab_shot.gd), the darkening beside the LEFTMOST tab runs
-# 0.168 at 1px and is gone by 9px, while beside the RIGHTMOST it runs 0.388 and still reads 0.010 at 16px.
+# flat sky at ONE scale (`make shot-mock`; docs/design/verifying-against-a-mock.md), the darkening beside
+# the LEFTMOST tab runs 0.168 at 1px and is gone by 9px, while beside the RIGHTMOST it runs 0.388 and
+# still reads 0.010 at 16px.
 # The info card above the row splits the same way (0.23 left, 0.36 right), so it is the scene's light —
 # upper left — and not one tile's quirk. No symmetric reach can be both: tuned to the right side the left
 # is four times too heavy, tuned to the left the right disappears.
