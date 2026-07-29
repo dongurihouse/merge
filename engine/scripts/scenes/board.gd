@@ -4051,11 +4051,30 @@ func _set_action_chip(btn: Button, sb: StyleBoxFlat, coin_slot: Control, count: 
 	btn.modulate = Color(1, 1, 1, 1.0) if ready else Color(1, 1, 1, 0.7)
 	btn.visible = true
 
+func _action_badge_for_coin_slot(coin_slot: Control) -> Control:
+	if coin_slot == null or not is_instance_valid(coin_slot):
+		return null
+	var col := coin_slot.get_parent() as Control
+	if col == null or not is_instance_valid(col):
+		return null
+	return col.get_parent() as Control
+
+func _match_action_badge_to_sell(coin_slot: Control) -> void:
+	var badge := _action_badge_for_coin_slot(coin_slot)
+	var sell_badge := _action_badge_for_coin_slot(_info_trash_coin)
+	if badge == null or sell_badge == null or not is_instance_valid(badge) or not is_instance_valid(sell_badge):
+		return
+	var sell_min := sell_badge.get_combined_minimum_size()
+	if sell_min.x <= 0.0 or sell_min.y <= 0.0:
+		sell_min = sell_badge.size
+	badge.custom_minimum_size = sell_min
+
 func _refresh_seed_chips(cell: Vector2i) -> void:
 	if _info_seed_place == null:
 		return
 	var can_place := board.can_place_seed(cell)
 	_set_action_chip(_info_seed_place, _info_seed_place_sb, _info_seed_place_coin, _info_seed_place_count, "check", "", can_place)
+	_match_action_badge_to_sell(_info_seed_place_coin)
 	var row := _info_trash.get_parent() as Control
 	if row != null and _info_seed_place.get_parent() == row:
 		var sell_index := _info_trash.get_index()
