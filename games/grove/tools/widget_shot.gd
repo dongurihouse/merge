@@ -17,6 +17,7 @@ extends SceneTree
 ## A non-numeric CODE is a GENERATOR id (e.g. `seed_satchel` or `seed_satchel:grab`) — make_generator.
 ## Pass a plain CODE and its `:MOD` side by side for a built-in before/after. Extend
 ## the `match mod` below for new widgets as the need arises (grow tools incrementally).
+## BATCH IT: several captures in one launch is `make shot-batch PLAN=<file>` (this tool is batch-safe).
 const Base = preload("res://engine/tools/shot_base.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
@@ -104,7 +105,7 @@ func _initialize() -> void:
 	# frame to the content (the cream bg covers the rest of the window)
 	var err := Base.capture(self, out, args, Rect2i(0, 0, int(content.x), int(content.y)))
 	print("WIDGET saved=%s err=%d tiles=%s" % [out, err, str(tiles)])
-	quit()
+	Base.finish(self)
 
 # Freeze a quest-ready tile at the breathe PEAK: scale the item sprite AND its halo to BREATHE_AMOUNT about
 # their centers — the SAME nodes + scale the looping FX.breathe reaches on the live board, captured statically

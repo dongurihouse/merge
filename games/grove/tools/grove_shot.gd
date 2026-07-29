@@ -13,6 +13,7 @@ extends SceneTree
 ## scene loads (board.gd's forced_rng_seed — _load_state randomizes on a fresh save, and the quest
 ## fence it then rolls decides every generator's + item line's dimming), the window size is forced
 ## (shot_base), and weather is pinned to "clear" unless `weather=` says otherwise.
+## BATCH IT: several captures in one launch is `make shot-batch PLAN=<file>` (this tool is batch-safe).
 
 const Base = preload("res://engine/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -466,14 +467,14 @@ func _initialize() -> void:
 				print("  The sweep is the whole capture; with nothing on the board it animates nothing and")
 				print("  the frames would show an empty field. Look for a SCRIPT ERROR above this line —")
 				print("  it names the call inside _seed_flyaway_board that aborted the seeding.")
-				quit(2)
+				Base.finish(self, 2)
 				return
 			print("FLYAWAY fixture line=%d gens=%d pieces=%d coins=%d" % \
 				[FLYAWAY_LINE, int(fly_seeded["gens"]), int(fly_seeded["pieces"]), int(fly_seeded["coins"])])
 			var fly: Dictionary = await _capture_or_stage_flyaway(self, scn, args, out)
 			if int(fly["err"]) != 0:
 				print("REFUSED: a flyaway frame failed to save — err=%d" % int(fly["err"]))
-				quit(2)
+				Base.finish(self, 2)
 				return
 			custom_capture_done = bool(fly["captured"])
 		"almanac":
@@ -633,7 +634,7 @@ func _initialize() -> void:
 				var freem: Array = scn.board.empty_ground_cells()
 				if freem.is_empty():
 					print("REFUSED: no free cell to place the line-%d generator" % ml)
-					quit(2)
+					Base.finish(self, 2)
 					return
 				mcell = Vector2i(freem[0])
 				scn.board.place_gen(G.gen_for_line(ml), mcell)
@@ -835,7 +836,7 @@ func _initialize() -> void:
 		print("SHOT saved=%s err=0 level=%d coins_earned=%d coins=%d brambles=%d gens=%d genbag=%d" % \
 			[out, G.level(), Save.coins_earned_lifetime(), Save.coins(), scn.board.bramble_count(),
 			scn.board.gens.size(), scn.board.gen_bag.size()])
-		quit()
+		Base.finish(self)
 		return
 	var err := Base.capture(self, out, args)
 	# Report the LIVE clock (level + the lifetime organic coins it derives from), not the retired
@@ -846,7 +847,7 @@ func _initialize() -> void:
 	print("SHOT saved=%s err=%d level=%d coins_earned=%d coins=%d brambles=%d gens=%d genbag=%d" % \
 		[out, err, G.level(), Save.coins_earned_lifetime(), Save.coins(), scn.board.bramble_count(),
 		scn.board.gens.size(), scn.board.gen_bag.size()])
-	quit()
+	Base.finish(self)
 
 ## The lifetime-organic-coins each mode banks BEFORE the scene loads (see _initialize) — the ONLY way
 ## a capture sets its level now. A mode absent here keeps the fresh save's Level 1.

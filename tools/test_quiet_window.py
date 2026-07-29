@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard: a quiet capture must not put a window on the owner's screen.
+"""Guard: a quiet capture must not put a window on the owner's screen, or take their keyboard.
 
 WHY THIS EXISTS. engine/tools/quiet_godot.sh shipped for months claiming the capture window was
 "born minimized" and never seen. It was only ever verified against FOCUS (`lsappinfo front`), and
@@ -18,6 +18,15 @@ its frame one point larger on every side, so a single corner point of shadow fri
 screen for ~200 ms before shot_base parks the window at (-32000, -32000). That is the floor on this
 platform. A regression to the old behaviour is a ~1.1-million-point overlap — four orders of
 magnitude over the limit here, so this is a wide, non-flaky margin, not a tuned threshold.
+
+AND WHAT IT MEASURES SECOND. Hiding the window was only half of "quiet": the capture also became the
+FRONTMOST APPLICATION and stayed there until it exited — measured, 500-1500 ms per launch on a
+machine whose owner is typing. The area check above passed throughout, because area is not focus.
+That is the same mistake in the other direction, so this run now also samples NSWorkspace's frontmost
+application every 2 ms and fails if the capture ever owns the keyboard for longer than
+MAX_FOCUS_MS. The residue it tolerates is the one measured after engine/tools/nofocus_shim.m lands
+(a single ~15 ms activation that the shim answers from inside the process); the behaviour it exists
+to catch is two orders of magnitude larger.
 
 SKIPS (exit 0, with the reason printed) when there is nothing to measure: not macOS, no `godot`, no
 GUI session (no active displays), or another quiet run already owns override.cfg. CI is headless, so
@@ -46,6 +55,22 @@ SAMPLE_S = 0.030
 # 1 point (the corner of a 1x1 window's fringe); a full-size window is >1_000_000.
 MAX_OVERLAP_AREA = 16
 GRACE_S = 0.4          # keep sampling briefly after the capture exits
+
+# Focus. Reading the frontmost application costs ~4 us, so it is sampled far finer than the window
+# list — fine enough to resolve the single brief activation the shim cannot pre-empt (measured 15 ms)
+# instead of averaging it away.
+FOCUS_SAMPLE_S = 0.002
+# Longest the capture may own the keyboard, in total, across one run. Measured: ~15 ms with
+# engine/tools/nofocus_shim.m in place, 500-1500 ms without it. Anything in between is a regression
+# worth failing on, so this sits an order of magnitude above the floor and an order below the defect.
+MAX_FOCUS_MS = 150
+# Longest the capture process may remain a REGULAR (foreground-eligible) application. The theft
+# itself is intermittent — the same unshimmed recipe took the keyboard on some runs and not on
+# others — so a guard that only watched for it would pass on a bad build about as often as not.
+# Being Regular is not intermittent: measured, an unshimmed capture is Regular from ~240 ms to exit
+# (~1100 ms of a 1.3 s run) and a shimmed one for the ~10 ms of Launch Services' check-in, before
+# the shim demotes it again.
+MAX_FOREGROUND_MS = 200
 
 
 def skip(reason: str) -> None:
@@ -176,6 +201,70 @@ def overlap_area(rect, screens) -> float:
     return total
 
 
+# --- who owns the keyboard: NSWorkspace via the ObjC runtime (no pyobjc on this machine) -------
+#
+# objc_msgSend is variadic and its return type changes per selector, so each signature gets its own
+# ctypes prototype cast off the same symbol — reassigning `restype` on one shared prototype crashes
+# the interpreter. Every call is wrapped in an autorelease pool: this runs thousands of times.
+
+try:
+    OBJC = _load("objc", "/usr/lib/libobjc.dylib")
+    ctypes.CDLL(ctypes.util.find_library("AppKit") or
+                "/System/Library/Frameworks/AppKit.framework/AppKit")
+except OSError as exc:                                    # pragma: no cover - platform guard
+    skip(f"cannot load the ObjC runtime / AppKit ({exc})")
+
+OBJC.objc_getClass.restype = ctypes.c_void_p
+OBJC.objc_getClass.argtypes = [ctypes.c_char_p]
+OBJC.sel_registerName.restype = ctypes.c_void_p
+OBJC.sel_registerName.argtypes = [ctypes.c_char_p]
+_SEND_OBJ = ctypes.cast(OBJC.objc_msgSend,
+                        ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p))
+_SEND_I32 = ctypes.cast(OBJC.objc_msgSend,
+                        ctypes.CFUNCTYPE(ctypes.c_int32, ctypes.c_void_p, ctypes.c_void_p))
+_SEND_OBJ_I32 = ctypes.cast(OBJC.objc_msgSend,
+                            ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+                                             ctypes.c_int32))
+_SEND_I64 = ctypes.cast(OBJC.objc_msgSend,
+                        ctypes.CFUNCTYPE(ctypes.c_int64, ctypes.c_void_p, ctypes.c_void_p))
+_POOL_CLASS = OBJC.objc_getClass(b"NSAutoreleasePool")
+_RUNNING_APP_CLASS = OBJC.objc_getClass(b"NSRunningApplication")
+_WORKSPACE = _SEND_OBJ(OBJC.objc_getClass(b"NSWorkspace"), OBJC.sel_registerName(b"sharedWorkspace"))
+
+POLICY_REGULAR = 0      # a normal app: Dock icon, app switcher, and ELIGIBLE to become frontmost
+
+
+def activation_policy(pid: int) -> int:
+    """A process's NSApplicationActivationPolicy: 0 Regular, 1 Accessory, 2 Prohibited, -1 unknown.
+
+    This is the CAUSE behind the focus theft, and unlike the theft itself it is not intermittent: a
+    Regular capture is one the window server may hand the keyboard to at any moment, whether or not
+    it did on this particular run."""
+    pool = _SEND_OBJ(_SEND_OBJ(_POOL_CLASS, OBJC.sel_registerName(b"alloc")),
+                     OBJC.sel_registerName(b"init"))
+    try:
+        app = _SEND_OBJ_I32(_RUNNING_APP_CLASS,
+                            OBJC.sel_registerName(b"runningApplicationWithProcessIdentifier:"), pid)
+        if not app:
+            return -1
+        return _SEND_I64(app, OBJC.sel_registerName(b"activationPolicy"))
+    finally:
+        _SEND_OBJ(pool, OBJC.sel_registerName(b"drain"))
+
+
+def frontmost_pid() -> int:
+    """The pid of the application that would receive the owner's next keystroke (-1 if none)."""
+    pool = _SEND_OBJ(_SEND_OBJ(_POOL_CLASS, OBJC.sel_registerName(b"alloc")),
+                     OBJC.sel_registerName(b"init"))
+    try:
+        app = _SEND_OBJ(_WORKSPACE, OBJC.sel_registerName(b"frontmostApplication"))
+        if not app:
+            return -1
+        return _SEND_I32(app, OBJC.sel_registerName(b"processIdentifier"))
+    finally:
+        _SEND_OBJ(pool, OBJC.sel_registerName(b"drain"))
+
+
 # --- process-tree attribution ------------------------------------------------------------------
 
 def parents(pid: int) -> dict[int, int]:
@@ -227,7 +316,40 @@ def main() -> int:
     seen_any_window = False
     seen_capture_window = False
     samples = 0
+    focus_samples = 0            # 2 ms samples in which the capture owned the keyboard
+    focus_grabs = 0              # how many separate times it took it
+    had_focus = False
+    capture_pids: set[int] = set()
+    foreground_samples = 0       # 2 ms samples in which a capture process was a Regular app
     deadline = time.monotonic() + 180
+
+    def is_ours(pid: int) -> bool:
+        nonlocal tree
+        if pid not in ours:
+            if pid not in tree:
+                tree = parents(proc.pid)          # a pid we have not seen: refresh the map once
+            ours[pid] = descends_from(pid, proc.pid, tree)
+        return ours[pid]
+
+    def sample_focus(seconds: float) -> None:
+        """Watch the frontmost app for `seconds`, at FOCUS_SAMPLE_S. Replaces the plain sleep, so
+        the keyboard is under continuous observation while the window list is walked between."""
+        nonlocal focus_samples, focus_grabs, had_focus, foreground_samples
+        until = time.monotonic() + seconds
+        while True:
+            pid = frontmost_pid()
+            now_ours = pid > 0 and is_ours(pid)
+            if now_ours:
+                focus_samples += 1
+                if not had_focus:
+                    focus_grabs += 1
+            had_focus = now_ours
+            for cap in capture_pids:
+                if activation_policy(cap) == POLICY_REGULAR:
+                    foreground_samples += 1
+            if time.monotonic() >= until:
+                return
+            time.sleep(FOCUS_SAMPLE_S)
 
     while time.monotonic() < deadline:
         alive = proc.poll() is None
@@ -235,13 +357,10 @@ def main() -> int:
             seen_any_window = True
             if "godot" not in owner.lower():
                 continue
-            if pid not in ours:
-                if pid not in tree:
-                    tree = parents(proc.pid)          # a pid we have not seen: refresh the map once
-                ours[pid] = descends_from(pid, proc.pid, tree)
-            if not ours[pid]:
+            if not is_ours(pid):
                 continue                              # the owner's own long-lived godot session
             seen_capture_window = True
+            capture_pids.add(pid)
             area = overlap_area(rect, screens)
             if area > 0:
                 onscreen_samples += 1
@@ -251,13 +370,18 @@ def main() -> int:
         if not alive:
             if deadline > time.monotonic() + GRACE_S:
                 deadline = time.monotonic() + GRACE_S
-        time.sleep(SAMPLE_S)
+        sample_focus(SAMPLE_S)
 
     rc = proc.wait()
     visible_ms = int(onscreen_samples * SAMPLE_S * 1000)
+    focus_ms = int(focus_samples * FOCUS_SAMPLE_S * 1000)
     print(f"displays={screens}")
     print(f"capture rc={rc} samples={samples} capture-window-seen={seen_capture_window} "
           f"worst-overlap={worst[0]:.0f}pt^2 rect={worst[1]} on-screen>={visible_ms}ms")
+    foreground_ms = int(foreground_samples * FOCUS_SAMPLE_S * 1000)
+    print(f"focus: the capture was frontmost for {focus_ms}ms in {focus_grabs} grab(s) "
+          f"(limit {MAX_FOCUS_MS}ms); it was a foreground-eligible app for {foreground_ms}ms "
+          f"(limit {MAX_FOREGROUND_MS}ms)")
 
     failures = []
     if rc != 0:
@@ -276,12 +400,25 @@ def main() -> int:
             f"a capture window covered {worst[0]:.0f}pt^2 of the screen (limit {MAX_OVERLAP_AREA}), "
             f"rect={worst[1]}, for >={visible_ms}ms. A quiet capture must not paint over the "
             f"owner's desktop — see engine/tools/quiet_godot.sh and shot_base.hide_offscreen().")
+    if focus_ms > MAX_FOCUS_MS:
+        failures.append(
+            f"the capture owned the keyboard for {focus_ms}ms across {focus_grabs} grab(s) "
+            f"(limit {MAX_FOCUS_MS}ms). Everything typed in that window went into the capture "
+            f"instead of the owner's editor — see engine/tools/nofocus_shim.m, which quiet_godot.sh "
+            f"injects to keep the process out of the foreground.")
+    if foreground_ms > MAX_FOREGROUND_MS:
+        failures.append(
+            f"the capture ran as a REGULAR (foreground-eligible) application for {foreground_ms}ms "
+            f"(limit {MAX_FOREGROUND_MS}ms). It may not have taken the keyboard on this run — that "
+            f"part is intermittent — but nothing stopped it from doing so. engine/tools/"
+            f"nofocus_shim.m is what holds the activation policy at Prohibited; check that "
+            f"quiet_godot.sh still injects it (clang missing? TU_NOFOCUS=0 set?).")
 
     for f in failures:
         print(f"FAIL: {f}")
     if failures:
         return 1
-    print("PASS test_quiet_window: the capture window never covered the screen")
+    print("PASS test_quiet_window: the capture never covered the screen or took the keyboard")
     return 0
 
 
