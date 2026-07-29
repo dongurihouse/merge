@@ -11,6 +11,8 @@ extends SceneTree
 ## `tol` is a normalised RGB distance in [0,1]; a pixel is keyed when its distance to the
 ## key colour is <= tol. Alpha is set to 0 (RGB kept) so anti-aliased edges stay soft.
 
+const ImgOps := preload("res://games/tools/img_ops.gd")   # the SHARED "already transparent" floor
+
 const DEFAULT_TOL := 0.18
 
 ## Zero the alpha (RGB kept) of every pixel within `tol` of `key`, in place. Returns the
@@ -50,8 +52,16 @@ static func key_image(img: Image, key: Color, tol: float) -> int:
 ## Hue does separate them. Excess = min(R,B) - G is huge for anything magenta-derived at ANY
 ## brightness (shadow 107, key 246) and small for cut-paper art (cream is negative; the deepest
 ## purple medallion measured 46). Two safeguards keep legitimate purple safe:
-##   1. only pixels REACHED by a flood from the border are eligible — enclosed art can never key;
+##   1. only pixels REACHED by a flood from the background are eligible — enclosed art can never key;
 ##   2. a soft ramp (`soft`..`hard`) feathers the boundary instead of a binary cut.
+##
+## "Background" seeds are the canvas border AND any pixel a prior pass already cleared (alpha under
+## ImgOps.ALPHA_MIN) — the same rule slice_islands step 1b uses. Without the second seed a WALLED-IN
+## key pocket is unreachable even after a distance pass has opened its core, so the pocket's own
+## anti-aliased rim survives fully opaque and the sprite ships a magenta ring around the hole
+## (measured on the nav glyph sheet: the calendar's two ring holes kept 113 opaque px at
+## min(R,B)-G > 40, which slice_islands then hardened and the icon resize smeared to 1251).
+## Legitimately magenta art enclosed in an OPAQUE sheet has no such seed and is still never keyed.
 ## RGB is preserved (like key_image) so a later despill pass can still see the edge tint.
 ## Returns the number of pixels whose alpha was reduced.
 static func key_image_hue(img: Image, soft: float = 55.0, hard: float = 100.0) -> int:
@@ -65,7 +75,7 @@ static func key_image_hue(img: Image, soft: float = 55.0, hard: float = 100.0) -
 	for i in w * h:
 		var o := i * 4
 		excess[i] = float(mini(int(data[o]), int(data[o + 2])) - int(data[o + 1]))
-	# flood from the border through anything even faintly key-tinted, so the shadow band (which
+	# flood from the BACKGROUND through anything even faintly key-tinted, so the shadow band (which
 	# touches the border region around the art) is reachable while enclosed art is not.
 	var reach := PackedByteArray()
 	reach.resize(w * h)
@@ -82,6 +92,12 @@ static func key_image_hue(img: Image, soft: float = 55.0, hard: float = 100.0) -
 			if excess[i1] > soft and reach[i1] == 0:
 				reach[i1] = 1
 				stack.append(i1)
+	# …and from every pixel a prior pass already cleared (see the header): an opened pocket is
+	# background, so its own key-tinted rim becomes reachable. Enclosed OPAQUE art gains no seed.
+	for i2 in w * h:
+		if reach[i2] == 0 and data[i2 * 4 + 3] < ImgOps.ALPHA_MIN:
+			reach[i2] = 1
+			stack.append(i2)
 	while not stack.is_empty():
 		var i: int = stack.pop_back()
 		var cx := i % w

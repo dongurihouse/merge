@@ -1,0 +1,100 @@
+Generate an image (do not write code).
+
+Use case: game UI icon masters. Asset type: ONE single-row sheet of 4 flat, front-on UI glyphs.
+
+THIS IS A SURGICAL EDIT OF IMAGE 1, NOT A REDESIGN.
+
+Input images and their roles:
+- Image 1 is the EXACT EDIT TARGET and the authority for subject, composition, layering, depth,
+  paper thickness and colour. Redraw these same four icons in the same order, same size, same
+  layout on the same flat magenta.
+- Image 2 is the ACCEPTED RESULT of this exact edit applied to a different row of icons. It shows
+  precisely the treatment you must produce: the outer sticker ring and the baked shadow are gone,
+  while the stacked paper layers, the visible sheet thickness, the interior cut edges, the paper
+  fibre and the warm meadow palette are all fully preserved. Match image 2's finish exactly.
+- Image 3 is the Meadow Sky palette and cut-paper material authority. Do not copy its layout.
+
+CHANGE EXACTLY TWO THINGS, AND NOTHING ELSE:
+
+(1) DELETE the continuous pale cream/ivory backing plate and the keyline that trace the OUTSIDE of
+    each icon's whole silhouette. In image 1 every icon sits on an offset cream sticker plate that
+    rings the entire shape. Remove it completely. Each icon's outermost edge must meet the flat
+    magenta directly, in that part's OWN local colour — the piggy bank's outer edge is its own pink,
+    the satchel's outer edge is its brown leather, the book's outer edge is its slate-blue cover,
+    the cottage's roof edge is roof blue. No die-cut rim, no halo, no offset outer duplicate, no
+    uniform border of any colour around the complete silhouette.
+
+(2) DELETE every baked shadow: the soft drop shadow under each icon, the darker offset duplicate of
+    the silhouette tucked below and to the right, and any contact shadow or ambient darkening
+    OUTSIDE the icon. The game engine adds the shadow at runtime, so these masters ship shadow-free.
+
+PRESERVE EVERYTHING ELSE FROM IMAGE 1 — a previous attempt removed the ring but also flattened the
+icons into plain vector fills, and that result was REJECTED. You must keep all of the following:
+
+- LAYERED PAPER MASSES WITH REAL DEPTH. Each icon is built from separate sheets of cardstock stacked
+  on top of one another — the satchel's flap lies on its body, the buckle lies on the flap, the
+  book's pages lie on the cover, the cottage's roof lies on the wall. Every stacked sheet is visibly
+  a separate physical piece of paper resting on the one beneath it.
+- VISIBLE SHEET THICKNESS. Each paper piece has a perceptible edge thickness — you can see that the
+  cardstock has depth where it is cut, exactly as in images 1 and 2. Do not render any icon as a
+  single flat filled shape.
+- THE FINE WARM CUT EDGE AND THE THIN LOCALLY-DARKER EDGE **WITHIN** THE DRAWING, wherever one paper
+  plane meets another INSIDE the icon: a warm light catch along the top-left cut of each raised
+  piece and a thin darker line in the crease where it overlaps the sheet below. These interior cut
+  edges are REQUIRED and must be clearly visible. They are the whole reason the art reads as cut
+  paper. What is banned is only the single uniform ring around the complete outer silhouette —
+  interior cut edges are wanted everywhere.
+- THE PAPER FIBRE: subtle 2-4% local value variation, a matte tooth on every surface.
+- THE COLOURS OF IMAGE 1 EXACTLY. Its greens are deep, warm, slightly olive meadow greens. Do NOT
+  drift them toward mint, pastel, seafoam, aqua or teal. Match image 1's green, its coral, its gold,
+  its cream, its slate blue and the piggy bank's warm pink.
+- One upper-left light source, as in images 1 and 2.
+
+The four icons, left to right, identical in subject to image 1:
+1. VAULT — a plump side-on piggy bank in warm clay pink, with a coin slot on its back, one round
+   eye, a curled tail and four short legs.
+2. HOME — a cottage seen front-on: cream cardstock walls, a broad slate-blue pitched roof, a round
+   window with a cross mullion, a warm blue arched door, a chimney, and two green bushes at its feet.
+3. BAG — a satchel/backpack: brown leather body, a broad green flap over it, one gold buckle at the
+   centre, and a rounded carry handle at the top.
+4. ALMANAC — an open book seen from above: two cream pages spread over a slate-blue cover, a gold
+   ribbon bookmark at the top, a few soft text rules on the pages, and one green leaf on the right
+   page. No readable letters or numerals.
+
+Layout: exactly ONE ROW of 4 icons, left to right, evenly spaced, all sharing the same visual
+footprint and optical weight. Every icon sits fully inside its own share of the row with a generous
+margin of flat magenta on ALL FOUR sides and clearly between neighbours. No icon touches another or
+the image border.
+
+Background: one perfectly flat, solid, opaque #FF00FF magenta. Nothing else on it — no gradient, no
+vignette, no texture, no panel, no card, no frame, no grid lines, no shadow.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Palette (hex): sky #6FA9C0, structural slate #3F6D7D, meadow green #A8D3B9, warm cream #F6EBDD,
+ink #243B4B, action green #5F9B6D, coral #D87865, reward gold #D6A94C.
+
+Also: flat front-on glyph only — no horizon, no scene, no perspective, no ground plane, no base plate,
+no pedestal, no rounded-square badge, tile or card behind an icon. Interior gaps (the space under the
+satchel's handle, the gap inside the buckle) show the flat magenta straight through, never filled. No
+text, numerals, labels or watermark anywhere.
+
+Do NOT key out, erase, or make the background transparent. Save the file with its solid opaque #FF00FF
+magenta background intact — a downstream deterministic keyer handles the cut.
+
+Save the PNG into: /private/tmp/claude-501/-Users-xup-dh-merge/6c8f3547-bf2b-432b-93ef-c580e63ed92a/scratchpad/codex
+Name it: glyphs_v4_row4.png
+Do NOT resize, crop, scale or otherwise post-process the generated image — save it at whatever
+dimensions your generator produces. Report the absolute path.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is
+already approved. Do NOT offer a visual companion or read any skills. Generate the
+image NOW with your built-in image generation and save it to the path above. Then report the saved path.

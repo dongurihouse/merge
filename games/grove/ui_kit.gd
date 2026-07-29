@@ -334,11 +334,65 @@ static func _apply_deckle_button_surface(
 				panel.queue_redraw())
 	return panel
 
+## The largest font size ≤ `want_px` at which `text` still fits in `room` px on the BOLD face — the same
+## shrink-to-fit rule dialog_title_font applies to a long sheet title, here for any single-line label.
+static func fit_bold_font_px(text: String, want_px: int, room: float) -> int:
+	var f: Font = bold_font()
+	if f == null or text == "" or room <= 0.0:
+		return want_px
+	var tw: float = f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, want_px).x
+	if tw <= room:
+		return want_px
+	return maxi(8, int(floor(float(want_px) * room / tw)))
+
+## One caption layer: the tile's bold caption pinned so its BASELINE sits `baseline_px` above the
+## button's bottom edge, nudged down by `dy` and tinted `color`. Stacking a few darkened copies under
+## the white face is the SAME layered-silhouette shadow the glyph wears (GLYPH_SHADOW) — a hard font
+## outline would read as a sticker, which the paper look does not have anywhere else.
+static func _caption_layer(text: String, fsz: int, color: Color, box_h: float, baseline_px: float, dy: float) -> Label:
+	var f: Font = bold_font()
+	var ascent: float = f.get_ascent(fsz) if f != null else float(fsz) * 0.8
+	var lbl := _kit_label(text, fsz, color)
+	lbl.add_theme_font_override("font", f)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	lbl.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	lbl.offset_left = 0.0
+	lbl.offset_right = 0.0
+	lbl.offset_top = box_h - baseline_px - ascent + dy
+	lbl.offset_bottom = lbl.offset_top + float(fsz) * 2.0
+	return lbl
+
+## The paper FILL a button role resolves to under a tint map — role → paper role → surface fill. Exposed
+## because a caller that must TRANSFORM the fill (the nav row chalks its tabs, NavBar.chalk) has to start
+## from the same colour the button would have picked; it reads this one lookup rather than re-walking the
+## PAPER_SURFACES chain and drifting from it.
+static func action_role_fill(role: String, tints: Dictionary = ACTION_TINT_DEFAULTS) -> Color:
+	var surface: Dictionary = PAPER_SURFACES.get(String(tints.get(role, "cream")), PAPER_SURFACES["cream"])
+	return surface.get("fill", Pal.CREAM)
+
 ## The shared ACTION BUTTON: a flat Button wearing the code-drawn rugged cut-paper edge (a CutPaperPanel,
 ## the SAME applier the pill/frame/rows use) filled by its per-button paper-role tint, with a centered
 ## transparent glyph on top. ONE source for the home bottom bar and the board Home/Bag wells — the baked
 ## nav_<x>.png tiles are retired. `opts`: cp (cut-paper opts) · tints (role→paper-role map) · icon_scale ·
 ## shadow · shadow_params · fill (explicit override) · glyph_rel (explicit override) · name · tooltip.
+## NAV-TAB opts (all off by default, so every existing caller is untouched — see NavBar.tab_opts, which
+## derives the px values for a whole row so the taller ACTIVE tile still matches its neighbours):
+##   caption / caption_font_px / caption_baseline_px — a bold white caption under the glyph;
+##   glyph_box_px / glyph_center_frac — the glyph shrinks and rides high once a caption shares the tile;
+##   active / rim_px / rim_fill — the raised current tab's rim, drawn OUTSIDE the fill (`rim_fill`
+##                    defaults to Pal.CREAM, so every existing caller keeps the cream rim);
+##   bleed_bottom — px the PAPER extends below the button rect (a tab bled off the screen edge rounds
+##                  only its top corners); the button's own rect, and its hit area, stay on-screen.
+##   caption_shadow — the caption's own shadow stack (defaults to the glyph's GLYPH_SHADOW); a caller
+##                    whose tile is PALE overrides it so white type keeps its local contrast.
+##   glyph_shadow — the ICON's shadow stack (defaults to GLYPH_SHADOW, so the board's Home/Bag wells and
+##                    every other action_button caller are untouched). Each layer is {dy, a} plus an
+##                    optional `grow`: the copy is drawn `grow` × the icon box larger, split evenly on
+##                    every side, which turns the straight-down smear into a pool AROUND the glyph.
+##                    `grow` defaults to 0 → a layer without it renders exactly as it always did.
+## (The nav row's smooth corners and its rimless plain tiles are NOT separate flags: it zeroes `deckle_amp`
+## and `rim_width` through the ordinary cut-paper knob set in NavBar.tab_cp, like every per-row tuning.)
 static func action_button(role: String, size: Vector2, action: Callable, opts: Dictionary = {}) -> Button:
 	var b := Button.new()
 	b.name = String(opts.get("name", "ActionButton_" + role))
@@ -360,24 +414,80 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_theme_stylebox_override(st, clear)
 	# resolve the per-button fill from its paper role (explicit `fill` wins)
-	var tints: Dictionary = opts.get("tints", ACTION_TINT_DEFAULTS)
-	var paper_role := String(tints.get(role, "cream"))
-	var surface: Dictionary = PAPER_SURFACES.get(paper_role, PAPER_SURFACES["cream"])
-	var fill: Color = opts.get("fill", surface.get("fill", Pal.CREAM))
-	var cp: Dictionary = opts.get("cp", cut_paper_opts_from_config(load_config(CONFIG_PATH), "action_button", ACTION_BUTTON_CP_DEFAULTS))
+	var fill: Color = opts.get("fill", action_role_fill(role, opts.get("tints", ACTION_TINT_DEFAULTS)))
+	var cp: Dictionary = opts.get("cp", cut_paper_opts_from_config(load_config(CONFIG_PATH), "action_button", ACTION_BUTTON_CP_DEFAULTS)).duplicate()
+	if opts.has("corner"):
+		cp["corner"] = float(opts["corner"])          # the caller's own corner (a nav tab's is a fraction of its width)
 	var corner := float(cp.get("corner", 20.0))
 	b.set_meta(Look.SHADOW_CORNER_META, corner)
+	# `bleed_bottom` lets the PAPER run past the button's bottom edge (a tab bled off the screen edge):
+	# the rounded box keeps its full radius but the bottom corners fall off-screen, so only the top two
+	# read as round. The Button's own rect is untouched, so its hit area never leaves the screen.
+	var bleed := maxf(0.0, float(opts.get("bleed_bottom", 0.0)))
 	# (no behind-tile drop shadow: the cut-paper edge carries its own edge shadow; the only shadow this
 	# button wears is the ICON's, gated by `icon_shadow` below.)
+	# the ACTIVE tab's rim: the SAME edge, one rim thickness bigger on every side, drawn UNDER the
+	# face so it shows as a rim around it. Added FIRST so it sits behind the face among the behind-parent
+	# children (the face's own edge shadow then separates the two sheets, as with the paper backer).
+	if bool(opts.get("active", false)):
+		var rim_px := maxf(0.0, float(opts.get("rim_px", size.x * 0.037)))
+		if rim_px > 0.0:
+			var rim_cp: Dictionary = cp.duplicate()
+			rim_cp["corner"] = corner + rim_px
+			# the rim is a hairline, not a sheet: a slab bevel on it would eat its whole width and read as a
+			# muddy border. It keeps the face's ambient halo — the RIM is the outer sheet, so the rim is what
+			# casts onto the art behind the tab, at the full reach.
+			rim_cp["bevel_px"] = 0.0
+			# …and the FACE gives that reach up, because what sits behind the FACE is not the art, it is this
+			# rim. An ambient halo reaching several rim-widths out paints the whole rim into shadow: measured
+			# on the render, a WHITE rim came back at 0.68× — a mid grey, and the active tab stopped reading.
+			# The face keeps the contact darkness (halo_strength is the alpha AT the edge, so it is unchanged)
+			# over a short reach: the two sheets still separate, and the rim's outer half stays the fill it
+			# was given. Scoped to `active` — the only caller that draws a rim at all is the nav row.
+			cp["halo_reach"] = minf(float(cp.get("halo_reach", 0.0)), rim_px * 0.45)
+			var rim: Control = load(CUT_PAPER).new()
+			rim.name = "ActionButtonActiveRim"
+			rim.show_behind_parent = true
+			rim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			rim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			rim.offset_left = -rim_px
+			rim.offset_top = -rim_px
+			rim.offset_right = rim_px
+			rim.offset_bottom = bleed + rim_px
+			rim.configure(rim_cp, opts.get("rim_fill", Pal.CREAM), null, cut_paper_tile())
+			rim.corner = float(rim_cp["corner"])
+			b.add_child(rim)
 	# the code-drawn rugged edge — the ONE shared applier
 	var panel: Control = load(CUT_PAPER).new()
 	panel.name = "ActionButtonDeckleSurface"
 	panel.show_behind_parent = true
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel.offset_bottom = bleed
 	panel.configure(cp, fill, null, cut_paper_tile())
 	panel.corner = corner
 	b.add_child(panel)
+	# the caption (a nav tab): bold white type on the shared layered-silhouette shadow, shrunk to fit the
+	# tile width so the longest live caption ("Residents") neither clips nor wraps.
+	var caption := String(opts.get("caption", ""))
+	if caption != "":
+		var want: int = int(opts.get("caption_font_px", int(round(size.x * 0.16))))
+		var pad := maxf(4.0, corner * 0.35)
+		var fsz := fit_bold_font_px(caption, want, size.x - pad * 2.0)
+		var baseline := float(opts.get("caption_baseline_px", size.x * 0.055))
+		var cap_host := Control.new()
+		cap_host.name = "ActionButtonCaptionHost"
+		cap_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cap_host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		# the caption's shadow stack. Defaults to the glyph's, but a caller whose tile is PALE overrides it
+		# (`caption_shadow`) — white type carries on a chalked pastel only if its own shadow does the work.
+		for layer in (opts.get("caption_shadow", GLYPH_SHADOW) as Array):
+			cap_host.add_child(_caption_layer(caption, fsz, Look.shadow_color(float(layer["a"])),
+				size.y, baseline, float(fsz) * float(layer["dy"])))
+		var cap := _caption_layer(caption, fsz, Color.WHITE, size.y, baseline, 0.0)
+		cap.name = "ActionButtonCaption"
+		cap_host.add_child(cap)
+		b.add_child(cap_host)
 	# the centered glyph (mouse-transparent, globally polished) — only if its sprite exists
 	var glyph_rel := String(opts.get("glyph_rel", ACTION_GLYPHS.get(role, "")))
 	if glyph_rel != "" and ResourceLoader.exists(Game.art(glyph_rel)):
@@ -389,13 +499,22 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 		var icwrap := CenterContainer.new()
 		icwrap.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		icwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if caption != "":
+			# a caption shares the tile: the glyph drops to its own box and rides HIGH — its centre sits at
+			# `glyph_center_frac` of the tile's OWN height, not in the middle, leaving the foot to the type.
+			icon_px = float(opts.get("glyph_box_px", size.x * 0.62))
+			var cy := size.y * float(opts.get("glyph_center_frac", 0.42))
+			icwrap.set_anchors_preset(Control.PRESET_TOP_WIDE)   # full width, a glyph-tall band at `cy`
+			icwrap.offset_top = cy - icon_px * 0.5
+			icwrap.offset_bottom = cy + icon_px * 0.5
 		# an icon_px square block holding (optionally) the glyph's soft runtime drop shadow (darkened
 		# silhouette copies nudged down) UNDER the glyph, so it lifts off the paper tile (see GLYPH_SHADOW).
 		# The block is centred on the tile; STRETCH_KEEP_ASPECT_CENTERED keeps a square glyph filling icon_px.
 		var stack := Control.new()
 		stack.custom_minimum_size = Vector2(icon_px, icon_px)
 		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		for layer in (GLYPH_SHADOW if bool(opts.get("icon_shadow", true)) else []):
+		var glyph_shadow: Array = opts.get("glyph_shadow", GLYPH_SHADOW) as Array
+		for layer in (glyph_shadow if bool(opts.get("icon_shadow", true)) else []):
 			var sh := TextureRect.new()
 			sh.texture = glyph_tex
 			sh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -403,6 +522,15 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 			sh.modulate = Look.shadow_color(float(layer["a"]))
 			sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			sh.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			# `grow` (0 by default → every existing caller renders unchanged): the copy is drawn this much
+			# larger than the glyph box, split evenly on all four sides, so the layer reads as a pool AROUND
+			# the icon rather than a smear under it. STRETCH_KEEP_ASPECT_CENTERED scales the silhouette into
+			# the bigger rect about its own centre.
+			var grow := icon_px * maxf(0.0, float(layer.get("grow", 0.0))) * 0.5
+			sh.offset_left -= grow
+			sh.offset_right += grow
+			sh.offset_top -= grow
+			sh.offset_bottom += grow
 			sh.offset_top += icon_px * float(layer["dy"])
 			sh.offset_bottom += icon_px * float(layer["dy"])
 			stack.add_child(sh)
@@ -2233,6 +2361,22 @@ const CUT_PAPER_KNOBS := [
 	{"key": "shadow_reach",    "kind": "slider", "label": "Shadow reach",    "min": 0, "max": 40, "default": 10},
 	{"key": "shadow_strength", "kind": "slider", "label": "Shadow strength", "min": 0, "max": 20, "default": 5},
 	{"key": "shadow_blur",     "kind": "slider", "label": "Shadow blur",     "min": 0, "max": 100, "default": 55},
+	# the AMBIENT halo (CutPaperPanel._draw_edge_halo): the same shadow rung around EVERY edge instead of
+	# dropped below the sheet — the only shadow a surface bled off the screen edge can show. `halo_reach` is
+	# the reach in px (0 = off, so every existing surface is untouched); `halo_strength` the contact alpha.
+	{"key": "halo_reach",      "kind": "slider", "label": "Halo reach",     "min": 0, "max": 40,  "default": 0},
+	{"key": "halo_strength",   "kind": "slider", "label": "Halo strength",  "min": 0, "max": 80,  "default": 30},
+	# PAPER THICKNESS (CutPaperPanel._draw_bevel): a lit/shaded band inside the rim so the sheet reads as a
+	# slab. Depth in px (0 = off) and peak alpha (%).
+	{"key": "bevel_px",        "kind": "slider", "label": "Bevel depth",     "min": 0, "max": 30,  "default": 0},
+	{"key": "bevel_strength",  "kind": "slider", "label": "Bevel strength",  "min": 0, "max": 80,  "default": 35},
+	# TAB FLARE (CutPaperPanel._tab_base): the trapezoid tab — how much WIDER the sheet's bottom edge reads
+	# than its top, as a PERCENT (`freq` = "saved as a percent, normalized to a fraction here"). 0 = off.
+	{"key": "flare",           "kind": "slider", "label": "Tab flare %",     "min": 0, "max": 30,  "default": 0, "freq": true},
+	# EDGE FEATHER (CutPaperPanel._draw_feathered_face): antialiasing for the drawn silhouette, in px.
+	# `draw_colored_polygon` computes no coverage, so a SMOOTH sheet's arc rasterizes as a stair-stepped
+	# binary edge; a torn one hides it. 0 = off, which is every surface that keeps its deckle.
+	{"key": "edge_feather",    "kind": "slider", "label": "Edge feather px", "min": 0, "max": 4,   "default": 0},
 ]
 
 ## Read the shared cut-paper knob set from a component's config `block` into a NORMALIZED opts dict
@@ -2869,8 +3013,20 @@ static func _style_scrollbar(scroll: ScrollContainer) -> void:
 ## so every existing caller (mail/daily/shop/settings on parchment; tiers on its own art) is unchanged.
 const CUT_PAPER_TILE_OLD_CREAM := "res://games/grove/assets/ui/dialogs/paper_tile_cream.png"   # legacy yellow-cream fibre
 const CUT_PAPER_TILE_WHITE := "res://games/grove/assets/ui/dialogs/paper_tile_white.png"   # the white paper role's fibre (desaturated + lifted from the cream tile)
-const CUT_PAPER_TILE_SOFT_CREAM := "res://games/grove/assets/ui/dialogs/paper_tile_soft_cream.png"   # shared frame fibre: between white and the old yellow cream
+## The shared frame fibre: between white and the old yellow cream. Every cut-paper surface in the
+## game — dialogs, pills, cards, and the nav tab faces — multiplies its fill by THIS one tile.
+##
+## It WRAPS acceptably, and that was checked rather than assumed. `CutPaperPanel` samples it with
+## TEXTURE_REPEAT_ENABLED at native 1:1, so a surface wider or taller than the tile's 1254 px repeats
+## it. Measured on the seam: mean |Δ| across the wrap is 2.94 px-levels horizontally / 3.71 vertically
+## — but the mean |Δ| between any two ADJACENT INTERIOR columns/rows is 2.93 / 3.61, so the join is
+## indistinguishable from ordinary fibre noise. The low-frequency check agrees: local mean drift across
+## the seam is 0.09 / 0.41 of 255, and after a 9 px blur the seam's gradient (0.24 / 0.29) sits below
+## the interior p99 (0.58 / 0.77). A raw wrap step measured WITHOUT that interior baseline reads as a
+## defect and is not one — do not "fix" this tile with an edge crossfade on that evidence alone.
+const CUT_PAPER_TILE_SOFT_CREAM := "res://games/grove/assets/ui/dialogs/paper_tile_soft_cream.png"
 const CUT_PAPER_TILE := CUT_PAPER_TILE_SOFT_CREAM   # code-drawn shared sheet's paper fibre
+
 const FRAME_BORDERS := {
 	"parchment":  {"art": "meadow_v2/dialog_panel.png", "slice": 42.0, "pad_x": 26.0, "pad_y": 24.0},
 	"vault twig": {"art": "kit/vault_panel.png",        "slice": 64.0, "pad_x": 40.0, "pad_y": 34.0},

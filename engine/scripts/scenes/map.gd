@@ -692,10 +692,10 @@ func _build_maps_page(animate := true) -> void:
 	content.add_child(feat_card)
 	maps_hits.append({"node": feat_card, "z": feat, "locked": false})
 	# the remaining maps as a 2-column grid, filling down to the bottom-nav band. The gallery wears the
-	# SAME bottom bar as the home screen (Map swapped for Home), so reserve its band from that bar's
-	# square-tile height — a pure function of the tile count.
+	# SAME bottom bar as the home screen (Map swapped for Home), so reserve THE shared band accessor —
+	# a pure function of the tile count, and already the tallest (active) tile plus the safe inset.
 	var bar_specs := _bottom_bar_specs(true)
-	var nav_h := _bottom_bar_tile_px(bar_specs.size())
+	var nav_band := _bottom_bar_band_px(bar_specs.size())
 	var others: Array = []
 	for z in G.MAPS.size():
 		if z != feat:
@@ -703,7 +703,7 @@ func _build_maps_page(animate := true) -> void:
 	var rows := int(ceil(others.size() / 2.0))
 	if rows > 0:
 		var grid_top := feat_y + feat_h + gap
-		var grid_bot := view.y - Look.safe_bottom(self) - NavBar.BOTTOM_MARGIN - nav_h - gap
+		var grid_bot := view.y - nav_band - gap
 		var cell_h := maxf(120.0, (grid_bot - grid_top - gap * float(rows - 1)) / float(rows))
 		var cell_w := (view.x - margin * 2.0 - gap) * 0.5
 		for i in others.size():
@@ -1788,13 +1788,14 @@ func _map_tap(gpos: Vector2) -> void:
 
 # The tall coverup canvases COVER-FILL the viewport, so a cluster low in the scene can land its lock
 # badge behind the bottom nav bar. Shift any offending badge in `badges` UP just far enough to clear the
-# band — the bar's MapTile (built once in _build_chrome) marks the band's top edge. `factor` is the
-# stage's fit scale: a screen-space overlap is divided by it to a stage-local shift (badges ride the
-# scaled stage). Y-only, so it is correct for a page parked at any x slot, and is applied once per build.
+# band — read from the SHARED band accessor, not from a tile's rect: the plain tiles are shorter than the
+# raised active tab, so a tile top would under-report the band. `factor` is the stage's fit scale: a
+# screen-space overlap is divided by it to a stage-local shift (badges ride the scaled stage). Y-only, so
+# it is correct for a page parked at any x slot, and is applied once per build.
 func _clamp_badges(badges: Dictionary, factor: float) -> void:
 	if factor <= 0.0 or _map_btn == null or not is_instance_valid(_map_btn):
-		return
-	var nav_top := (_map_btn as Control).get_global_rect().position.y
+		return                        # no bar built (chrome absent) → nothing to clear
+	var nav_top := _view_size().y - _bottom_bar_band_px(_bottom_bar_specs(false).size())
 	var margin := 16.0
 	for id_v in badges.keys():
 		var b: Control = badges[id_v]
@@ -2123,10 +2124,11 @@ func _bottom_bar_specs(on_maps: bool) -> Array:
 			"action": _open_inbox})
 	# (Settings is NOT a bar tile: it is a bare gear pinned top-right under the wallet — see
 	#  _build_settings_gear. It is a utility, not a destination, so it stays off the destination row.)
-	# Board — the primary CTA, LAST so it lands in the bottom-right corner. It wears the same rect tile
-	# geometry as its neighbours (coral paper); _refresh_play_cta swaps its icon/action Play↔Restore.
+	# Board — the primary CTA, LAST so it lands in the bottom-right corner. It is the row's ACTIVE tab:
+	# raised a little above its neighbours and rimmed in cream, so the primary action reads without
+	# breaking the tab row's rhythm; _refresh_play_cta swaps its icon/action Play↔Restore.
 	specs.append({"name": "BoardTile", "icon": HC.ICON_PLAY, "caption": Strings.t("map.nav.board"),
-		"action": _on_board})
+		"active": true, "action": _on_board})
 	return specs
 
 func _build_bottom_chrome() -> void:
@@ -2218,22 +2220,38 @@ func _build_settings_gear() -> void:
 	_chrome_nodes.append(b)
 	_gear = b
 
-# The bottom-bar tile edge (a square tile): the row fills the width between the safe-area insets, so
-# the tile size is a pure function of the tile COUNT. The MAPS page reserves its nav band from this so
-# its grid stops exactly above the bar the shared builder will lay down.
+# The bottom-bar PLAIN tile width: the row fills the width between the safe-area insets, so it is a pure
+# function of the tile COUNT. Every other nav-tab metric (height, corner, caption, glyph, the active tab's
+# growth) is a fraction of THIS — see NavBar. The solve is on the tiles' DRAWN sheets, not on n equal
+# slots: the row always carries exactly one ACTIVE tab, which is wider than a plain tile and wears a rim
+# outside its fill, so an even-slot pitch spends its neighbour's whole gap on that overhang.
 func _bottom_bar_tile_px(n: int) -> float:
 	if n <= 0:
 		return 0.0
 	var view := _view_size()
 	var side := _hud_edge_margin_px()
-	var gap := clampf(view.x * 0.012, 6.0, 16.0)
-	return (view.x - side * 2.0 - gap * (float(n) - 1.0)) / float(n)
+	return NavBar.tile_px(view.x - side * 2.0, n, NavBar.gap_px(view.x))
 
-# Build the bottom bar from `specs` (each {name, icon, caption, action}) and return
-# {name: Button}. Tiles are the SHARED Kit.action_button — a code-drawn rugged cut-paper edge with a
-# centered glyph — sized so the row fills the width between the safe-area insets exactly. Tiles
-# parent to `parent` (the home screen uses `self`; the gallery passes `content` so a page rebuild frees
-# them). When `track` they join `_chrome_nodes`, so `_set_map_chrome_visible` toggles them with the map.
+# THE band the bottom row occupies, measured UP from the bottom of the screen: the safe-area inset the
+# row sits on plus the ACTIVE tab's height (the tallest tile — a plain tile is shorter). Everything that
+# must clear the bar — the maps grid, the coverup lock badges, the row builder's own baseline — reserves
+# this ONE number, so raising the active tab can never leave something tucked under it.
+func _bottom_bar_band_px(n: int) -> float:
+	if n <= 0:
+		return 0.0
+	return Look.safe_bottom(self) + NavBar.band_px(_bottom_bar_tile_px(n))
+
+# Build the bottom bar from `specs` (each {name, icon, caption, action, active?}) and return
+# {name: Button}. Tiles are the SHARED Kit.action_button — a code-drawn cut-paper edge with a glyph over
+# a bold caption — sized so the row fills the width between the safe-area insets exactly. The row is a
+# TAB BAR bled to the screen edge: each tile SITS on the safe-area inset and its paper runs off the
+# bottom of the screen, so only its top corners read as round. The tile named `active` is the raised
+# current tab — it grows up and outward and wears a white rim, and the row is laid out on the tiles'
+# DRAWN sheets (NavBar.drawn_w), so that growth is paid for out of the row's own width rather than out of
+# its neighbour's gap: the visible cut between two tabs is the SAME `gap` all the way along the row, and
+# the raised tab can never close on the tile beside it. Tiles parent to `parent` (the home screen uses
+# `self`; the gallery passes `content` so a page rebuild frees them). When `track` they join
+# `_chrome_nodes`, so `_set_map_chrome_visible` toggles them with the map.
 func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dictionary:
 	var out := {}
 	if specs.is_empty():
@@ -2241,31 +2259,62 @@ func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dict
 	var Kit: GDScript = Game.kit_script()
 	var view := _view_size()
 	var side := _hud_edge_margin_px()
-	var gap := clampf(view.x * 0.012, 6.0, 16.0)
-	var n := float(specs.size())
+	var gap := NavBar.gap_px(view.x)          # the ONE accessor — the slot metric above reads it too
 	var tile_w := _bottom_bar_tile_px(specs.size())
-	var y := view.y - Look.safe_bottom(self) - NavBar.BOTTOM_MARGIN - tile_w
+	# the row's baseline: the bottom of the tile BOXES. It sits on the safe-area inset (a caption must not
+	# hide under a home indicator) while the paper bleeds THROUGH that inset and off the screen edge.
+	var safe_b := Look.safe_bottom(self)
+	var base_y := view.y - safe_b
+	# every tile in the row shares one caption size, one baseline, one glyph box and one corner, derived
+	# from the SLOT width — so the taller active tab still lines up with its neighbours.
+	var tab: Dictionary = NavBar.tab_opts(tile_w)
 	# the shared action-button opts, built ONCE from the saved config (the same call the workbench
 	# action_button preview makes, so the two render identically off one source) — duplicated per tile below.
 	var action_opts: Dictionary = Kit.action_button_opts_from_config(Game.kit_config()) if Kit != null else {}
+	# the row walks left to right over the tiles' DRAWN widths, laying one `gap` between each pair of
+	# sheets — so the active tab's overhang and its rim come out of the row's own width, not the gap.
+	var cursor := side
 	for i in specs.size():
 		var spec: Dictionary = specs[i]
 		var b: Button
+		var active := bool(spec.get("active", false))
+		var box: Vector2 = NavBar.active_size(tile_w) if active else NavBar.tile_size(tile_w)
 		var role := String(NAV_ROLE.get(String(spec.name), ""))
 		if Kit != null and role != "":
 			var o := action_opts.duplicate(true)
+			o.merge(tab, true)
 			o["name"] = String(spec.name)
 			o["tooltip"] = String(spec.caption)
-			b = Kit.action_button(role, Vector2(tile_w, tile_w), spec.action, o)
+			o["caption"] = String(spec.caption)     # the caption is now DRAWN, not only a tooltip
+			o["active"] = active
+			# the row's CHALKED tint: the tab's paper role resolves through the shared table, then the nav
+			# row's own chalk pass lightens + desaturates it into the mock's pastel band. The ROLE fills stay
+			# where they are, so no dialog, pill, board or shop surface moves — see NavBar.chalk.
+			o["fill"] = NavBar.chalk(Kit.action_role_fill(role, action_opts.get("tints", {})))
+			# the paper runs past the button's bottom edge, through the safe-area inset and one corner
+			# radius beyond the screen, so the bottom corners round off-screen and only the top two show.
+			var bleed := safe_b + float(tab["corner"])
+			o["bleed_bottom"] = bleed
+			# the tab's OWN cut-paper knobs (flare · ambient halo · slab bevel) patched over the shared
+			# action-button set — scoped to THIS row, so no other cut-paper surface in the game changes.
+			# The flare is measured across the VISIBLE box, so the full drawn sheet height goes in with it.
+			var cp: Dictionary = (o.get("cp", {}) as Dictionary).duplicate()
+			cp.merge(NavBar.tab_cp(tile_w, box.y, box.y + bleed, active), true)
+			o["cp"] = cp
+			b = Kit.action_button(role, box, spec.action, o)
 		else:
 			b = Button.new()                          # defensive fallback (kit absent): a bare tile
 			b.focus_mode = Control.FOCUS_NONE
 			b.text = String(spec.caption)
-			b.custom_minimum_size = Vector2(tile_w, tile_w)
+			b.custom_minimum_size = box
 			b.pressed.connect(spec.action)
 		b.name = String(spec.name)
-		b.position = Vector2(side + float(i) * (tile_w + gap), y)
-		b.size = Vector2(tile_w, tile_w)
+		# centred on its own DRAWN extent: a plain tile fills it exactly, the raised tab is inset by the rim
+		# it draws outside its fill, so both sheets start one `gap` from their neighbour's.
+		var drawn := NavBar.drawn_w(tile_w, active)
+		b.position = Vector2(cursor + (drawn - box.x) * 0.5, base_y - box.y)
+		b.size = box
+		cursor += drawn + gap
 		parent.add_child(b)
 		if track:
 			_chrome_nodes.append(b)

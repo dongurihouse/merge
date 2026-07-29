@@ -142,8 +142,15 @@ static func slice_sheet(img: Image, vmin: float, smax: float, min_area: int, pad
 				if bg[sp] == 1:
 					cell.set_pixel(xx, yy, Color(0, 0, 0, 0))
 				else:
+					# KEEP the source alpha. On the checkerboard sheets this tool was written for
+					# every foreground pixel is already 255, so this is a no-op there — but on a
+					# sheet a keyer has already run over, forcing 255 would throw away the guide's
+					# §8 soft alpha ramp and promote every half-keyed boundary pixel to a FULLY
+					# OPAQUE key-coloured one. Measured on the nav glyph sheet: 113 tinted px on
+					# the keyed sheet became 205 opaque ones across the slices, which the icon
+					# resize then smeared into a 1251 px magenta rim.
 					var o := sp * 4
-					cell.set_pixel(xx, yy, Color8(data[o], data[o + 1], data[o + 2], 255))
+					cell.set_pixel(xx, yy, Color8(data[o], data[o + 1], data[o + 2], data[o + 3]))
 		out.append({"image": cell, "x": bx0, "y": by0, "w": cw, "h": ch, "count": int(isl.count)})
 	return out
 

@@ -1,0 +1,45 @@
+Generate an image (do not write code).
+
+Use case: a game UI surface material. Asset type: a SEAMLESSLY TILEABLE paper-fibre texture swatch.
+
+Canvas: one square image, filled EDGE TO EDGE with the paper surface itself. This is a flat-scanned
+material swatch photographed straight on, not a picture of a sheet of paper. It must tile: the left
+edge must continue into the right edge and the top edge into the bottom edge with no visible seam.
+
+The colour is an almost-white warm cream, close to #F4EDE1, and it is UNIFORM across the whole image.
+The only variation is the fibre itself, and it is SUBTLE: about 2-4% local value variation, roughly
+plus or minus 6 levels out of 255. A viewer at arm's length should read the swatch as one flat cream
+tone that happens to have a tooth, never as a noisy or mottled surface.
+
+The fibre character for THIS swatch is: COLD-PRESS TOOTH — the surface of a cold-press watercolour block. Its character is NON-DIRECTIONAL and DIMPLED: an irregular field of small rounded pits and plateaus about 5-9 pixels across, each catching a hair more light on its upper-left lip and a hair less in its hollow, packed edge to edge with no repeating pattern and no preferred direction. Crisp little hills and dells, not soft cloud.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+HARD CONSTRAINTS:
+- NO sheet edges, torn deckle edges, corners, curl, folds, creases, page borders or drop shadows.
+  The material fills the frame completely and runs off all four sides.
+- NO vignette, no corner darkening, no lighting gradient, no hot spot, no spotlight, no beam. The
+  illumination is perfectly even across the entire image.
+- NO stains, blotches, coffee marks, foxing, watermarks, embossing, logos, printing, handwriting,
+  text, numerals, or drawn objects of any kind.
+- NO large dark specks or inclusion flecks that would read as dirt at 1:1.
+- NO colour shift across the image — the top-left and the bottom-right must be the same cream.
+- Not glossy, not plastic, not metallic, not fabric weave, not canvas, not wood, not concrete.
+
+Do NOT key out, erase, or make anything transparent. Save an opaque image.
+
+Save the PNG into: /private/tmp/claude-501/-Users-xup-dh-merge/6c8f3547-bf2b-432b-93ef-c580e63ed92a/scratchpad/codex
+Name it: tex_coldpress.png
+Report the absolute path.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is
+already approved. Do NOT offer a visual companion or read any skills. Generate the
+image NOW with your built-in image generation and save it to the path above. Then report the saved path.

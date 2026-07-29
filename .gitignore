@@ -32,6 +32,7 @@ __pycache__/
 
 # Local scratch / transient overrides
 /tmp/
+/.scratch/
 override.cfg
 /archive/
 
@@ -48,3 +49,6 @@ games/grove/assets/.gdignore
 
 # Local feature worktrees
 .worktrees/
+
+# Review captures (agent screenshots) — never shipped, and .gdignore keeps them out of the import pass
+_shots/

@@ -1,0 +1,48 @@
+{
+  "source": "_new/action_button_glyphs_v4/action_button_glyphs_v4_sheet_raw.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": {
+    "key": "#FF00FF",
+    "tol": 0.22,
+    "hue": true,
+    "soft": 30,
+    "hard": 110,
+    "min_area": 3000,
+    "pad": 8
+  },
+  "_note": "The 5 LIVE nav-row glyph masters, regenerated a third time. v2 shipped a continuous cream sticker ring plus a baked shadow (both banned: the §2 STYLE BLOCK forbids a universal outline, §0 ships UI sprites shadow-free). v3 removed the ring but OVER-CORRECTED into flat vector fills, losing the layered paper masses, the sheet thickness and the interior cut edges the same STYLE BLOCK requires, and drifting the greens to mint. v4 is a SURGICAL EDIT of v2 rather than a fresh generation: the v2 five-glyph row was composited onto flat magenta and attached as image 1 / the exact edit target, with the guide's two §1 mandatory references as supporting authorities, and the prompt (archived beside the raw as action_button_glyphs_v4_prompt.txt) changes exactly two things — delete the outer cream backing plate/keyline, delete the baked shadow — while enumerating what must survive (stacked sheets, visible thickness, the warm cut edge and thin darker edge WITHIN the drawing, the paper fibre, v2's warm meadow greens). MEASURED against v2 and v3 as known positives, since a ring test that cannot find v2's ring proves nothing. (a) The BANNED thing — a uniform band tracing the whole silhouette — is caught by the colour of the outermost 3 alpha shells: a sticker ring is one colour whatever the subject, a local cut edge is a shade of the mass it borders. Across the nine glyphs that band's across-subject spread is 16.5 on v2 (almanac/mail/residents/play all wear the SAME (227,190,145) cream — that IS the ring) against 49.4 on v4, whose bands are the subject's own colour: almanac (124,133,116) slate cover, mail (210,180,134) cream envelope, residents (135,151,106) roof green, play (190,134,59) gold. (b) The REQUIRED thing — interior cut edges — is inEdge%, the share of deep-interior px on an internal luma edge, which a flat fill drives toward 0: v2 26-57, v3 1-22, v4 15-69 with 8 of 9 at 29 or above. (c) Greens, mean blue channel: v2 66-88, v3 110-166 (the mint drift), v4 64-88 — back on v2. Two metric caveats worth keeping: the shell-GAIN form of the ring test flags almanac (gain 0.36 over 11 shells) because the book's slate cover is a genuinely deep outermost mass and the probe compares it with the cream pages behind it — the colour-identity test above and a visual check both clear it; and mail's inEdge 14.7 is a large flat cream envelope, not a flattened one (v3's mail was 5.3 with no crease or thickness at all). §8 acceptance gate on all five: key fringe 0, edge-clipped px 0, leftover key/white pockets 0. Inspected over dark, light checker and the shipping board cream. Containment verified pre-cut on the 2172x724 sheet: 5 islands, zero subject px on any canvas edge, min clearance 78 px to the frame and 130 px between neighbours. Island indices READ FROM slice_islands and then CONFIRMED VISUALLY on the cut islands (slice_islands bands by y0/80 before sorting by x; all five icons land in one band here so the order is plain left-to-right, but assuming that without checking is what shipped the house on the Map tab last round): 0 -> 70,177 map; 1 -> 511,173 residents; 2 -> 973,175 daily; 3 -> 1402,207 mail; 4 -> 1841,205 play. Keying and the icon:512:despill post-op are unchanged from the v3 plan — see it for why both chroma passes and the post-resize despill are needed.",
+  "outputs": [
+    {
+      "island": 0,
+      "name": "glyph_map",
+      "path": "ui/nav/glyphs/glyph_map.png",
+      "post": "icon:512:despill"
+    },
+    {
+      "island": 1,
+      "name": "glyph_residents",
+      "path": "ui/nav/glyphs/glyph_residents.png",
+      "post": "icon:512:despill"
+    },
+    {
+      "island": 2,
+      "name": "glyph_daily",
+      "path": "ui/nav/glyphs/glyph_daily.png",
+      "post": "icon:512:despill"
+    },
+    {
+      "island": 3,
+      "name": "glyph_mail",
+      "path": "ui/nav/glyphs/glyph_mail.png",
+      "post": "icon:512:despill"
+    },
+    {
+      "island": 4,
+      "name": "glyph_play",
+      "path": "ui/nav/glyphs/glyph_play.png",
+      "post": "icon:512:despill"
+    }
+  ],
+  "archive": "_originals/ui/action_button_glyphs_v4_sheet_raw.png"
+}

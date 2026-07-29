@@ -1,0 +1,62 @@
+Generate an image (do not write code).
+
+Use case: game UI icon masters. Asset type: ONE single-row sheet of 5 flat, front-on UI glyphs.
+
+Canvas: one wide horizontal image containing exactly ONE ROW of 5 icons, left to right, evenly
+spaced, all sharing the same visual footprint and the same optical weight. Every icon sits fully
+inside its own share of the row with a generous margin of flat background visible on ALL FOUR sides
+of it and clearly between neighbours. No icon touches another or the image border.
+
+Background: one perfectly flat, solid, opaque #FF00FF magenta. Nothing else on it — no gradient, no
+vignette, no texture, no panel, no card, no frame, no grid lines, no shadow.
+
+The five icons, left to right:
+1. MAP — a folded paper map, its fold panels reading as a few broad cut-paper planes in soft meadow
+   green, sky blue and warm cream, with one coral teardrop location pin standing on it.
+2. RESIDENTS — a small cottage: cream cardstock walls, a broad soft-green roof, a round window, a
+   warm wooden door, and two simple rounded green bushes at its feet.
+3. DAILY — a calendar: a cream page with two rings at the top, a soft sky-blue header band, a grid of
+   rounded meadow-green day squares, and one coral ribbon bow at its upper right corner.
+4. MAIL — a closed envelope of warm cream cardstock, its flap a clean V, with one round clay-coral
+   wax seal at the centre.
+5. PLAY — a single rounded-corner triangle pointing right, in reward gold, one solid paper plane.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Palette to use (hex): sky #6FA9C0, structural slate #3F6D7D, meadow green #A8D3B9, warm cream #F6EBDD,
+ink #243B4B, action green #5F9B6D, coral #D87865, reward gold #D6A94C.
+
+HARD CONSTRAINTS — the previous batch was rejected for exactly these two faults:
+- NO continuous white, cream, ivory, tan or otherwise light OUTLINE traced around the outside of an
+  icon's whole silhouette. No sticker rim, no die-cut border, no keyline, no halo, no offset outer
+  shape. Each icon's outer silhouette must meet the magenta directly with its own local colour — the
+  green roof edge is green, the gold triangle edge is gold, the map's green panel edge is green.
+  A fine warm cut edge WITHIN the drawing, where one paper plane meets another, is wanted; a ring
+  around the entire shape is forbidden.
+- NO shadow of any kind: no drop shadow, cast shadow, contact shadow, ambient occlusion, glow, or
+  darkened offset duplicate of the silhouette — neither outside the icon nor tucked under its lower
+  right edge. These masters ship shadow-free; the game engine adds the shadow at runtime.
+
+Also: flat front-on glyph only — no horizon, no scene, no perspective, no ground plane, no base plate,
+no pedestal, no rounded-square badge, tile or card behind an icon. Interior gaps (the space under the
+map's fold, the calendar's ring holes) show the flat magenta straight through, never filled. No text,
+numerals, labels or watermark anywhere.
+
+Do NOT key out, erase, or make the background transparent. Save the file with its solid opaque #FF00FF
+magenta background intact — a downstream deterministic keyer handles the cut.
+
+Save the PNG into: /private/tmp/claude-501/-Users-xup-dh-merge/6c8f3547-bf2b-432b-93ef-c580e63ed92a/scratchpad/codex
+Name it: glyphs_v3_sheet.png
+Report the absolute path.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is
+already approved. Do NOT offer a visual companion or read any skills. Generate the
+image NOW with your built-in image generation and save it to the path above. Then report the saved path.

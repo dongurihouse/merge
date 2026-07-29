@@ -60,6 +60,8 @@ func _initialize() -> void:
 		ok(gp.a == 1.0, "green frame pixel stays opaque")
 		ok(gp.g > 0.5 and gp.r < 0.5 and gp.b < 0.5, "green frame keeps its colour")
 
+	_test_slice_keeps_a_soft_alpha_ramp()
+	_test_despill_only_touches_a_tinted_edge()
 	_test_hue_key_removes_shadow_on_key()
 	_test_img_ops_values()
 	_test_no_tool_redeclares_the_keying_constants()
@@ -69,6 +71,52 @@ func _initialize() -> void:
 	_test_flood_and_trim()
 
 	finish()
+
+## DESPILL IS AN EDGE OP, NOT A RECOLOUR. Clamping R,B toward G unconditionally is not a despill:
+## Meadow Sky coral is #D87865 (R 216, G 120), so `R <= G + 15` drags every coral plane in the art
+## to brown — which is exactly what a first cut of this did to the nav row's map pin, calendar bow,
+## wax seal and play triangle. Both guards are asserted here: the pixel must be key-TINTED and it
+## must sit within DESPILL_BAND px of transparency.
+func _test_despill_only_touches_a_tinted_edge() -> void:
+	var img := Image.create(24, 24, false, Image.FORMAT_RGBA8)
+	img.fill(Color8(216, 120, 101))                     # solid coral sheet, fully opaque
+	for y in 24:
+		img.set_pixel(0, y, Color(0, 0, 0, 0))          # one transparent column: the cut edge
+		img.set_pixel(1, y, Color8(190, 74, 157))       # its key-tinted boundary pixel (excess 83)
+	img.set_pixel(12, 12, Color8(190, 74, 157))         # the SAME tint, deep in the interior
+	var touched := ImgOps.despill_magenta(img)
+	ok(touched == 24, "despill touched only the 24 tinted edge px (got %d)" % touched)
+	var edge := img.get_pixel(1, 5)
+	ok(min(edge.r, edge.b) - edge.g <= float(ImgOps.DESPILL_D) / 255.0 + 0.001,
+		"the tinted edge pixel is clamped to G + DESPILL_D")
+	var coral := img.get_pixel(10, 10)
+	ok(int(round(coral.r * 255.0)) == 216 and int(round(coral.b * 255.0)) == 101,
+		"coral art is untouched — the excess guard, not a blanket clamp")
+	var interior := img.get_pixel(12, 12)
+	ok(int(round(interior.r * 255.0)) == 190,
+		"a tinted pixel far from any transparency is untouched — the band guard")
+
+## THE SOFT RAMP MUST SURVIVE THE SLICE. The guide's §8 edge treatment is a soft alpha ramp over
+## key distance, not a hard threshold. This tool was written for checkerboard sheets whose every
+## foreground pixel is opaque, and it used to write Color8(r, g, b, 255) — which on an ALREADY-KEYED
+## sheet promotes each half-keyed boundary pixel to a fully opaque key-coloured one, i.e. exactly the
+## magenta rim the ramp exists to prevent. Foreground alpha is now carried through unchanged.
+func _test_slice_keeps_a_soft_alpha_ramp() -> void:
+	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	img.fill(Color(1, 0, 1, 0))                                  # keyed-away field
+	for y in range(16, 48):
+		for x in range(16, 48):
+			img.set_pixel(x, y, PIECE)                           # the opaque piece
+	for y in range(16, 48):
+		img.set_pixel(15, y, Color(0.6, 0.35, 0.55, 0.5))        # its half-covered boundary pixel
+	var pieces := SliceIslands.slice_sheet(img, SliceIslands.VAL_MIN, SliceIslands.SAT_MAX, 200, 2)
+	ok(pieces.size() == 1, "ramp sheet sliced to one piece")
+	if pieces.size() == 1:
+		var pc: Dictionary = pieces[0]
+		var edge: Color = (pc.image as Image).get_pixel(15 - int(pc.x), 31 - int(pc.y))
+		ok(absf(edge.a - 0.5) < 0.01, "the half-covered edge pixel keeps its 0.5 alpha, not 1.0")
+		ok((pc.image as Image).get_pixel(20 - int(pc.x), 31 - int(pc.y)).a == 1.0,
+			"…while the opaque interior is still opaque")
 
 ## HUE KEY — the "black line welded to the sprite" guard. Generated art often casts a soft drop
 ## shadow onto the key colour; that shadow is DARKENED magenta, which a distance key leaves opaque
@@ -101,6 +149,29 @@ func _test_hue_key_removes_shadow_on_key() -> void:
 	enc.set_pixel(20, 20, Color(1, 0, 1))                       # a legitimately magenta detail
 	ChromaKey.key_image_hue(enc, 55.0, 100.0)
 	ok(enc.get_pixel(20, 20).a == 1.0, "an enclosed magenta detail is never keyed (flood is border-seeded)")
+	_test_hue_key_reaches_an_opened_pocket()
+
+## A WALLED-IN key pocket the distance pass already opened. Its core is transparent but its
+## anti-aliased RIM is a partly-keyed pixel too far from the key for `tol` and unreachable from the
+## canvas border, so a border-only flood ships a magenta ring around every punched hole (the real
+## case: the nav calendar glyph's two ring holes). The flood is therefore seeded from already-cleared
+## pixels as well — which must NOT make an enclosed OPAQUE magenta detail keyable (asserted above).
+func _test_hue_key_reaches_an_opened_pocket() -> void:
+	var w := 40
+	var img := Image.create(w, w, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0.6, 0.2))                                # opaque green sheet, no border key
+	for y in range(16, 24):                                     # the pocket: pure key, already cut
+		for x in range(16, 24):
+			img.set_pixel(x, y, Color(1, 0, 1, 0))
+	for x in range(15, 25):                                     # its rim: half-keyed, still OPAQUE
+		img.set_pixel(x, 15, Color8(190, 74, 157))              # excess 83
+		img.set_pixel(x, 24, Color8(190, 74, 157))
+	ChromaKey.key_image_hue(img, 30.0, 110.0)
+	var rim := img.get_pixel(20, 15)
+	ok(rim.a < 1.0, "the opened pocket's key-tinted rim is reached and ramped down")
+	ok(min(rim.r, rim.b) - rim.g <= 15.0 / 255.0 + 0.001,
+		"…and what survives is despilled (R,B clamped to G+15)")
+	ok(img.get_pixel(5, 5).a == 1.0, "the green sheet around it is untouched")
 
 ## ==========================================================================================
 ## img_ops — the SHARED keying constants + pixel ops (games/tools/img_ops.gd)

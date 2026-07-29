@@ -1,0 +1,42 @@
+{
+  "source": "_new/action_button_glyphs_v4b/action_button_glyphs_v4b_sheet_raw.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": {
+    "key": "#FF00FF",
+    "tol": 0.22,
+    "hue": true,
+    "soft": 30,
+    "hard": 110,
+    "min_area": 3000,
+    "pad": 8
+  },
+  "_note": "The 4 OFF-ROW glyph masters (vault/home/bag/almanac), regenerated so the whole ACTION_GLYPHS family gets the v4 treatment together — see action_button_glyphs_v4.plan.json for why v2 (sticker ring + baked shadow) and v3 (over-corrected into flat vector fills) were both wrong, and for the two measurements that separate the banned silhouette ring from the required interior cut edge. Same surgical-edit prompt (archived beside the raw as action_button_glyphs_v4b_prompt.txt), with the v2 off-row composited onto flat magenta as image 1 / the exact edit target and the ACCEPTED v4 row-of-five sheet as image 2 — the finish to match. Measured: inEdge% (interior cut-edge density; flat fills trend to 0) vault 62.4, home 53.4, bag 69.1, almanac 29.5, against v3's 18.6/14.1/22.3/10.2 — the layering is back. §8 gate on all four: key fringe 0, edge-clipped px 0, leftover key/white pockets 0; the satchel's handle gap reads as a real punched hole. Containment verified pre-cut on the 1934x813 sheet: 4 islands, zero subject px on any canvas edge, min clearance 91 px to the frame and 107 px between neighbours. Island indices READ FROM slice_islands and CONFIRMED VISUALLY on the cut islands: 0 -> 83,185 vault (piggy bank); 1 -> 562,163 home (cottage); 2 -> 1040,164 bag (satchel); 3 -> 1464,208 almanac (open book). Keying and the icon:512:despill post-op are unchanged from the v3/v4 plans.",
+  "outputs": [
+    {
+      "island": 0,
+      "name": "glyph_vault",
+      "path": "ui/nav/glyphs/glyph_vault.png",
+      "post": "icon:512:despill"
+    },
+    {
+      "island": 1,
+      "name": "glyph_home",
+      "path": "ui/nav/glyphs/glyph_home.png",
+      "post": "icon:512:despill"
+    },
+    {
+      "island": 2,
+      "name": "glyph_bag",
+      "path": "ui/nav/glyphs/glyph_bag.png",
+      "post": "icon:512:despill"
+    },
+    {
+      "island": 3,
+      "name": "glyph_almanac",
+      "path": "ui/nav/glyphs/glyph_almanac.png",
+      "post": "icon:512:despill"
+    }
+  ],
+  "archive": "_originals/ui/action_button_glyphs_v4b_sheet_raw.png"
+}

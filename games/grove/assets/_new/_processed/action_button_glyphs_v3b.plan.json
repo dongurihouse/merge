@@ -1,0 +1,14 @@
+{
+  "source": "_new/action_button_glyphs_v3b/action_button_glyphs_v3b_sheet_raw.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": { "key": "#FF00FF", "tol": 0.22, "hue": true, "soft": 30, "hard": 110, "min_area": 3000, "pad": 8 },
+  "_note": "The 4 OFF-ROW glyph masters (vault/home/bag/almanac) regenerated to match action_button_glyphs_v3, so the whole ACTION_GLYPHS family loses the v2 sticker ring together. Same prompt scaffold and same two hard constraints (no outer keyline, no baked shadow), plus the accepted v3 sheet attached as the material/form authority — the first attempt without it came back as flat vector fills (subject fibre sigma 4.55 against v3's 5.95) and was rejected; this one measures 5.61. Containment verified pre-cut: 4 islands, zero subject pixels on a canvas edge, minimum clearance 55 px between neighbours and 89 px to the frame. Island indices READ FROM slice_islands on the keyed sheet: 0 -> 542,199 home; 1 -> 1020,219 bag; 2 -> 81,235 vault; 3 -> 1453,258 almanac. Keying and the icon:512:despill post-op are identical to the v3 plan — see it for why both chroma passes and the post-resize despill are needed.",
+  "outputs": [
+    { "island": 0, "name": "glyph_home",    "path": "ui/nav/glyphs/glyph_home.png",    "post": "icon:512:despill" },
+    { "island": 1, "name": "glyph_bag",     "path": "ui/nav/glyphs/glyph_bag.png",     "post": "icon:512:despill" },
+    { "island": 2, "name": "glyph_vault",   "path": "ui/nav/glyphs/glyph_vault.png",   "post": "icon:512:despill" },
+    { "island": 3, "name": "glyph_almanac", "path": "ui/nav/glyphs/glyph_almanac.png", "post": "icon:512:despill" }
+  ],
+  "archive": "_originals/ui/action_button_glyphs_v3b_sheet_raw.png"
+}

@@ -14,7 +14,7 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 
 # The torn edge: perimeter points displaced outward by fractal noise. amp = bump height (px), the noise
 # frequency sets how often the deckle wobbles along the edge. Small values read as hand-torn cardstock.
-@export_enum("rect", "poly", "blob") var shape: String = "rect"
+@export_enum("rect", "poly", "blob", "tab") var shape: String = "rect"
 @export var sides: int = 5          # for shape == "poly" (pentagon, hexagon, …)
 @export var corner: float = 30.0    # rect corner radius
 @export var deckle_amp: float = 5.0
@@ -36,6 +36,38 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 # straight down reads as a row of hard stripes). It rounds the sharp teeth into gentle low-frequency curves
 # for the shadow only — 0 = the exact edge, 100(%) = broad soft curves — while the paper keeps its full tear.
 @export var shadow_blur: float = 55.0    # 0..100 %: how much the shadow tear profile is smoothed into curves
+# AMBIENT EDGE HALO — the shadow a raised sheet casts on EVERY side, not only below it. `shadow_reach`
+# drops its copies straight DOWN, so a sheet bled off the bottom of the screen (a nav tab) shows none of
+# it and meets the art behind on a hard cut; this one dilates the silhouette OUTWARD along its own edge
+# normals, so the darkening lands on the sides and the TOP too. `halo_strength` is the TOTAL alpha the
+# halo reaches at the sheet's edge (the per-copy alpha is derived from it, so the contact darkness is the
+# same however many copies the reach asks for). 0 reach = off, which is the default everywhere.
+@export var halo_reach: float = 0.0     # how far the halo reaches out from EVERY edge (px)
+@export var halo_alpha: float = 0.30     # the halo's alpha where it touches the sheet
+# PAPER THICKNESS — the lit cut edge. A dense stack of INSET outlines hugging the sheet's own perimeter:
+# the edges facing the light (up) pick up a pale highlight off the paper colour, the sides take half of
+# it, only the foot darkens with the shared shadow tint, and the band fades out reading inward. Keep the
+# depth to a HAIRLINE (1-2px): that reads as the cut edge of a card. Reaching many px in turns the same
+# band into an inward gradient, which no longer reads as an edge at all but as an inflated, domed face.
+# 0 depth = off (the default everywhere).
+@export var bevel_px: float = 0.0          # how far the bevel band reaches in from the edge (px)
+@export var bevel_strength: float = 0.0    # peak alpha of the bevel's light + dark bands
+# TAB FLARE — the sheet's top edge is narrower than its bottom by this FRACTION (0.07 = the bottom reads
+# 7% wider than the top), a symmetric trapezoid about the vertical centreline. The BOTTOM keeps the full
+# box width, so a row of flared tabs never widens into its neighbour's gap — the tops sit further apart
+# instead. > 0 selects the "tab" base shape; 0 (the default) leaves every surface a plain rounded rect.
+@export var flare: float = 0.0
+# EDGE FEATHER — ANTIALIASING for the drawn silhouette. `draw_colored_polygon` rasterizes with no
+# antialiasing at all: a pixel is either wholly inside the outline or wholly outside it, so a smooth
+# arc comes out as a hard, stair-stepped binary edge. The torn deckle HIDES that (the tear is louder
+# than the stairs), which is why it never showed until a surface asked for a smooth edge — on a nav
+# tab, whose `deckle_amp` is 0, the aliasing IS the silhouette, and a card's defining quality is a
+# clean cut edge. When this is > 0 the face is drawn as an opaque CORE inset past the edge plus a quad
+# strip that ramps the paper's alpha 1 → 0 across `edge_feather` px CENTRED on the true outline —
+# which is the coverage term the rasterizer skipped. The 50% point lands exactly on the outline, so
+# the silhouette does not move or grow; the rim, bevel and halo still key off the same `pts`.
+# 0 = off (the default everywhere): every torn surface draws the single flat polygon it always drew.
+@export var edge_feather: float = 0.0
 var paper_tex: Texture2D = null
 
 func _ready() -> void:
@@ -53,7 +85,10 @@ func content_inset() -> float:
 ## component); `amp_scale` shrinks the tear for small parts (e.g. a switch knob). Absent keys keep the
 ## panel's current value, so a caller may set (e.g.) a capsule `corner` before or after this call.
 func configure(o: Dictionary, fill: Color, rim: Variant = null, tile: Texture2D = null, amp_scale: float = 1.0) -> void:
-	shape = "rect"
+	# the trapezoid tab is one knob, not a second thing to remember: asking for a flare IS asking for the
+	# "tab" base outline. Absent (or 0) the panel is the plain rounded rect every surface has always been.
+	flare = maxf(0.0, float(o.get("flare", 0.0)))
+	shape = "tab" if flare > 0.0 else "rect"
 	corner = float(o.get("corner", corner))
 	deckle_amp = float(o.get("deckle_amp", deckle_amp)) * amp_scale
 	deckle_freq = float(o.get("deckle_freq", deckle_freq))
@@ -64,6 +99,13 @@ func configure(o: Dictionary, fill: Color, rim: Variant = null, tile: Texture2D 
 	# shadow_strength is a 0..N percent knob → per-copy alpha (kept in the same normalized opts dict)
 	if o.has("shadow_strength"):
 		shadow_alpha = float(o["shadow_strength"]) / 100.0
+	halo_reach = maxf(0.0, float(o.get("halo_reach", halo_reach)))
+	if o.has("halo_strength"):
+		halo_alpha = clampf(float(o["halo_strength"]) / 100.0, 0.0, 1.0)
+	bevel_px = maxf(0.0, float(o.get("bevel_px", bevel_px)))
+	if o.has("bevel_strength"):
+		bevel_strength = clampf(float(o["bevel_strength"]) / 100.0, 0.0, 1.0)
+	edge_feather = maxf(0.0, float(o.get("edge_feather", edge_feather)))
 	paper_color = fill
 	# rim precedence: an explicit `rim` arg (a per-caller computed edge, e.g. the mail card's tinted rim)
 	# wins; otherwise the shared `rim_color` edge knob in the opts dict applies, so the workbench picker
@@ -78,6 +120,7 @@ func configure(o: Dictionary, fill: Color, rim: Variant = null, tile: Texture2D 
 
 func _draw() -> void:
 	var pts := _deckle_polygon(size, corner)
+	_draw_edge_halo()               # the all-sides ambient shadow (off unless `halo_reach` > 0)
 	if draw_shadow and shadow_reach > 0.0 and shadow_alpha > 0.0:
 		# The shadow must NOT mirror the torn edge tooth-for-tooth — dropped straight down, each SHARP tooth
 		# casts its own hard vertical streak and the shadow reads as a row of stripes. `shadow_blur` (0..100%)
@@ -99,6 +142,23 @@ func _draw() -> void:
 			for p in shadow_pts:
 				off.append(p + Vector2(0.0, dy))
 			draw_colored_polygon(off, sh)
+	if _feather_px() > 0.0:
+		_draw_feathered_face(pts)   # the antialiased silhouette (off unless `edge_feather` > 0)
+	else:
+		_draw_face(pts)
+	_draw_bevel(pts)                # the paper's thickness (off unless `bevel_px` > 0)
+	# the warm cut-edge rim, closed around the deckle. 0 width = NO border at all — the paper edge just
+	# ends (a plain nav tab; only the active one is outlined). Guarded because draw_polyline treats a
+	# non-positive width as "use the thin GL line", which would still draw a hairline.
+	if rim_width > 0.0:
+		var closed := pts.duplicate()
+		closed.append(pts[0])
+		draw_polyline(closed, rim_color, rim_width, true)
+
+## The paper FACE as one flat polygon — the fibre tile mapped at its native scale (so the grain never
+## stretches), or the bare fill when no tile is set. This is exactly what `_draw` always drew; the
+## feathered path below reuses it for its opaque core.
+func _draw_face(pts: PackedVector2Array) -> void:
 	if paper_tex != null:
 		var tp := paper_tex.get_size()
 		var uvs := PackedVector2Array()
@@ -107,10 +167,6 @@ func _draw() -> void:
 		draw_colored_polygon(pts, paper_color, uvs, paper_tex)
 	else:
 		draw_colored_polygon(pts, paper_color)
-	# the warm cut-edge rim, closed around the deckle
-	var closed := pts.duplicate()
-	closed.append(pts[0])
-	draw_polyline(closed, rim_color, rim_width, true)
 
 ## The torn-edge polygon: take the base OUTLINE for the chosen shape (any convex/organic polygon), then
 ## push every sampled point OUT along its own edge-normal by fractal noise on the arc length. Because the
@@ -196,6 +252,8 @@ func _base_perimeter(sz: Vector2, r: float) -> PackedVector2Array:
 			return _poly_base(sz)
 		"blob":
 			return _blob_base(sz)
+		"tab":
+			return _tab_base(sz, r)
 		_:
 			return _rect_base(sz, r)
 
@@ -258,3 +316,210 @@ func _blob_base(sz: Vector2) -> PackedVector2Array:
 		var wob := 1.0 + 0.16 * bn.get_noise_2d(cos(a), sin(a))   # radial wobble, continuous around the loop
 		pts.append(c + Vector2(cos(a) * rad.x * wob, sin(a) * rad.y * wob))
 	return pts
+
+## ── TAB SHAPE · EDGE HALO · PAPER THICKNESS ──────────────────────────────────────────────────────
+## Additive extras, all inert at their defaults: `flare` picks the trapezoid base, `halo_reach` the
+## all-sides ambient shadow, `bevel_px` the slab bevel. A surface that sets none of them draws exactly
+## what it always drew.
+
+## The TRAPEZOID base outline (shape "tab"): the rounded rect, squeezed horizontally about its own
+## centreline by an amount that eases from nothing at the BOTTOM edge to `flare` at the TOP. The bottom
+## keeps the full box width on purpose — the sheet only ever narrows inside its box, so a row of tabs
+## laid out on a fixed pitch cannot collide however hard it flares; the tops simply sit further apart.
+func _tab_base(sz: Vector2, r: float) -> PackedVector2Array:
+	var base := _rect_base(sz, r)
+	if flare <= 0.0 or sz.y <= 0.0 or sz.x <= 0.0:
+		return base
+	var cx := sz.x * 0.5
+	var squeeze := flare / (1.0 + flare)      # width removed at the TOP, as a fraction of the box width
+	var out := PackedVector2Array()
+	for p in base:
+		var t := clampf(p.y / sz.y, 0.0, 1.0)  # 0 at the top edge → 1 at the bottom
+		var s := 1.0 - squeeze * (1.0 - t)
+		out.append(Vector2(cx + (p.x - cx) * s, p.y))
+	return out
+
+## Per-point OUTWARD unit normals of a closed loop — the perpendicular of the local tangent, flipped to
+## face away from the centroid (the same construction the deckle uses). Shared by the halo (dilate) and
+## the bevel (inset), so both follow the real silhouette — corners, flare and tear — rather than a
+## centre-scaled approximation, which fattens a wide sheet more than a tall one.
+func _outward_normals(pts: PackedVector2Array) -> PackedVector2Array:
+	var n := pts.size()
+	var out := PackedVector2Array()
+	out.resize(n)
+	if n < 3:
+		return out
+	var c := Vector2.ZERO
+	for p in pts:
+		c += p
+	c /= float(n)
+	for i in n:
+		var p := pts[i]
+		var tan := pts[(i + 1) % n] - pts[(i - 1 + n) % n]
+		if tan.length() < 0.001:
+			tan = p - c
+		tan = tan.normalized()
+		var nv := Vector2(tan.y, -tan.x)
+		if nv.dot(p - c) < 0.0:
+			nv = -nv
+		out[i] = nv
+	return out
+
+## `pts` moved `d` px along its own outward normals (negative = inward).
+func _offset_loop(pts: PackedVector2Array, d: float) -> PackedVector2Array:
+	if pts.size() < 3 or absf(d) < 0.001:
+		return pts
+	return _offset_by(pts, _outward_normals(pts), d)
+
+## `pts` moved `d` px along ALREADY-COMPUTED normals — for callers that offset the same loop several
+## times (the feather builds three), so the O(n) normal pass runs once.
+static func _offset_by(pts: PackedVector2Array, nrm: PackedVector2Array, d: float) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for i in pts.size():
+		out.append(pts[i] + nrm[i] * d)
+	return out
+
+## THE ALL-SIDES AMBIENT SHADOW. Same dense-stack idiom as the drop shadow — copies ~1px apart, each at a
+## low alpha, overlapping into one smooth gradient — but the copies are DILATED instead of dropped, so the
+## darkening rings the sheet (top and sides included) rather than pooling under it. The silhouette is the
+## same low-passed tear the drop shadow uses, so the halo stays curvy and never draws the teeth as spikes.
+## `halo_alpha` is the TOTAL alpha at the sheet's own edge; the per-copy alpha is solved from it, so the
+## contact darkness holds when the reach (and hence the copy count) changes.
+func _draw_edge_halo() -> void:
+	if not draw_shadow or halo_reach <= 0.0 or halo_alpha <= 0.0:
+		return
+	var blur_r := int(round(clampf(shadow_blur / 100.0, 0.0, 1.0) * 16.0))
+	var base := _deckle_polygon(size, corner, -1.0, blur_r)
+	if base.size() < 3:
+		return
+	var steps := maxi(4, int(round(halo_reach)))
+	# n overlapping copies at alpha a compose to 1-(1-a)^n; invert that so the innermost ring lands on
+	# exactly `halo_alpha` and the outermost fringe on a single, invisible copy.
+	var per := 1.0 - pow(1.0 - clampf(halo_alpha, 0.0, 1.0), 1.0 / float(steps))
+	var sh := Look.shadow_color(per)
+	for i in range(steps, 0, -1):
+		draw_colored_polygon(_offset_loop(base, halo_reach * float(i) / float(steps)), sh)
+
+## ── THE ANTIALIASED SILHOUETTE ───────────────────────────────────────────────────────────────────
+## How far the opaque CORE is inset PAST the feather's inner lip. The core is itself an un-antialiased
+## polygon, so its own stair-stepped boundary has to land where the strip is already FULLY opaque —
+## otherwise those stairs reappear as a 1px seam of background inside the feather. One pixel covers
+## the rasterizer's worst-case half-pixel snap on either side of the nominal inset.
+const FEATHER_GUARD := 1.0
+
+## The feather actually applied: the request, clamped so the opaque core can never invert on a sheet
+## smaller than the band (a tiny switch knob asking for a 1.5px feather on a 6px sheet).
+func _feather_px() -> float:
+	if edge_feather <= 0.0:
+		return 0.0
+	return minf(edge_feather, maxf(0.0, minf(size.x, size.y) / 3.0 - FEATHER_GUARD * 2.0))
+
+## The face's alpha at a signed distance `d` px from the outline (negative = inside the sheet) for a
+## band of width `feather`. This is the coverage term `draw_colored_polygon` does not compute: 1 inside
+## the inner lip, 0 outside the outer one, LINEAR across the band, and exactly 0.5 ON the outline — so
+## the silhouette keeps its position and only its hardness changes. A 0 feather is the binary step the
+## unantialiased rasterizer produces, which is what every torn surface still draws.
+static func feather_coverage(feather: float, d: float) -> float:
+	if feather <= 0.0:
+		return 1.0 if d <= 0.0 else 0.0
+	return clampf(0.5 - d / feather, 0.0, 1.0)
+
+## The face's DRAW PLAN for a band of `f` px: `core` is how far the opaque polygon is inset from the
+## outline, `rings` the quad strips ringing it — {d_in, d_out, a_in, a_out}, signed px along the outward
+## normal with alphas taken from `feather_coverage`. It is pulled out of the drawing so the ramp can be
+## ASSERTED headlessly (engine/tests/action_button_tests.gd): a real-renderer capture is the only way to
+## LOOK at an edge and `get_image()` is null under --headless, so the geometry is what a suite can hold.
+static func feather_plan(f: float) -> Dictionary:
+	var half := f * 0.5
+	return {
+		"core": -(half + FEATHER_GUARD),
+		"rings": [
+			# the guard band: fully opaque, so the core polygon's own un-antialiased boundary is buried
+			{"d_in": -(half + FEATHER_GUARD), "d_out": -half, "a_in": 1.0, "a_out": 1.0},
+			# …and the coverage ramp itself, centred on the outline
+			{"d_in": -half, "d_out": half,
+			 "a_in": feather_coverage(f, -half), "a_out": feather_coverage(f, half)},
+		],
+	}
+
+## THE FACE, ANTIALIASED. An opaque core polygon (inset past the band, so its own hard edge is buried)
+## plus two textured quad strips ringing the outline: the inner one holds full opacity across the guard
+## band, the outer one carries the 1 → 0 coverage ramp. Both are built from the sheet's OWN outline, so
+## a flared, cornered or torn silhouette feathers along whatever shape it actually is.
+func _draw_feathered_face(pts: PackedVector2Array) -> void:
+	var plan := feather_plan(_feather_px())
+	var nrm := _outward_normals(pts)
+	_draw_face(_offset_by(pts, nrm, float(plan["core"])))
+	for r in plan["rings"]:
+		_draw_feather_ring(pts, nrm, float(r["d_in"]), float(r["d_out"]), float(r["a_in"]), float(r["a_out"]))
+
+## One closed strip of textured quads between the outline offset `d_in` (alpha `a_in`) and `d_out`
+## (alpha `a_out`), the fibre tile sampled at the same native scale the face uses so the grain runs
+## straight through the band. Godot's 2D API has no annulus primitive — `draw_colored_polygon` would
+## have to triangulate a ring, which fails — so the strip goes to the server as one triangle array.
+func _draw_feather_ring(pts: PackedVector2Array, nrm: PackedVector2Array, d_in: float, d_out: float, a_in: float, a_out: float) -> void:
+	var n := pts.size()
+	if n < 3:
+		return
+	var inner := _offset_by(pts, nrm, d_in)
+	var outer := _offset_by(pts, nrm, d_out)
+	var tp := paper_tex.get_size() if paper_tex != null else Vector2.ONE
+	var verts := PackedVector2Array()
+	var cols := PackedColorArray()
+	var uvs := PackedVector2Array()
+	for i in n:
+		verts.append(inner[i])
+		verts.append(outer[i])
+		cols.append(Color(paper_color.r, paper_color.g, paper_color.b, paper_color.a * a_in))
+		cols.append(Color(paper_color.r, paper_color.g, paper_color.b, paper_color.a * a_out))
+		if paper_tex != null:
+			uvs.append(Vector2(inner[i].x / maxf(tp.x, 1.0), inner[i].y / maxf(tp.y, 1.0)))
+			uvs.append(Vector2(outer[i].x / maxf(tp.x, 1.0), outer[i].y / maxf(tp.y, 1.0)))
+	var idx := PackedInt32Array()
+	for i in n:
+		var j := (i + 1) % n
+		idx.append_array([i * 2, i * 2 + 1, j * 2 + 1, i * 2, j * 2 + 1, j * 2])
+	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, verts, cols, uvs,
+		PackedInt32Array(), PackedFloat32Array(),
+		paper_tex.get_rid() if paper_tex != null else RID())
+
+## How much LIGHT (x) and how much SHADOW (y) a stretch of edge takes, from the vertical component of its
+## outward normal (-1 = facing straight up, 0 = a side, +1 = the foot). Light comes from above: the top
+## edge takes the full highlight, a side takes half of it, and only the foot darkens. A side that SHADES
+## instead of lighting is what turns a flat card into an inflated slab, so this split is asserted
+## (engine/tests/action_button_tests.gd).
+static func bevel_weights(ny: float) -> Vector2:
+	return Vector2(clampf(0.5 - 0.5 * ny, 0.0, 1.0), clampf(ny, 0.0, 1.0))
+
+## THE LIT CUT EDGE — the sheet's thickness. Dense inset outlines of the sheet's own perimeter, coloured
+## by which way each stretch of edge faces (see bevel_weights). A sheet of paper lying on the art is LIT
+## at its cut edge, not shaded into a slab. Alpha fades reading inward over `bevel_px`, so at a hairline
+## depth the band reads as the mock's 1px lit rim rather than an inward gradient — a dark ramp reaching
+## several px in is what inflates a flat card into a button. The light and dark passes are drawn
+## separately — one polyline never blends cream into shadow.
+func _draw_bevel(pts: PackedVector2Array) -> void:
+	if bevel_px <= 0.0 or bevel_strength <= 0.0 or pts.size() < 3:
+		return
+	var n := pts.size()
+	var nrm := _outward_normals(pts)
+	var steps := maxi(3, int(round(bevel_px)))
+	var hi := paper_color.lightened(0.5)
+	var lo := Look.shadow_color(1.0)
+	for k in steps:
+		var t := float(k) / float(steps)               # 0 at the very edge → 1 at the reach
+		var fade: float = bevel_strength * pow(1.0 - t, 1.6)
+		if fade <= 0.004:
+			continue
+		var loop := PackedVector2Array()
+		var lit := PackedColorArray()
+		var shade := PackedColorArray()
+		for i in n:
+			loop.append(pts[i] - nrm[i] * (bevel_px * t + 0.75))
+			var wgt := bevel_weights(nrm[i].y)
+			lit.append(Color(hi.r, hi.g, hi.b, fade * wgt.x))
+			shade.append(Color(lo.r, lo.g, lo.b, fade * wgt.y))
+		loop.append(loop[0])
+		lit.append(lit[0])
+		shade.append(shade[0])
+		draw_polyline_colors(loop, shade, 1.8, true)
+		draw_polyline_colors(loop, lit, 1.8, true)

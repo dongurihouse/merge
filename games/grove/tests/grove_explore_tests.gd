@@ -17,6 +17,7 @@ const FxWorkbenchView = preload("res://games/grove/tools/fx_workbench_view.gd")
 const Kit = preload("res://games/grove/ui_kit.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 const MapScript = preload("res://engine/scripts/scenes/map.gd")
+const NavBarKit = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared nav-tab metric table (flare · halo · bevel)
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
 
 func _initialize() -> void:
@@ -38,6 +39,7 @@ func _initialize() -> void:
 	await _test_residents_dialog_uses_shared_frame()
 	_test_reward_row_cap()
 	await _test_map_card_expedition_chrome()
+	await _test_bottom_bar_tab_geometry()
 	await _test_dock_collect_chip()
 	_test_loadout_uses_toggle_card_callback()
 	await _test_loadout_toggle_updates_in_place()
@@ -1188,8 +1190,10 @@ func _test_map_card_expedition_chrome() -> void:
 	var prev_tile := hx.get_node_or_null("DailyTile") as Button
 	ok(board != null and prev_tile != null and board.position.x > prev_tile.position.x,
 		"Board is the right-most tile (the bottom-right corner)")
-	ok(board != null and prev_tile != null and is_equal_approx(board.size.x, prev_tile.size.x),
-		"Board wears the same tile size as its neighbours — no oversized disc")
+	# Board is the row's ACTIVE tab — deliberately a little bigger than its neighbours (NavBar.active_size),
+	# but still a TILE in the row, not the old oversized disc: it stays well under 1.5 slots wide.
+	ok(board != null and prev_tile != null and board.size.x > prev_tile.size.x and board.size.x < prev_tile.size.x * 1.5,
+		"Board is the raised active tab — bigger than its neighbours, still a row tile (no oversized disc)")
 	ok(gear != null and board != null and gear.get_global_rect().end.y < board.get_global_rect().position.y,
 		"the gear sits well above the bottom bar, not in it")
 	# the row fills the width: last tile's right edge sits within a margin of the screen edge
@@ -1200,6 +1204,360 @@ func _test_map_card_expedition_chrome() -> void:
 	ok(hx.content.find_child("MapHomeExpeditionButton", true, false) == null, "eligible home maps do not hide Expedition as a map-art overlay")
 	ok(hx.content.find_child("MapCardExpeditionButton", true, false) == null, "map cards no longer carry a floating Expedition icon button")
 	hx.queue_free()
+
+# The home bottom row is a TAB BAR bled to the screen edge (mock: palette_a_meadow_sky_board.png): every
+# tile's box ends ON the screen bottom (its paper runs off past it), the ACTIVE tab is raised above its
+# neighbours, and every tile carries a DRAWN caption, not just a tooltip. Control geometry is float32, so
+# every comparison here is is_equal_approx / a strict inequality — never ==.
+func _test_bottom_bar_tab_geometry() -> void:
+	fresh("bottom_bar_tabs")
+	var hx = map_host()
+	hx._open_map(G.hub_map())
+	await create_timer(0.05).timeout
+	# the row SITS on the safe-area inset (0 off-device) and bleeds its paper through it, so the BOX
+	# bottom is the screen bottom less that inset.
+	var view_h: float = hx.get_viewport_rect().size.y - Look.safe_bottom(hx)
+	var names := ["MapTile", "ResidentsTile", "DailyTile", "BoardTile"]
+	var tiles: Array = []
+	for tile_name in names:
+		var btn := hx.get_node_or_null(NodePath(tile_name)) as Button
+		ok(btn != null, "the bottom bar carries the %s" % tile_name)
+		if btn == null:
+			continue
+		tiles.append(btn)
+		# the box BOTTOM lands on the screen bottom — no margin under the row at all
+		ok(is_equal_approx(btn.position.y + btn.size.y, view_h),
+			"%s reaches the screen bottom (%.1f of %.1f)" % [tile_name, btn.position.y + btn.size.y, view_h])
+		# the caption is a real node with real text (Kit.action_button's white face label)
+		var cap := btn.find_child("ActionButtonCaption", true, false) as Label
+		ok(cap != null and cap.text != "", "%s draws a caption (%s)" % [tile_name, "" if cap == null else cap.text])
+		# …and it fits inside the tile: the longest live caption ("Residents") must not clip or wrap
+		if cap != null:
+			var f: Font = Kit.bold_font()
+			# the override key is `font_size` (Kit._kit_label) — asking for "font" misses it and falls back
+			# to the THEME default (40 against the caption's real 32), so this assert used to measure a font
+			# the row never draws and cleared the tile by 1.5px by luck.
+			var fsz: int = cap.get_theme_font_size("font_size")
+			ok(cap.get_line_count() == 1, "%s keeps its caption on one line" % tile_name)
+			ok(f == null or f.get_string_size(cap.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fsz).x < btn.size.x,
+				"%s caption fits the tile width" % tile_name)
+	# the ACTIVE tab (Board) is the tallest thing in the row, and wears its cream rim
+	var board := hx.get_node_or_null("BoardTile") as Button
+	if board != null:
+		for btn2 in tiles:
+			if btn2 == board:
+				continue
+			ok(board.size.y > (btn2 as Button).size.y,
+				"the active Board tab is taller than %s (%.1f > %.1f)" % [(btn2 as Button).name, board.size.y, (btn2 as Button).size.y])
+			ok(not is_equal_approx(board.size.y, (btn2 as Button).size.y), "…measurably, not a rounding tie")
+		ok(board.find_child("ActionButtonActiveRim", true, false) != null, "the active tab wears its cream rim")
+		# it grows OUTWARD from its own slot without reflowing anyone: the neighbours keep an even pitch
+		var daily := hx.get_node_or_null("DailyTile") as Button
+		var residents := hx.get_node_or_null("ResidentsTile") as Button
+		if daily != null and residents != null:
+			ok(is_equal_approx(daily.position.x - residents.position.x, residents.position.x - (tiles[0] as Button).position.x),
+				"the plain tiles keep an even pitch — the raised tab did not reflow the row")
+	# a plain tile carries NO rim (the rim marks the one active destination)
+	var plain := hx.get_node_or_null("DailyTile") as Button
+	ok(plain == null or plain.find_child("ActionButtonActiveRim", true, false) == null,
+		"a plain tab wears no rim")
+	# MailTile joins the sweep when the inbox build carries it — the row must not collide with it either.
+	_check_tab_paper(hx, names + ["MailTile"])
+	hx.queue_free()
+
+# The tab's PAPER (NavBar.tab_cp → the shared cut-paper knobs): a FLARED sheet — a trapezoid that reads
+# wider at its visible bottom edge than at its top — carrying the all-sides ambient halo and the slab
+# bevel. The geometry here is measured off the outline the CutPaperPanel actually draws, in GLOBAL space,
+# so it covers the real thing rather than the knob values. Control geometry is float32 → is_equal_approx
+# or a strict inequality, never ==.
+func _check_tab_paper(hx: Node, names: Array) -> void:
+	var spans: Array = []          # per tile: {min_x, max_x, top_w, bot_w} over the ON-SCREEN band
+	for tile_name in names:
+		var btn := hx.get_node_or_null(NodePath(tile_name)) as Button
+		if btn == null:
+			continue
+		var panel := btn.find_child("ActionButtonDeckleSurface", true, false) as Control
+		ok(panel != null, "%s carries its cut-paper sheet" % tile_name)
+		if panel == null or panel.size.x <= 0.0:
+			continue
+		# every tab knob is ON for this row (and, by their defaults, off everywhere else — see below)
+		ok(float(panel.get("flare")) > 0.0, "%s paper is flared (%.3f)" % [tile_name, panel.get("flare")])
+		ok(float(panel.get("halo_reach")) > 0.0,
+			"%s casts the all-sides halo (%.1f px)" % [tile_name, panel.get("halo_reach")])
+		# the lit cut edge is a HAIRLINE. It is the mock's 1px lit paper edge, not a slab: a band reaching
+		# several px in reads as an inward gradient and the tab inflates into a button (measured on the
+		# render: 0.045 W put a 9px ramp with a peak 43 luma deep inside the face; the mock's own tiles
+		# change by ~8 luma on ONE pixel). Bounded in BOTH directions so neither a zero nor a re-grown
+		# slab passes.
+		var bevel := float(panel.get("bevel_px"))
+		ok(bevel > 0.0 and bevel <= panel.size.x * 0.015,
+			"%s wears a HAIRLINE lit cut edge (%.2f px ≤ %.2f)" % [tile_name, bevel, panel.size.x * 0.015])
+		# SMOOTH corners: the row zeroes the shared torn deckle (it is the mock's clean rounded tab, and
+		# the ONE knob apart — the same panel, same fill, same rim, same halo).
+		ok(is_equal_approx(float(panel.get("deckle_amp")), 0.0),
+			"%s draws a smooth edge, not the torn deckle (amp %.2f)" % [tile_name, panel.get("deckle_amp")])
+		# …and a smooth edge has to be an ANTIALIASED one. draw_colored_polygon computes no coverage, so
+		# with the tear gone the corner arc rasterized as a hard binary staircase (measured on the render:
+		# 0.0 blended pixels per row across the arc, against the mock's 1.7). The feather restores the
+		# coverage term; without it the row cannot read as a card, whose defining quality is a clean cut.
+		var feather := float(panel.get("edge_feather"))
+		ok(feather > 0.0 and feather <= 2.5,
+			"%s antialiases its silhouette (%.2f px feather ≤ 2.5)" % [tile_name, feather])
+		# THE BORDER marks the one active destination: only the ACTIVE tab is outlined. A plain tab's paper
+		# edge just ends — no warm cut-edge rim at all.
+		var is_active := btn.find_child("ActionButtonActiveRim", true, false) != null
+		if is_active:
+			ok(float(panel.get("rim_width")) > 0.0,
+				"%s is the active tab and keeps its rim (%.1f px)" % [tile_name, panel.get("rim_width")])
+			# …and that rim is WHITE. It is the one mark that says which destination you are on, and it has
+			# to carry against the chalked GOLD tile inside it and the busy dark map art outside it at once.
+			# The shared Pal.CREAM rim rendered at 1.65:1 against the art — and DARKER than its own tile, so
+			# it read as the tile's shadow, not as a mark.
+			var rim_sheet2 := btn.find_child("ActionButtonActiveRim", true, false) as Control
+			var rim_w := -rim_sheet2.position.x        # the rim sheet is inset by its own thickness
+			var rim_fill: Color = rim_sheet2.get("paper_color")
+			ok(rim_fill.v >= 0.98 and rim_fill.s <= 0.02,
+				"%s rim is white (v %.2f, s %.2f) — NavBar.ACTIVE_RIM_FILL" % [tile_name, rim_fill.v, rim_fill.s])
+			ok(rim_fill.v > Color(Pal.CREAM).v and rim_fill.s < Color(Pal.CREAM).s,
+				"…measurably brighter and cleaner than the shared cream it replaced")
+			# the FACE gives up its long ambient halo on the active tab, because what sits behind the FACE is
+			# this rim, not the art. At the shared reach (0.11 W ≈ 3× the rim) the halo painted the whole rim
+			# into shadow and a white rim came back a mid grey. The RIM keeps the full reach outward, so the
+			# halo the row casts on the map art is unchanged.
+			ok(float(panel.get("halo_reach")) <= rim_w * 0.5,
+				"%s face casts only a CONTACT shadow onto its own rim (%.1f px ≤ half the %.1f px rim)"
+					% [tile_name, panel.get("halo_reach"), rim_w])
+			ok(float(rim_sheet2.get("halo_reach")) > float(panel.get("halo_reach")) * 2.0,
+				"…while the rim still casts the row's full halo onto the art (%.1f px)"
+					% [rim_sheet2.get("halo_reach")])
+		else:
+			ok(is_equal_approx(float(panel.get("rim_width")), 0.0),
+				"%s is an inactive tab and draws NO rim (%.1f px)" % [tile_name, panel.get("rim_width")])
+		# CHALKED tint: the row lightens + desaturates whatever its paper role resolves to, into the mock's
+		# pastel band (NavBar.chalk). Measured on the fill the panel actually carries, against the untouched
+		# shared role fill — the role itself must NOT have moved (asserted below).
+		var pc: Color = panel.get("paper_color")
+		ok(pc.s <= NavBarKit.CHALK_SAT_MAX + 0.001 and pc.v >= 0.70 and pc.v <= NavBarKit.CHALK_VALUE_MAX + 0.001,
+			"%s wears a chalked tint (s %.2f ≤ %.2f, v %.2f in 0.70..%.2f)"
+				% [tile_name, pc.s, NavBarKit.CHALK_SAT_MAX, pc.v, NavBarKit.CHALK_VALUE_MAX])
+		# THE GLYPH'S DROP SHADOW is the row's OWN stack (NavBar.GLYPH_SHADOW), far heavier than the shared
+		# Kit.GLYPH_SHADOW. The shared one offsets its copies straight DOWN, so it has no lateral reach at
+		# all — measured on the render, 0.03 darkening one pixel out of the icon's side, i.e. nothing — and
+		# the icons read as stickers lying flat on the paper. Every layer here also GROWS, which is what puts
+		# a pool all round the glyph; the mock's own icons darken their tile by ~0.40 one pixel out.
+		var shadow_layers: Array = btn.find_children("*", "TextureRect", true, false).filter(
+			func(tr: TextureRect) -> bool: return tr.modulate.a < 0.999)
+		ok(shadow_layers.size() == NavBarKit.GLYPH_SHADOW.size(),
+			"%s glyph wears the row's %d-layer shadow (found %d)"
+				% [tile_name, NavBarKit.GLYPH_SHADOW.size(), shadow_layers.size()])
+		ok(shadow_layers.size() > Kit.GLYPH_SHADOW.size(),
+			"…deeper than the shared stack every other action button keeps (%d vs %d layers)"
+				% [shadow_layers.size(), Kit.GLYPH_SHADOW.size()])
+		var peak_a := 0.0
+		var widest_grow := 0.0
+		for tr in shadow_layers:
+			peak_a = maxf(peak_a, (tr as TextureRect).modulate.a)
+			# `grow` is applied as a symmetric offset patch, so it is readable without a layout pass
+			widest_grow = maxf(widest_grow, -(tr as TextureRect).offset_left)
+			ok((tr as TextureRect).offset_left < 0.0 and (tr as TextureRect).offset_right > 0.0,
+				"%s shadow layer reaches OUT past the glyph, not only down (%.1f px each side)"
+					% [tile_name, -(tr as TextureRect).offset_left])
+		var kit_peak := 0.0
+		for layer in Kit.GLYPH_SHADOW:
+			kit_peak = maxf(kit_peak, float(layer["a"]))
+		ok(peak_a >= 0.25 and peak_a > kit_peak,
+			"%s glyph shadow lands harder at the contact (a %.2f ≥ 0.25, shared %.2f)"
+				% [tile_name, peak_a, kit_peak])
+		ok(widest_grow > panel.size.x * 0.04,
+			"%s glyph shadow skirts a real distance out (%.1f px on a %.0f px tile)"
+				% [tile_name, widest_grow, panel.size.x])
+		# the drawn outline, tear and all — the sheet runs from the tile's top edge to BELOW the screen
+		var pts: PackedVector2Array = panel.call("_deckle_polygon", panel.size, panel.corner)
+		ok(pts.size() > 8, "%s draws a real sheet outline (%d points)" % [tile_name, pts.size()])
+		if pts.size() <= 8:
+			continue
+		var vis_h := btn.size.y                       # the part of the sheet the player can see
+		# the taper is measured on the sheet's STRAIGHT sides — a band inside the top corner arc (which
+		# narrows the outline for its own reasons) against the visible bottom edge — then read back out to
+		# the box's own top and bottom, which is where the metric table's percentage is defined.
+		var y1: float = float(panel.get("corner")) + 5.0
+		var y2 := vis_h - 3.0
+		var hi_span := _span_x(pts, y1 - 3.0, y1 + 3.0)
+		var lo_span := _span_x(pts, y2 - 3.0, y2 + 3.0)
+		var on_screen := _span_x(pts, 0.0, vis_h)
+		var org := btn.global_position.x + panel.position.x
+		var w_hi := hi_span.y - hi_span.x
+		var w_lo := lo_span.y - lo_span.x
+		ok(w_lo > w_hi, "%s tapers: the sheet is wider low than high (%.1f > %.1f)" % [tile_name, w_lo, w_hi])
+		ok(not is_equal_approx(w_lo, w_hi), "…measurably, not a rounding tie")
+		# …by exactly the flare the metric table asks for, read off a fit of the whole straight-sided
+		# stretch (two spot samples would just measure where the tear happened to wobble).
+		var gain := _flare_gain(pts, panel.size.x * 0.5, float(panel.get("corner")) + 2.0, vis_h, vis_h)
+		ok(absf(gain - NavBarKit.FLARE) < 0.01,
+			"%s flares by ~%.1f%% across the visible box (asked %.1f%%)"
+				% [tile_name, gain * 100.0, NavBarKit.FLARE * 100.0])
+		# THE TOP READS AS A CARD, NOT A DOME. The straight run along the sheet's top edge — what is left
+		# of the width once the two corner arcs and the flare's squeeze have taken their bites — measured
+		# on the outline itself. The mock's own tiles run straight across ~63% of their width; ours must
+		# land in the same band. (Before this pass, corner 0.19 W + a 7% flare left only 57%, and the top
+		# read as a dome.) Both bites count, so the assert holds the compound effect, not one knob.
+		var flat := _span_x(pts, -0.01, 0.01)
+		var flat_frac := (flat.y - flat.x) / panel.size.x
+		ok(flat_frac > 0.58 and flat_frac < 0.68,
+			"%s runs straight across %.0f%% of its top (the mock: ~63%%)" % [tile_name, flat_frac * 100.0])
+		# the TAP TARGET still covers every pixel of paper the player can see: the sheet only ever
+		# narrows INSIDE the button's box, so the button rect contains it.
+		ok(on_screen.x > -0.5 and on_screen.y < btn.size.x + 0.5,
+			"%s stays inside its own hit area (paper %.1f..%.1f of 0..%.1f)"
+				% [tile_name, on_screen.x, on_screen.y, btn.size.x])
+		# THE WIDEST SHEET the tab puts on screen is not always its face: the ACTIVE tab draws its rim
+		# OUTSIDE the fill, so the rim is what a neighbour would collide with. Measuring the face alone hid
+		# a 0.7px miss between Mail and the Board tab's rim — the row was one rounding away from touching.
+		var lo := org + on_screen.x
+		var hi := org + on_screen.y
+		var rim_sheet := btn.find_child("ActionButtonActiveRim", true, false) as Control
+		if rim_sheet != null and rim_sheet.size.x > 0.0:
+			var rorg := btn.global_position.x + rim_sheet.position.x
+			var rpts: PackedVector2Array = rim_sheet.call("_deckle_polygon", rim_sheet.size, rim_sheet.corner)
+			var rspan := _span_x(rpts, 0.0, btn.size.y - rim_sheet.position.y)
+			lo = minf(lo, rorg + rspan.x)
+			hi = maxf(hi, rorg + rspan.y)
+			ok(rorg + rspan.x < org + on_screen.x and rorg + rspan.y > org + on_screen.y,
+				"%s rim is drawn OUTSIDE its face on both sides" % tile_name)
+		spans.append({"name": tile_name, "lo": lo, "hi": hi})
+	# NEIGHBOURS DO NOT COLLIDE — compared at the WIDEST point (the bottom), which is what these global
+	# extremes are, so a flared row can never touch however hard it flares. And they do not merely clear
+	# each other: the row is laid out on the tiles' DRAWN sheets (NavBar.drawn_w), so the cut between every
+	# pair is the SAME NavBar.gap_px — the raised tab's overhang and rim come out of the row's own width,
+	# not out of its neighbour's gap.
+	var view_w: float = hx.get_viewport_rect().size.x
+	var want_gap := NavBarKit.gap_px(view_w)
+	spans.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["lo"]) < float(b["lo"]))
+	var cuts: Array = []
+	for i in maxi(0, spans.size() - 1):
+		var l: Dictionary = spans[i]
+		var r: Dictionary = spans[i + 1]
+		var cut := float(r["lo"]) - float(l["hi"])
+		ok(cut > 0.0, "%s and %s keep a clear gap (%.2f px)" % [l["name"], r["name"], cut])
+		cuts.append(cut)
+	if not cuts.is_empty():
+		var lo_cut: float = cuts.min()
+		var hi_cut: float = cuts.max()
+		# ONE RHYTHM: the raised tab's overhang and its rim come out of the row's own width, not out of its
+		# neighbour's gap. On the old even-slot pitch the cut beside the Board tab measured 0.7px against
+		# 13px everywhere else — the row was one rounding away from touching, and ANY tighter gap collided.
+		ok(hi_cut - lo_cut < 0.6,
+			"every pair of tabs is cut by the same %.2f px (spread %.2f)" % [lo_cut, hi_cut - lo_cut])
+		# the visible cut at the screen bottom is the row's gap plus what the flare has not yet closed — so
+		# the row's own gap is its floor…
+		ok(lo_cut >= want_gap - 0.01,
+			"…never tighter than NavBar.gap_px itself (%.2f ≥ %.2f)" % [lo_cut, want_gap])
+		# …and TIGHTER than the row used to sit. Matching the mock's own ~0.011 W at the bottom edge would
+		# overshoot it: ours also flares (the cut opens by another ~12px toward the top) and casts a halo
+		# INTO the gap, neither of which the mock's flat tiles do.
+		ok(hi_cut < view_w * 0.012,
+			"…and tighter than the row used to sit (%.2f px, was ~%.2f)" % [hi_cut, view_w * 0.012])
+	# …and the knobs that do all this are OFF by default, so NO other cut-paper surface changed: a plain
+	# action button (the board wells, the workbench preview) draws the flat rounded sheet it always did.
+	var plainb := Kit.action_button("map", Vector2(120, 120), Callable())
+	var plain_panel := plainb.find_child("ActionButtonDeckleSurface", true, false) as Control
+	ok(plain_panel != null and is_equal_approx(float(plain_panel.get("flare")), 0.0)
+		and is_equal_approx(float(plain_panel.get("halo_reach")), 0.0)
+		and is_equal_approx(float(plain_panel.get("bevel_px")), 0.0),
+		"an ordinary action button keeps the flat sheet — flare/halo/bevel default off")
+	ok(plain_panel != null and String(plain_panel.get("shape")) == "rect",
+		"…and the plain rounded-rect base shape")
+	# …and the two things the NAV ROW takes away are still there off the row: the torn deckle and the warm
+	# cut-edge rim. Both are shared by dialogs, pills and buttons across the game; the row zeroes them in
+	# its OWN cut-paper patch (NavBar.tab_cp), never in the shared defaults.
+	ok(plain_panel != null and float(plain_panel.get("deckle_amp")) > 0.0,
+		"…the shared torn deckle survives off the nav row (%.2f)" % [0.0 if plain_panel == null else plain_panel.get("deckle_amp")])
+	ok(plain_panel != null and float(plain_panel.get("rim_width")) > 0.0,
+		"…and so does the shared warm cut-edge rim (%.2f)" % [0.0 if plain_panel == null else plain_panel.get("rim_width")])
+	# the FEATHER is the row's own too. A torn sheet has no visible staircase (the tear is louder than it),
+	# and a three-pass face on every dialog, pill and board cell would repaint the whole game, so the knob
+	# defaults OFF and only the one smooth row asks for it.
+	ok(plain_panel != null and is_equal_approx(float(plain_panel.get("edge_feather")), 0.0),
+		"…and an ordinary torn sheet still draws ONE flat polygon, unfeathered (%.2f)"
+			% [0.0 if plain_panel == null else plain_panel.get("edge_feather")])
+	# the GLYPH SHADOW is the row's own too. `glyph_shadow` defaults to the shared Kit.GLYPH_SHADOW, so the
+	# board's Home/Bag wells and the workbench preview keep the three straight-down copies they always had —
+	# no `grow` on any of them, which is what would have leaked a pool onto every action button in the game.
+	var plain_shadows: Array = plainb.find_children("*", "TextureRect", true, false).filter(
+		func(tr: TextureRect) -> bool: return tr.modulate.a < 0.999)
+	ok(plain_shadows.size() == Kit.GLYPH_SHADOW.size(),
+		"an ordinary action button keeps the shared %d-layer glyph shadow (found %d)"
+			% [Kit.GLYPH_SHADOW.size(), plain_shadows.size()])
+	var plain_grew := false
+	var plain_alphas: Array = []
+	for tr in plain_shadows:
+		plain_alphas.append(snappedf((tr as TextureRect).modulate.a, 0.001))
+		if not is_equal_approx((tr as TextureRect).offset_left, 0.0) or not is_equal_approx((tr as TextureRect).offset_right, 0.0):
+			plain_grew = true
+	ok(not plain_grew, "…drawn straight DOWN, not grown — `grow` is inert off the nav row")
+	var want_alphas: Array = []
+	for layer in Kit.GLYPH_SHADOW:
+		want_alphas.append(snappedf(float(layer["a"]), 0.001))
+	plain_alphas.sort()
+	want_alphas.sort()
+	ok(plain_alphas == want_alphas,
+		"…at exactly the shared alphas %s (found %s)" % [str(want_alphas), str(plain_alphas)])
+	# …and the ACTIVE rim's fill is the row's own too: an action button that asks for a rim without naming a
+	# fill still gets the shared cream, so nothing but the nav row moved to white.
+	var rimmed := Kit.action_button("map", Vector2(120, 120), Callable(), {"active": true, "rim_px": 6.0})
+	var default_rim := rimmed.find_child("ActionButtonActiveRim", true, false) as Control
+	ok(default_rim != null and is_equal_approx(Color(default_rim.get("paper_color")).v, Color(Pal.CREAM).v)
+		and is_equal_approx(Color(default_rim.get("paper_color")).s, Color(Pal.CREAM).s),
+		"…and `rim_fill` defaults to the shared cream off the row (%s)"
+			% ["-" if default_rim == null else str(default_rim.get("paper_color"))])
+	rimmed.queue_free()
+	# the CHALK is the row's own too: the shared paper ROLES keep their fills, so no dialog, pill, board or
+	# shop surface moves. Compare the untouched role fill against what the row would have chalked it to.
+	var gold: Color = Kit.action_role_fill("play", {"play": "gold"})
+	ok(is_equal_approx(gold.s, Color(Pal.GOLD).s) and is_equal_approx(gold.v, Color(Pal.GOLD).v),
+		"the shared paper roles keep their fills — the chalk is applied at the nav call site only")
+	ok(NavBarKit.chalk(gold).s < gold.s and NavBarKit.chalk(gold).v > gold.v,
+		"…and the row's chalk really does lighten + desaturate it (s %.2f→%.2f, v %.2f→%.2f)"
+			% [gold.s, NavBarKit.chalk(gold).s, gold.v, NavBarKit.chalk(gold).v])
+	ok(is_equal_approx(NavBarKit.chalk(gold).h, gold.h),
+		"…preserving the hue exactly (a chalking pass, not a re-hue)")
+	plainb.queue_free()
+
+## The flare the sheet's outline actually carries: a least-squares fit of its HALF-width against y over
+## the straight-sided stretch [y_lo, y_hi], read out as the fractional width gain from the box's top edge
+## to its visible bottom. Fitting every sample point averages the torn edge's wobble out, which spot
+## samples cannot — the tear is ±deckle_amp on each side and swamps a two-point slope.
+func _flare_gain(pts: PackedVector2Array, cx: float, y_lo: float, y_hi: float, vis_h: float) -> float:
+	var n := 0.0
+	var sy := 0.0
+	var sh := 0.0
+	var syy := 0.0
+	var syh := 0.0
+	for p in pts:
+		if p.y < y_lo or p.y > y_hi:
+			continue
+		var h := absf(p.x - cx)
+		n += 1.0
+		sy += p.y
+		sh += h
+		syy += p.y * p.y
+		syh += p.y * h
+	var det := n * syy - sy * sy
+	if n < 8.0 or absf(det) < 0.001:
+		return 0.0
+	var b := (n * syh - sy * sh) / det        # half-width gained per px of height
+	var a := (sh - b * sy) / n                # half-width extrapolated back to the box's top edge
+	return 0.0 if absf(a) < 0.001 else b * vis_h / a
+
+## min/max x of the outline points whose y falls in [y0, y1] — the sheet's width across one band.
+func _span_x(pts: PackedVector2Array, y0: float, y1: float) -> Vector2:
+	var lo := INF
+	var hi := -INF
+	for p in pts:
+		if p.y >= y0 and p.y <= y1:
+			lo = minf(lo, p.x)
+			hi = maxf(hi, p.x)
+	return Vector2(0.0, 0.0) if lo > hi else Vector2(lo, hi)
 
 func _test_dock_collect_chip() -> void:
 	fresh("dock_collect_chip")
