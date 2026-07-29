@@ -14,6 +14,30 @@ op + every file move); **all judgment — classification, naming, params — goe
 by the agent. Scripts never guess. Raws are archived, never deleted. Map scenes are handed off to the
 scene pipeline in the guide, not auto-processed.
 
+## Seeing a change — headless first, then ONE batched capture
+
+Screenshots are the expensive last resort. Every capture is a real-renderer Godot launch on the
+owner's machine, and the owner is at the keyboard.
+
+1. **Assert it headlessly.** The suites build the real node tree with no window at all — a size, a
+   position, an order, a count, a colour is a test, not a screenshot. Reach for `make test-grove`
+   (or a new assertion in the matching suite) before reaching for a PNG.
+2. **When you must LOOK, batch it.** Write a plan and take every shot you need in one launch:
+
+   ```bash
+   printf '%s\n' 'grove hud /tmp/hud.png' 'grove played /tmp/played.png' 'map fresh /tmp/map.png' > /tmp/p.txt
+   make shot-batch PLAN=/tmp/p.txt
+   ```
+
+   Batchable tools: `grove`, `map`, `widget`. One launch instead of N (~1.3 s of boot each), and one
+   interruption instead of N. `make shot-grove` / `-map` / `-widget` / `shot` stay for the single
+   capture you did not plan for.
+3. **Compare like with like.** A batched capture and a single-process capture agree for a static
+   fixture, but a mode still ANIMATING at the capture instant can land on a different phase in a warm
+   process (measured: `grove ladder`). Take both halves of a before/after the same way.
+
+`make test` / `test-fast` / `test-grove` / `import` are headless: no window, no focus, run them freely.
+
 ## Testing — run `make test-fast` first
 
 After **every change**, run the fast inner-loop check before anything else:

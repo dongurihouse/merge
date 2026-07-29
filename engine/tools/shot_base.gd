@@ -1,6 +1,11 @@
 extends RefCounted
 ## The SHARED prologue + epilogue for every real-renderer screenshot tool.
 ##
+## BEFORE YOU REACH FOR A CAPTURE AT ALL: a real-renderer run is the expensive last resort. The
+## suites assert the real built node tree headlessly — no window, no launch, no interruption — so a
+## size, an order or a count belongs in a test, not in a PNG. When you do need to LOOK, take every
+## shot you need in ONE launch with `make shot-batch PLAN=<file>` (engine/tools/shot_batch.gd).
+##
 ## Every `*_shot.gd` used to carry a byte-identical ~28-line header (refusal guard, window flags,
 ## arg parse, WxH resize, temp-save wipe) and a copy of the capture tail. That copy-paste is what
 ## let four tools drift without the refusal guard, and what let the window-size race go unnoticed.
@@ -72,6 +77,26 @@ const RNG_SEED := 7
 ## onto a screen. See `hide_offscreen`.
 const OFFSCREEN := Vector2i(-32000, -32000)
 
+## --- BATCH MODE (engine/tools/shot_batch.gd) -----------------------------------------------------
+## One Godot boot costs ~1.3 s and a capture itself costs a fraction of that, so a session that takes
+## 160 screenshots spends most of its time booting — and every boot is a fresh window and a fresh
+## chance to interrupt the owner. `make shot-batch` runs many captures in ONE process by re-pointing
+## the live SceneTree's script at each tool in turn. Two things a tool must not do under that:
+##   * read OS.get_cmdline_user_args() — the process's args belong to the BATCH, not to the item, so
+##     `begin` reads `batch_args` when it is set;
+##   * quit — the first item would end the run, so a tool ends with `finish(tree)` instead of `quit()`.
+## Both are inert outside a batch: `batch_args` is empty and `finish` quits exactly like before.
+static var batch := false           ## true while shot_batch.gd is driving; makes `finish` not quit
+static var batch_args: Array = []   ## the current item's user args; empty ⇒ read the command line
+static var last_code := 0           ## the exit code the last `finish` was given (batch reads it)
+
+## End a capture. Outside a batch this is `tree.quit(code)`; inside one it records the code for the
+## runner and returns, so the next item can run in the same process.
+static func finish(tree: SceneTree, code: int = 0) -> void:
+	last_code = code
+	if not batch:
+		tree.quit(code)
+
 ## Park the window off every display. THIS is what makes a capture quiet, and it is not the same as
 ## minimizing:
 ##   * `window_set_mode(MINIMIZED)` plays macOS's genie animation SYNCHRONOUSLY — measured 560 ms
@@ -112,13 +137,13 @@ static func begin(tree: SceneTree, cfg: Dictionary) -> Dictionary:
 		print("REFUSED: real-renderer tools must run via engine/tools/quiet_godot.sh (the window is")
 		print("born 1x1 + focusless in a screen corner; in-script flags are too late and the window")
 		print("has already been drawn full-size across the screen). See ~/.claude/CLAUDE.md")
-		tree.quit(2)
+		finish(tree, 2)
 		return {}
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
 	hide_offscreen()
 	seed(int(cfg.get("seed", RNG_SEED)))   # pin the GLOBAL stream before any scene code can draw from it
 
-	var args := OS.get_cmdline_user_args()
+	var args: Array = batch_args if batch else Array(OS.get_cmdline_user_args())
 	var tool_name := String(cfg.get("tool", "shot"))
 	var has_mode: bool = cfg.has("default_mode")
 	var mode := ""
@@ -131,7 +156,7 @@ static func begin(tree: SceneTree, cfg: Dictionary) -> Dictionary:
 		if retired.has(mode):
 			print("  RETIRED: %s" % String(retired[mode]))
 		print("  valid modes: %s" % ", ".join(PackedStringArray(cfg["modes"])))
-		tree.quit(2)
+		finish(tree, 2)
 		return {}
 	# which positional carries the output path (a tool with extra positionals passes its own index)
 	var out_at := int(cfg.get("out_arg", 1 if has_mode else 0))

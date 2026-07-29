@@ -42,14 +42,15 @@ PY_TESTS     := tools/test_boot_splash_assets.py \
                 games/grove/tools/tests/test_extract_meadow_ui_v2.py \
                 games/tools/test_intake_apply.py \
                 tools/sfx_synth/test_synth.py \
-                tools/test_quiet_window.py
+                tools/test_quiet_window.py \
+                tools/test_shot_batch.py
 SH_TESTS     := tools/test_stamp_build_info.sh tools/test_xcode_cloud_ci.sh tools/test_grove_shot_parse.sh
 export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
 
 .DEFAULT_GOAL := help
 
 .PHONY: help run g g-phone debug editor w fx test test-fast test-config test-engine test-grove test-one smoke import bake bake-textures \
-        shot-map shot-grove shot-widget shot shot-workbench shot-fx-workbench sw shot-sw \
+        shot-map shot-grove shot-widget shot shot-batch shot-workbench shot-fx-workbench sw shot-sw \
         decor icon sfx sfx-test ios ios-plugins release-ios get-ios clean clean-cache intake intake-test c l
 
 help: ## list available targets
@@ -164,6 +165,9 @@ shot-widget: ## render board widgets in isolation (SEE a UI change cheaply):  ma
 
 shot: ## any quiet capture by path:  make shot TOOL=games/grove/tools/grove_shot ARGS="hud /tmp/x.png"
 	$(QUIET) --path $(PROJECT) -s res://$(TOOL).gd -- $(ARGS)
+
+shot-batch: ## MANY captures in ONE launch (prefer this):  make shot-batch PLAN=/tmp/plan.txt
+	$(QUIET) --path $(PROJECT) -s res://engine/tools/shot_batch.gd -- $(PLAN)
 
 shot-workbench: ## quiet screenshot of the UI workbench:  make shot-workbench [OUT=/tmp/ui_workbench.png] [EL=mystery]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/ui_workbench.gd -- $(or $(OUT),/tmp/ui_workbench.png) $(EL)

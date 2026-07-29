@@ -2,6 +2,9 @@
 ## Run godot WITHOUT stealing focus or showing a window — for screenshot/visual tools.
 ##   engine/tools/quiet_godot.sh --path . -s res://games/grove/tools/grove_shot.gd -- hud /tmp/x.png
 ##
+## PREFER `make shot-batch PLAN=<file>`: many captures in ONE launch. A capture costs a fraction of
+## a second on top of ~1.3 s of boot, and each launch is a separate interruption. See CLAUDE.md.
+##
 ## How: drops a temporary override.cfg so the window is BORN 1x1, borderless, no-focus,
 ## and pinned to the far corner — geometry applied at window creation, because script
 ## code runs ~460 ms after the window is already composited. Godot CLAMPS a birth
@@ -19,10 +22,17 @@
 ##   shot-workbench        ~2520 ms of 1840x982             240 ms of 3x3 at the corner
 ##   shot-sw / -fx-wb   ~880 / ~1200 ms of ~1500x982        240 ms of 3x3 at the corner
 ##
-## NOT zero, and the residue is the floor, not an oversight: macOS reports the 1x1 window's
-## frame one point larger on every side, so a single corner POINT of it touches the screen
-## for the ~240 ms of engine boot before begin() runs. 1 pt^2 against the old 1,239,000.
-## A window cannot be born fully off-screen here — Godot's birth clamp sees to that.
+## The 1 pt^2 of corner fringe those numbers describe is now 0 as well: a process that is not a
+## foreground application (see FOCUS below) has its off-screen window composited nowhere at all.
+##
+## FOCUS is a SEPARATE problem from visibility, and hiding the window never solved it. The capture
+## also became the FRONTMOST APPLICATION — measured, 9,505 ms of a 21 s ten-capture session, worst
+## single hold 1,571 ms — because Launch Services activates a freshly launched REGULAR application
+## when it checks in. `window/size/no_focus` cannot veto that: it is a WINDOW flag and the theft is
+## at the APPLICATION level. engine/tools/nofocus_shim.m, injected below, holds the process at
+## activation policy Prohibited instead. AFTER, over the same ten captures: one ~15-25 ms activation
+## per launch (178 ms total, NSWorkspace activate/deactivate notifications), and the frontmost
+## application polled every 2 ms was never the capture. tools/test_quiet_window.py measures both.
 ##
 ## The old recipe's ~1000 ms was ~460 ms of engine boot plus ~560 ms of macOS's SYNCHRONOUS
 ## minimize animation. `window/size/mode=1` never worked: window_get_mode() read WINDOWED at
@@ -96,6 +106,31 @@ FPS_ARGS=()
 # whatever `godot` happened to be on PATH (a different engine build), while `make test`
 # with the same override used the pinned one.
 GODOT_BIN="${GODOT:-godot}"
+# FOCUS: keep this run from ever becoming the frontmost application. The engine activates
+# ITSELF (DisplayServerMacOS sets the activation policy to Regular and calls
+# activateIgnoringOtherApps: ~1-1.5 s into boot), which no project setting can veto — measured,
+# a single capture then held the owner's keyboard for the rest of the run. engine/tools/
+# nofocus_shim.m is DYLD_INSERT_LIBRARIES'd in to pin the policy Prohibited instead. Built on
+# demand, cached, and entirely optional: no clang, or a compile failure, and the run proceeds
+# exactly as before (with a warning). TU_NOFOCUS=0 opts out.
+# NB the export has to happen HERE, inside the script: bash is SIP-restricted and purges DYLD_*
+# from its own inherited environment, so setting it on the caller's command line does nothing.
+SHIM_SRC="$DIR/engine/tools/nofocus_shim.m"
+SHIM_LIB="$DIR/engine/generated/tu_nofocus.dylib"
+if [ "${TU_NOFOCUS:-1}" = "1" ] && [ -f "$SHIM_SRC" ]; then
+  if [ ! -f "$SHIM_LIB" ] || [ "$SHIM_SRC" -nt "$SHIM_LIB" ]; then
+    mkdir -p "$(dirname "$SHIM_LIB")"
+    if command -v clang >/dev/null 2>&1; then
+      clang -dynamiclib -O2 -fobjc-arc -framework AppKit -framework Foundation \
+        -o "$SHIM_LIB" "$SHIM_SRC" 2>/dev/null || rm -f "$SHIM_LIB"
+    fi
+  fi
+  if [ -f "$SHIM_LIB" ]; then
+    export DYLD_INSERT_LIBRARIES="$SHIM_LIB"
+  else
+    echo "warn: no focus shim (clang missing or build failed) — this capture may steal focus" >&2
+  fi
+fi
 if [ "${WITH_AUDIO:-0}" = "1" ]; then
   "$GODOT_BIN" "${FPS_ARGS[@]}" "$@" &
 else

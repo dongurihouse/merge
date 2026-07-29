@@ -2,6 +2,7 @@ extends SceneTree
 ## Dev tool (run via engine/tools/quiet_godot.sh): screenshot the Map scene (home map) in a state.
 ##   quiet_godot.sh --path . -s res://games/grove/tools/map_shot.gd -- <mode> <out.png>
 ## modes: fresh | select | maps | closeup | progress | owned | shop | settings | spirits | vault
+## BATCH IT: several captures in one launch is `make shot-batch PLAN=<file>` (this tool is batch-safe).
 
 const Base = preload("res://engine/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -267,4 +268,4 @@ func _initialize() -> void:
 	# Report the LIVE clock (level + the lifetime organic coins it derives from), not the retired
 	# grove["exp"] — a capture that seeded the wrong clock used to print a plausible line and a Level-1 PNG.
 	print("SHOT saved=%s err=%d level=%d coins_earned=%d" % [out, err, G.level(), Save.coins_earned_lifetime()])
-	quit()
+	Base.finish(self)
