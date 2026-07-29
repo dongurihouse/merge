@@ -1631,6 +1631,19 @@ static func treat_gen_id(line: int) -> String:
 static func treat_line_of(id: String) -> int:
 	return int(id.trim_prefix("treat_")) if is_treat_gen(id) else 0
 
+## The item line a generator MAKES — the one answer across all three on-board generator kinds, so
+## "tap a generator → open its tier ladder" (board.gd's ⓘ) has a single source of truth:
+##   ACCUMULATOR   → 0. It banks a currency, not an item line, so it HAS no ladder (ⓘ stays hidden).
+##   TREAT gen     → its own treasure line (the temp gen pops that line and nothing else).
+##   normal gen    → its rostered base line (one line per generator since the gen redesign).
+## 0 always means "no line to show".
+static func gen_made_line(id: String) -> int:
+	if is_accumulator(id):
+		return 0
+	if is_treat_gen(id):
+		return treat_line_of(id)
+	return int(gen_def(GENERATORS, id).get("line", 0))
+
 # --- progression ------------------------------------------------------------------
 # The ONE clock is exp (§3): one uncapped Level, derived from the cumulative exp total via
 # level_for_exp / exp_at_level (defined above). The old stars-named forms are retired.

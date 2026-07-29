@@ -33,7 +33,6 @@ const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const BoardFit = preload("res://engine/scripts/ui/board_fit.gd")
 const BagOverlay = preload("res://engine/scripts/ui/bag_overlay.gd")   # the tap-to-open full bag (replaces the inline row)
 const Ladder = preload("res://engine/scripts/ui/ladder.gd")
-const GenLines = preload("res://engine/scripts/ui/gen_lines.gd")
 const MasteryRankup = preload("res://engine/scripts/ui/mastery_rankup.gd")
 const MasteryRing = preload("res://engine/scripts/ui/mastery_ring.gd")
 const SplitPreview = preload("res://engine/scripts/ui/split_preview.gd")
@@ -1715,10 +1714,6 @@ func _mark_seen(code: int) -> void:
 # [{tier, code, seen}] for a line's full ladder (pure — tests use it directly).
 func _ladder_entries(line: int) -> Array:
 	return Quests.ladder_entries(Save.grove().get("seen", {}), line)
-
-# [{line, seen, in_pool, code}] for the Producing dialog.
-func _gen_line_entries(gid: String) -> Array:
-	return Quests.gen_line_entries(gid, Save.grove().get("seen", {}))
 
 # water regen rule lives in BoardLogic; apply the returned state to ours
 func _apply_regen(now: float) -> void:
@@ -4286,10 +4281,12 @@ func _select_generator(cell: Vector2i) -> void:
 			var desc := G.generator_description(gid)
 			_info_desc_label.text = desc
 			_info_desc_label.visible = desc != ""
-	var entries := _gen_line_entries(gid)
-	var show_info_btn := not entries.is_empty() and not _info_button_hidden
+	# ⓘ opens THIS generator's line ladder — so it only shows when the generator makes a line at all
+	# (an accumulator banks a currency, has no line, and keeps the button hidden), or when the
+	# workbench has hidden it.
+	var show_info_btn := _gen_line(gid) > 0 and not _info_button_hidden
 	_info_btn.visible = show_info_btn
-	_info_btn.disabled = not show_info_btn     # ⓘ opens the line ladder unless empty or hidden in the workbench
+	_info_btn.disabled = not show_info_btn
 	if _info_buy != null and is_instance_valid(_info_buy):
 		_info_buy.visible = false             # a generator is never buyable as a copy
 	_hide_soil_chips()
@@ -4645,15 +4642,12 @@ func _on_info_pressed() -> void:
 	if board.is_gen(_selected_cell):
 		if not Features.on("discovery_ladder"):
 			return                                # the drill-down opens tier ladders, gated by the same flag
-		var entries := _gen_line_entries(board.gen_id_at(_selected_cell))
-		if entries.is_empty():
-			return
-		# the Producing dialog lists what this generator currently makes; tapping a line drills into its ladder
-		# (opened on top — closing it returns here). The dialog STAYS open behind the ladder.
-		GenLines.open(self, {
-			"entries": entries,
-			"on_line": func(line: int) -> void: _open_ladder(line, 1),
-		})
+		# A generator makes exactly ONE line, so go straight to that line's Tiers ladder — the old
+		# Producing grid stood between the tap and the ladder to communicate a single cell. (An
+		# accumulator makes no line and reads 0; its ⓘ is hidden, and this refuses anyway.)
+		var gen_line := _gen_line(board.gen_id_at(_selected_cell))
+		if gen_line > 0:
+			_open_ladder(gen_line, 1)
 		return
 	var code := board.item_at(_selected_cell)
 	if code <= 0:
@@ -4821,9 +4815,10 @@ func _make_generator(id: String, hl: Dictionary = {}) -> Control:
 	_attach_mastery_chrome(gn, String(id))
 	return gn
 
+# The line a generator MAKES, over all three on-board kinds (accumulator → 0, treat gen → its treasure
+# line, normal gen → its rostered base line). Pure rule in G so the tests can assert it without a scene.
 func _gen_line(gid: String) -> int:
-	var def := G.gen_def(G.GENERATORS, gid)
-	return int(def.get("line", 0))
+	return G.gen_made_line(gid)
 
 func _line_color(line: int) -> Color:
 	var def: Dictionary = G.LINES.get(line, {})

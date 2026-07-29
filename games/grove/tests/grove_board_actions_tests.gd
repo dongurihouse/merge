@@ -29,6 +29,7 @@ func _initialize() -> void:
 	_test_generator_swaps()
 	await _test_info_bar_max_tier_subtitle()
 	await _test_gen_info_max_mastery_badge()
+	await _test_generator_info_opens_its_own_ladder()
 	await _test_opened_cell_face_draws_above_mat()
 	await _test_sweep_holds_the_wallet_while_the_payout_flies()
 	finish()
@@ -595,6 +596,65 @@ func _test_gen_info_max_mastery_badge() -> void:
 	scn._select_generator(gcell)
 	var mid_title := String(scn._info_label.text)
 	ok(mid_title.ends_with("· Tier 1"), "a below-max generator still wears its mastery tier number (got %s)" % mid_title)
+	await drop(scn)
+
+# Tapping a GENERATOR opens THAT generator's own line ladder — one step, no chooser. (The retired
+# "Producing" grid used to sit in between and render one cell per line in the WHOLE game, for a
+# generator that makes exactly one.) An ACCUMULATOR banks a currency and makes no line at all, so it
+# opens nothing and its ⓘ stays hidden — the case the old empty-entries guard used to cover.
+# Scene-only: the overlay + the info bar's button state are what this is about.
+func _test_generator_info_opens_its_own_ladder() -> void:
+	fresh("gen_info_opens_own_ladder")
+	Save.mark_board_tutorial_seen()
+	await process_frame
+	var scn = board_host()
+	await process_frame
+	scn._rebuild_all()
+	var gcell := Vector2i(-1, -1)
+	for c in scn.board.gens.keys():
+		if scn._gen_line(scn.board.gen_id_at(c)) == 1:
+			gcell = c
+			break
+	ok(gcell.x >= 0, "fixture: the board seeds the line-1 generator")
+	var gid := String(scn.board.gen_id_at(gcell))
+
+	# the shipped kit config hides the floating ⓘ outright (hide_info_button), so clear that knob to
+	# assert the RULE the gate encodes: a generator with a line to show offers the button.
+	scn._info_button_hidden = false
+	scn._select_generator(gcell)
+	ok(scn._info_btn.visible and not scn._info_btn.disabled,
+		"a generator that MAKES a line offers the ⓘ")
+
+	scn._on_info_pressed()
+	await process_frame
+	var lad: Node = scn.get_node_or_null("LadderOverlay")
+	ok(lad != null, "tapping a generator's info opens a tier ladder")
+	ok(scn.get_node_or_null("GenLinesOverlay") == null, "...and NOT the retired Producing grid")
+	ok(lad != null and String(lad.get_meta("ladder_kind", "")) == "tiers",
+		"...the TIERS ladder, not a recipe view")
+	ok(lad != null and String(lad.get_meta("header_gid", "")) == gid,
+		"...headed by the tapped generator itself, so it is ITS OWN line (%s)" % gid)
+	if lad != null:
+		lad.queue_free()
+	await process_frame
+
+	# An accumulator rides the same generator infra but banks coins/water/acorns — no item line.
+	var acc_kinds: Array = G.ACCUMULATORS.keys()
+	var acc_id := String((G.ACCUMULATORS[acc_kinds[0]] as Dictionary).get("id", ""))
+	ok(G.gen_made_line(acc_id) == 0, "fixture: an accumulator makes no line")
+	var acc_cells: Array = scn.board.empty_ground_cells()
+	ok(not acc_cells.is_empty(), "fixture: the board has room for the accumulator")
+	var acell := Vector2i(acc_cells[0])
+	scn.board.place_gen(acc_id, acell)
+	scn._rebuild_all()
+	await process_frame
+	scn._select_generator(acell)
+	ok(not scn._info_btn.visible and scn._info_btn.disabled,
+		"an ACCUMULATOR has no line to show, so its ⓘ stays hidden even with the workbench knob off")
+	scn._on_info_pressed()
+	await process_frame
+	ok(scn.get_node_or_null("LadderOverlay") == null,
+		"...and its info tap opens nothing at all")
 	await drop(scn)
 
 # A cell opened in the SAME FRAME as a full rebuild must still show its cream tile face. `queue_free`

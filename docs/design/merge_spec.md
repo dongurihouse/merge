@@ -272,7 +272,8 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 > source: the 2026-06-28 session. Ships **one change at a time** (order at the
 > end of this box). Implementation map: `grove_data.gd` (tables), `content.gd` (`due_generators`,
 > pop/odds), `board.gd` (`_pop_seed`, `_produce_due_generators`, `_release_gen`), `habitat.gd`
-> (accumulators → removed), `gen_lines.gd` (tier dialog), `grove_sim.gd`.
+> (accumulators → removed), `ladder.gd` (tier dialog — a generator's ⓘ opens its own line's ladder;
+> the `gen_lines.gd` "Producing" grid it used to open was retired 2026-07-28), `grove_sim.gd`.
 >
 > **A. One generator per line; it pops ONLY that line.** Every base line has its **own** generator that
 > pops **only** that line — no rolling-window union, no `POP_LINE_CAP` pop pool. Tap → a burst of that one

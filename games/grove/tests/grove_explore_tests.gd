@@ -516,7 +516,7 @@ func _test_quest_unused_generator_fade() -> void:
 		"a bagged generator whose line a live quest asks for breathes")
 	# board parity: the dialogs' cell content spans the kit-fitted size (inset 0) so the shared
 	# content_frac reads the same on the board, in the bag, and on the tier screens.
-	for dlg_src_path in ["res://engine/scripts/ui/bag_overlay.gd", "res://engine/scripts/ui/ladder.gd", "res://engine/scripts/ui/gen_lines.gd"]:
+	for dlg_src_path in ["res://engine/scripts/ui/bag_overlay.gd", "res://engine/scripts/ui/ladder.gd", "res://engine/scripts/ui/almanac.gd"]:
 		var dlg_src := FileAccess.get_file_as_string(dlg_src_path)
 		ok(dlg_src.find(", 0.0)") != -1 and dlg_src.find("make_piece(") != -1,
 			"%s builds its cell piece at inset 0 (shared content_frac parity)" % dlg_src_path.get_file())

@@ -2458,7 +2458,7 @@ const TORN_CELL_KNOBS := [
 	{"key": "cream_fill",      "kind": "color",  "label": "Card color",     "default": "F1E6D2"},
 	# the OPEN cell's face style: ON = the green inner well cutout; OFF = the plain cream card (the
 	# locked cell's face without the lock). One saved knob — every surface that builds torn cells
-	# (main board, bag, tiers, residents, producing) reads it through torn_cell_opts_from_config.
+	# (main board, bag, tiers, residents, almanac) reads it through torn_cell_opts_from_config.
 	{"key": "well",            "kind": "toggle", "label": "Green well",     "default": true},
 	{"key": "well_fill",       "kind": "color",  "label": "Well color",     "default": "A6C486"},
 	{"key": "inner_inset",     "kind": "slider", "label": "Well inset",     "min": 2,  "max": 40,  "default": 14},

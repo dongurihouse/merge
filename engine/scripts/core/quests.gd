@@ -290,7 +290,7 @@ static func mark_seen(g: Dictionary, code: int) -> void:
 		g["seen"] = {}
 	g["seen"][str(code)] = true
 
-# The lowest tier of `line` the player has discovered (its representative piece for the Producing cell), or 0
+# The lowest tier of `line` the player has discovered (its representative piece for an Almanac cell), or 0
 # if the line is wholly unseen. Pure off the seen set.
 static func lowest_seen_code(line: int, seen: Dictionary) -> int:
 	for t in range(1, G.TOP_TIER + 1):
@@ -298,35 +298,6 @@ static func lowest_seen_code(line: int, seen: Dictionary) -> int:
 		if seen.has(str(code)):
 			return code
 	return 0
-
-# [{line, seen, in_pool, code}] for the Producing dialog. Normal generators SHOW ALL: one entry per line
-# in the WHOLE game (every generator / every map, in roster order), so the panel reads as the full
-# collection roadmap. Treat generators show only their treasure line; accumulator generators return no
-# entries because they bank currency, not item lines. `seen`/`code` carry the lowest-seen tier for the piece.
-static func gen_line_entries(gid: String, seen: Dictionary) -> Array:
-	var pool: Array = []
-	var out: Array = []
-	var added := {}
-	var lines: Array = []
-	if G.is_accumulator(gid):
-		return out
-	if G.is_treat_gen(gid):
-		var treat_line := G.treat_line_of(gid)
-		lines.append(treat_line)
-		pool = [treat_line] if treat_line > 0 else []
-	else:
-		var selected_line := int(G.gen_def(G.GENERATORS, gid).get("line", 0))
-		pool = [selected_line] if selected_line > 0 else []
-		for gen in G.GENERATORS:
-			lines.append(int(gen.get("line", 0)))   # gen redesign: one line per generator (was lines[])
-	for l in lines:
-		var line := int(l)
-		if added.has(line) or not G.LINES.has(line):
-			continue                      # a line lives on one generator, but guard against roster overlap
-		added[line] = true
-		var code := lowest_seen_code(line, seen)
-		out.append({"line": line, "seen": code > 0, "in_pool": pool.has(line), "code": code})
-	return out
 
 # #9 / #15: the tier dialog's header DESCRIPTOR — the GENERATOR that makes a base line ({kind:"generator"}),
 # the two-ingredient RECIPE for a crafted special line ({kind:"recipe", lines:[a,b]}), else a plain title.
