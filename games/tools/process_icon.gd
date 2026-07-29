@@ -1,7 +1,7 @@
 extends SceneTree
 ## Dev tool: process a raw LLM-generated icon into a clean, square, transparent PNG.
 ##
-##   godot --headless --path . -s res://games/tools/process_icon.gd -- <input.png> <output_res_path> [size]
+##   godot --headless --path . -s res://games/tools/process_icon.gd -- <input.png> <output_res_path> [size] [--bottom] [--despill]
 ##
 ## Examples:
 ##   godot --headless --path . -s res://games/tools/process_icon.gd -- /tmp/raw.png res://games/grove/assets/ui/drawer_books.png
@@ -27,14 +27,21 @@ func _initialize() -> void:
 	# --bottom: anchor the trimmed art to the canvas BOTTOM (slack to the top) instead of
 	# centering — keeps a shared baseline for parts composited bottom-up (e.g. level badges).
 	var anchor_bottom := false
+	# --despill: re-apply the guide's §8 magenta despill AFTER the resize. Un-premultiplying at low
+	# alpha re-amplifies Lanczos ring into a fresh key tint on the cut edge, so a sheet that was
+	# clean when it left the keyer can still ship a magenta rim. Opt-in: it is only correct for a
+	# MAGENTA-keyed source (a green-keyed purple/pink asset must not be clamped this way).
+	var despill := false
 	var args: PackedStringArray = []
 	for a0 in raw:
 		if a0 == "--bottom":
 			anchor_bottom = true
+		elif a0 == "--despill":
+			despill = true
 		else:
 			args.append(a0)
 	if args.size() < 2:
-		print("usage: process_icon <input.png> <output_res_path_or_abs> [size] [--bottom]")
+		print("usage: process_icon <input.png> <output_res_path_or_abs> [size] [--bottom] [--despill]")
 		quit(1); return
 	var src: String = args[0]
 	var out: String = args[1]
@@ -91,6 +98,7 @@ func _initialize() -> void:
 	var nh: int = maxi(1, int(round(ch * scale)))
 	crop.resize(nw, nh, Image.INTERPOLATE_LANCZOS)
 	ImgOps.unpremultiply(crop)
+	var despilled := ImgOps.despill_magenta(crop) if despill else 0
 	var canvas := Image.create(tw, th, false, Image.FORMAT_RGBA8)
 	canvas.fill(Color(0, 0, 0, 0))
 	var off_y := (th - nh) if anchor_bottom else (th - nh) / 2     # bottom-flush vs centered
@@ -99,5 +107,5 @@ func _initialize() -> void:
 	# ensure parent dir exists (for nested output paths)
 	DirAccess.make_dir_recursive_absolute(out_abs.get_base_dir())
 	canvas.save_png(out_abs)
-	print("WROTE %s  removed_bg_px=%d  trimmed=%dx%d  out=%dx%d" % [out_abs, removed, cw, ch, tw, th])
+	print("WROTE %s  removed_bg_px=%d  trimmed=%dx%d  out=%dx%d  despilled_px=%d" % [out_abs, removed, cw, ch, tw, th, despilled])
 	quit()

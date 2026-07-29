@@ -1,0 +1,17 @@
+{
+  "source": "_new/nav_paper_candidates_v1/paper_tile_nav_coldpress.png",
+  "category": "decor",
+  "params": {
+    "w": 1254,
+    "h": 1254,
+    "opaque": true
+  },
+  "_note": "CANDIDATE nav-tab paper fibre (coldpress): cold-press watercolour tooth \u2014 irregular pits and plateaus, the most energetic of the three (sigma 3.50 against the shipping tile's 2.75). Generated with codex against the \u00a72 STYLE BLOCK (prompt kept beside the raw as paper_tile_nav_coldpress_prompt.txt, raw as *_raw.png), then prepped deterministically by games/tools/paper_tile_prep.py \u2014 a smoothstep mirror crossfade over the two trailing 48 px edge strips so the tile WRAPS (measured wrap step 0.00 on both axes, against 3.09/3.88 for the shipping soft-cream tile), and an ADDITIVE per-channel shift onto the shipping tile's mean (243.7,237.4,224.5) so the comparison isolates the fibre and no tab fill re-tints. Fine-grain sigma (luma minus a 3 px box blur) = 3.50; shipping tile 2.75, concept mock ~2.7. Category decor at native 1254 square with --opaque is a positional full-bleed pass-through: the tile is sampled at NATIVE 1:1 with TEXTURE_REPEAT_ENABLED, so it must not be trimmed, centred or rescaled. NOT live \u2014 Kit.ACTION_TILE still selects soft_cream; delete the unpicked candidates once the owner chooses.",
+  "outputs": [
+    {
+      "name": "paper_tile_nav_coldpress",
+      "path": "ui/nav/paper/paper_tile_nav_coldpress.png"
+    }
+  ],
+  "archive": "_originals/ui/paper_tile_nav_coldpress.png"
+}

@@ -1,0 +1,48 @@
+{
+  "source": "_new/action_button_glyphs_v3/action_button_glyphs_v3_sheet_raw.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": {
+    "key": "#FF00FF",
+    "tol": 0.22,
+    "hue": true,
+    "soft": 30,
+    "hard": 110,
+    "min_area": 3000,
+    "pad": 8
+  },
+  "_note": "The 5 LIVE nav-row glyph masters regenerated in one codex batch (docs/design/art-style-guide.md \u00a710d) to replace action_button_glyphs_v2, which shipped a continuous warm-cream sticker ring around every silhouette (measured on glyph_map: edge-ring mean RGB (207,164,103) against an interior of (165,166,118)) plus a baked shadow \u2014 both explicit \u00a72 STYLE BLOCK / \u00a70 violations. The v3 prompt (kept beside the raw as action_button_glyphs_v3_prompt.txt) forbids any outer keyline and any baked shadow, and keeps the v2 subjects so the row still reads. Containment verified pre-cut: 5 islands, zero subject pixels on a canvas edge, minimum clearance 53 px (right of the play triangle) and >= 57 px between neighbours. Island indices READ FROM slice_islands (it bands by y0/80 before sorting by x, and the sheet's icons do not share one band): 0 -> 448,220 residents; 1 -> 864,204 daily; 2 -> 56,237 map; 3 -> 1284,287 mail; 4 -> 1698,269 play. Assuming plain left-to-right order here shipped the house on the Map tab. Keyed in BOTH chroma_key passes (key/tol then hue, see intake_apply.matte_passes): the distance pass alone left 1543-2739 visible px per glyph with min(R,B)-G > 40 along the anti-aliased silhouette, and the hue pass alone left a 1832 px magenta pocket walled in under the cottage's left eave that no border flood can reach. Both are \u00a78 gate zero-counts, so the plan asks for both passes. Post-op is icon:512:DESPILL: un-premultiplying after the 1.5x upscale re-amplifies Lanczos ring on the cut edge (min(R,B)-G went 15 -> 52 on the daily glyph's left edge), so the \u00a78 despill is re-applied after the resize.",
+  "outputs": [
+    {
+      "island": 0,
+      "name": "glyph_residents",
+      "path": "ui/nav/glyphs/glyph_residents.png",
+      "post": "icon:512:despill"
+    },
+    {
+      "island": 1,
+      "name": "glyph_daily",
+      "path": "ui/nav/glyphs/glyph_daily.png",
+      "post": "icon:512:despill"
+    },
+    {
+      "island": 2,
+      "name": "glyph_map",
+      "path": "ui/nav/glyphs/glyph_map.png",
+      "post": "icon:512:despill"
+    },
+    {
+      "island": 3,
+      "name": "glyph_mail",
+      "path": "ui/nav/glyphs/glyph_mail.png",
+      "post": "icon:512:despill"
+    },
+    {
+      "island": 4,
+      "name": "glyph_play",
+      "path": "ui/nav/glyphs/glyph_play.png",
+      "post": "icon:512:despill"
+    }
+  ],
+  "archive": "_originals/ui/action_button_glyphs_v3_sheet_raw.png"
+}

@@ -27,10 +27,10 @@ The docs this replaces disagreed. These are the decisions; the rest of the guide
 Every world-scene or mock generation must attach these two images with **explicit, separate roles** —
 never "just match the references":
 
-1. **Palette & material authority** — `games/grove/assets/_new/ui_redesign_direction_b/palette_studies_board_v1/palette_a_meadow_sky_board.png`
+1. **Palette & material authority** — `games/grove/assets/_concepts/screens/palette_a_meadow_sky_board.png`
    Controls palette relationships, matte paper treatment, warm cut edges, UI surfaces, shallow shadows.
    Does **not** control world layout or content.
-2. **Camera / scale / detail-budget authority** — `games/grove/assets/_new/ui_redesign_direction_b/screen_reference_pack_meadow_sky_v1/home_screen_meadow_sky_v2_working_farm.png`
+2. **Camera / scale / detail-budget authority** — `games/grove/assets/_concepts/screens/home_screen_meadow_sky_v2_working_farm.png`
    Controls the elevated three-quarter camera, common object scale, landscape integration, silhouette
    simplicity, vegetation ceiling, detail budget. Does **not** authorize copying its buildings, paths,
    UI, or farm theme.
@@ -1116,12 +1116,16 @@ specials cap at **t5** borrowed / **t6** on their own page. Per-item stage recip
 **not** here — they change every economy pass; see `docs/design/picturebook_lines_recipes.md`.
 
 **Approved visual examples.**
-- Palette/material: `…/palette_studies_board_v1/palette_a_meadow_sky_board.png`
-- Camera/scale: `…/screen_reference_pack_meadow_sky_v1/home_screen_meadow_sky_v2_working_farm.png`
-- Distinct-zone composition: `…/zone_reference_pack_meadow_sky_v3/`
-- Lived-in clearing + separated customization footprints: `…/journey_clearing_mocks_v1/edge_glade_mock_v4_customizable.png`
+- Palette/material: `games/grove/assets/_concepts/screens/palette_a_meadow_sky_board.png`
+- Camera/scale: `games/grove/assets/_concepts/screens/home_screen_meadow_sky_v2_working_farm.png`
+- Lived-in clearing + separated customization footprints:
+  `games/grove/assets/_new/ui_redesign_direction_b/edge_glade_layered_work_v1/edge_glade_dressed_reference.png`
   (a composition reference, **not** a universal layout template — new zones keep the shared art system but
   change path topology, landmark distribution, hero placement, and silhouette families).
+
+Paths above are the ones that resolve on disk. The retired `zone_reference_pack_meadow_sky_v3/`,
+`journey_clearing_mocks_v1/`, `palette_studies_board_v1/` and `screen_reference_pack_meadow_sky_v1/`
+folders no longer exist; for a distinct-zone composition read the §11c–g case-study bundles instead.
 
 **Legacy policy.** Art generated in the retired Direction-F painterly style (current item lines, residents,
 special items, generators, most icons) is **grandfathered**. It is not retro-fitted on a schedule; replace

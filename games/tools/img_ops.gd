@@ -50,6 +50,53 @@ static func is_bg(c: Color, max_val: float, max_sat: float, alpha_min: float) ->
 	var sat: float = 0.0 if mx <= 0.0 else (mx - mn) / mx
 	return mx > max_val and sat < max_sat
 
+## MAGENTA DESPILL (guide §8 edge treatment, step 2) — the GDScript twin of
+## slice_item_lines.despill_edge, with its measured constants. Clamp R and B toward G, but ONLY in
+## a pixel that is (a) within DESPILL_BAND px of transparency and (b) actually key-tinted
+## (min(R,B) - G > DESPILL_EXCESS). Both guards are load-bearing: an unconditional clamp is not a
+## despill, it is a recolour — coral #D87865 has R 216 against G 120, so `R <= G + 15` would drag
+## every coral plane in the art to brown. Interior pink/purple is never touched; an enclosed key
+## pocket is the pocket check's job, not this one's.
+##
+## It has to run AFTER a resize as well as at the key. Un-premultiplying at low alpha re-amplifies
+## Lanczos ring: the G channel carries the largest local contrast at a cut edge, so its negative
+## lobe undershoots hardest and the boundary pixel drifts magenta again — measured on a nav glyph,
+## min(R,B) - G went from 15 on the keyed sheet to 52 after the 334 -> 512 upscale.
+const DESPILL_D := 15                       # 8-bit headroom over G that R and B may keep
+const DESPILL_EXCESS := 20                  # …applied only above this much magenta excess
+const DESPILL_BAND := 3                     # …and only this many px from a transparent pixel
+
+static func despill_magenta(im: Image, alpha_min: float = ALPHA_MIN_F) -> int:
+	var w := im.get_width()
+	var h := im.get_height()
+	# the alpha-edge band: a visible pixel with a transparent one within DESPILL_BAND
+	var near_clear := PackedByteArray()
+	near_clear.resize(w * h)
+	for y in h:
+		for x in w:
+			if im.get_pixel(x, y).a >= alpha_min:
+				continue
+			for dy in range(-DESPILL_BAND, DESPILL_BAND + 1):
+				for dx in range(-DESPILL_BAND, DESPILL_BAND + 1):
+					var nx := x + dx
+					var ny := y + dy
+					if nx >= 0 and ny >= 0 and nx < w and ny < h:
+						near_clear[ny * w + nx] = 1
+	var touched := 0
+	var d: float = float(DESPILL_D) / 255.0
+	var e: float = float(DESPILL_EXCESS) / 255.0
+	for y2 in h:
+		for x2 in w:
+			if near_clear[y2 * w + x2] == 0:
+				continue
+			var c := im.get_pixel(x2, y2)
+			if c.a < alpha_min or minf(c.r, c.b) - c.g <= e:
+				continue
+			var cap: float = c.g + d
+			im.set_pixel(x2, y2, Color(minf(c.r, cap), c.g, minf(c.b, cap), c.a))
+			touched += 1
+	return touched
+
 ## RGB *= A, so a coverage-weighted resize can't pull in the cleared black background.
 static func premultiply(im: Image) -> void:
 	for y in im.get_height():

@@ -3013,8 +3013,20 @@ static func _style_scrollbar(scroll: ScrollContainer) -> void:
 ## so every existing caller (mail/daily/shop/settings on parchment; tiers on its own art) is unchanged.
 const CUT_PAPER_TILE_OLD_CREAM := "res://games/grove/assets/ui/dialogs/paper_tile_cream.png"   # legacy yellow-cream fibre
 const CUT_PAPER_TILE_WHITE := "res://games/grove/assets/ui/dialogs/paper_tile_white.png"   # the white paper role's fibre (desaturated + lifted from the cream tile)
-const CUT_PAPER_TILE_SOFT_CREAM := "res://games/grove/assets/ui/dialogs/paper_tile_soft_cream.png"   # shared frame fibre: between white and the old yellow cream
+## The shared frame fibre: between white and the old yellow cream. Every cut-paper surface in the
+## game — dialogs, pills, cards, and the nav tab faces — multiplies its fill by THIS one tile.
+##
+## It WRAPS acceptably, and that was checked rather than assumed. `CutPaperPanel` samples it with
+## TEXTURE_REPEAT_ENABLED at native 1:1, so a surface wider or taller than the tile's 1254 px repeats
+## it. Measured on the seam: mean |Δ| across the wrap is 2.94 px-levels horizontally / 3.71 vertically
+## — but the mean |Δ| between any two ADJACENT INTERIOR columns/rows is 2.93 / 3.61, so the join is
+## indistinguishable from ordinary fibre noise. The low-frequency check agrees: local mean drift across
+## the seam is 0.09 / 0.41 of 255, and after a 9 px blur the seam's gradient (0.24 / 0.29) sits below
+## the interior p99 (0.58 / 0.77). A raw wrap step measured WITHOUT that interior baseline reads as a
+## defect and is not one — do not "fix" this tile with an edge crossfade on that evidence alone.
+const CUT_PAPER_TILE_SOFT_CREAM := "res://games/grove/assets/ui/dialogs/paper_tile_soft_cream.png"
 const CUT_PAPER_TILE := CUT_PAPER_TILE_SOFT_CREAM   # code-drawn shared sheet's paper fibre
+
 const FRAME_BORDERS := {
 	"parchment":  {"art": "meadow_v2/dialog_panel.png", "slice": 42.0, "pad_x": 26.0, "pad_y": 24.0},
 	"vault twig": {"art": "kit/vault_panel.png",        "slice": 64.0, "pad_x": 40.0, "pad_y": 34.0},

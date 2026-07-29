@@ -87,6 +87,8 @@ def icon_args(src_abs: str, out_abs: str, params: dict) -> list[str]:
         a += [str(size)]
     if params.get("anchor") == "bottom":
         a.append("--bottom")     # process_icon anchors the trimmed art to the canvas bottom
+    if params.get("despill"):
+        a.append("--despill")    # …and re-applies the §8 magenta despill after the resize
     return a
 
 
@@ -127,6 +129,26 @@ def matte_tool_and_args(keyed_abs: str, params: dict) -> tuple[str, list[str]]:
     return TOOLS["matte"], [keyed_abs, f"min={params.get('min_area', 600)}"]
 
 
+def matte_passes(keyed_abs: str, params: dict) -> list[tuple[str, list[str]]]:
+    """The keyer passes to run over the scratch copy, in order.
+
+    Usually one. A sheet that has BOTH walled-in key pockets AND a contaminated anti-aliased
+    edge band needs two, because neither pass alone clears the guide's §8 gate:
+      • the DISTANCE pass (`key`/`tol`) is per-pixel, so it reaches a pocket enclosed by the
+        art — the "leftover pockets" count — but it cuts on a hard threshold, which leaves the
+        anti-aliased boundary tinted;
+      • the HUE pass (`hue`) ramps and despills that boundary — the "key fringe" count — but it
+        only touches pixels a flood from the border can reach, so an enclosed pocket survives it.
+    Asking for `key` AND `hue` in one plan runs the distance pass first, then the hue pass.
+    """
+    passes = []
+    if params.get("hue") and params.get("key"):
+        passes.append((CHROMA_TOOL, [keyed_abs, f"key={params['key']}",
+                                     f"tol={params.get('tol', 0.18)}"]))
+    passes.append(matte_tool_and_args(keyed_abs, params))
+    return passes
+
+
 def parse_post(post: str | None) -> dict | None:
     """Parse an output post-op into params for icon_args.
 
@@ -134,20 +156,28 @@ def parse_post(post: str | None) -> dict | None:
     'icon:300x400'    -> {'size': [300, 400]}                (fit into 300x400, centered)
     'icon:512:bottom' -> {'size': 512, 'anchor': 'bottom'}   (square 512, bottom-anchored)
     'icon::bottom'    -> {'anchor': 'bottom'}                (default size, bottom-anchored)
+    'icon:512:despill'-> {'size': 512, 'despill': True}      (square 512, §8 despill after resize)
     'icon' / 'icon:'  -> {}                                  (clean to default size, centered)
     None / ''         -> None                                (no post-op; copy the slice as-is)
+
+    The tokens after the size are an unordered flag SET, so 'icon:512:bottom:despill' is legal.
     """
     if not post:
         return None
     name, _, arg = post.partition(":")
     if name != "icon":
-        raise PlanError(f"unknown post op: {post!r} (only 'icon:<size>[:bottom]' is supported)")
-    size_part, _, anchor_part = arg.partition(":")
+        raise PlanError(
+            f"unknown post op: {post!r} (only 'icon:<size>[:bottom][:despill]' is supported)")
+    parts = arg.split(":") if arg else []
+    size_part = parts[0] if parts else ""
     out: dict = {}
-    if anchor_part:
-        if anchor_part != "bottom":
-            raise PlanError(f"unknown anchor {anchor_part!r} in {post!r} (only 'bottom')")
-        out["anchor"] = "bottom"
+    for flag in parts[1:]:
+        if flag == "bottom":
+            out["anchor"] = "bottom"
+        elif flag == "despill":
+            out["despill"] = True
+        elif flag:
+            raise PlanError(f"unknown flag {flag!r} in {post!r} (only 'bottom' / 'despill')")
     if size_part:
         out["size"] = [int(w) for w in size_part.split("x")] if "x" in size_part \
             else int(size_part)
@@ -207,8 +237,8 @@ def process_plan(plan_path: Path, godot: str) -> None:
         SCRATCH.mkdir(parents=True, exist_ok=True)
         keyed = SCRATCH / ("matte_" + Path(src_rel).name)
         shutil.copy(src_abs, keyed)
-        tool_res, margs = matte_tool_and_args(str(keyed.resolve()), params)
-        run_tool(godot, tool_res, margs)
+        for tool_res, margs in matte_passes(str(keyed.resolve()), params):
+            run_tool(godot, tool_res, margs)
         src_abs = str(keyed.resolve())
 
     if eff in SINGLE:
