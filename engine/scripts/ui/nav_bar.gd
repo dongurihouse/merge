@@ -11,6 +11,8 @@ extends RefCounted
 ## is no margin under the row at all. The band anything else must clear is therefore the ACTIVE tile's
 ## height — the tallest thing in the row — never the plain tile's.
 
+const CutPaper = preload("res://engine/scripts/ui/cut_paper.gd")   # for the shared shadow falloff curve
+
 const DEFAULT_PX := 150.0     # nav button box size
 const SIDE_INSET := 32.0      # left/right inset of the row
 
@@ -35,22 +37,38 @@ const ACTIVE_RIM_FRAC := 0.037        # its white rim, drawn OUTSIDE the fill
 # opens by another ~12px up there, and each sheet casts an ambient halo INTO the gap, which darkens it and
 # reads as more void still. Matching the mock at the bottom therefore overshoots it everywhere the eye
 # actually reads the row. 0.0074 puts ~8px between the drawn sheets at the bottom and ~20px at the top,
-# against 13/25 before.
+# against 13/25 before. (The halo has since been pulled back onto the mock's own reach, so it now floods
+# the cut less — measured on the gallery render, the deepest point in the gap darkens by 0.19 where it
+# darkened by 0.30. The flare still opens the cut toward the top, and the row reads unchanged there, so
+# the pitch stays; if the gaps ever start reading tight, THIS is the number to open, not the halo.)
 const GAP_FRAC := 0.0074
 const GAP_MIN_PX := 5.0               # …floored so a narrow phone keeps a visible cut between the tabs
 const GAP_MAX_PX := 12.0              # …and capped so a tablet does not spread the row into five islands
 
 # The tab's PAPER look — the things that separate a bled tab from the art behind it. All of them are
-# shared cut-paper knobs (Kit.CUT_PAPER_KNOBS) whose defaults are inert, so they bite on this row and
-# nowhere else.
+# shared cut-paper knobs whose defaults are inert, so they bite on this row and nowhere else. All but one
+# are in the workbench's picker set (Kit.CUT_PAPER_KNOBS) too; `halo_falloff` is code-set only, because it
+# is meaningless on a surface whose `halo_reach` is 0 and every surface but this row's is.
 const FLARE := 0.055                  # the VISIBLE bottom edge reads 5.5% wider than the top (a trapezoid)
-const HALO_REACH_FRAC := 0.11         # the ambient shadow's reach out from every edge. The tile bleeds off
-                                      # the bottom of the screen, so a DOWNWARD offset is wasted — the lift
-                                      # has to come from a long, soft halo on the top and the sides. Twice
-                                      # the mock's reach: the mock's shadow dies by ~12px and reads glued
-                                      # on; a card floating above the ground carries a fringe out past 20.
-const HALO_ALPHA_PCT := 38.0          # …and its alpha where it touches the paper (%) — measured off the
-                                      # mock, whose tiles darken their ground by ~0.28 at the contact edge
+# THE TAB'S CAST SHADOW. The tile bleeds off the bottom of the screen, so a DOWNWARD offset is wasted —
+# the lift has to come from the ambient halo on the top and the sides. What that halo must NOT be is a
+# broad smudge. Measured off the mock's own Shop tile (its right edge, against the flat sky, on the 931px
+# concept canvas → ×1.16 for our 1080), the darkening beside a tile runs
+#     0.30 at 1px · 0.21 at 3.5px · 0.12 at 6px · 0.08 at 8px · 0.03 at 13px · 0 by ~15px
+# — an exponential decay with a ~5.5px constant. Reaching 0.11 W (~21px) on a LINEAR ramp instead put
+# 0.18 at 8px and 0.08 still at 16px: the same contact darkness smeared across twice the run, which on a
+# flat ground (the map gallery, where nothing hides it) reads as a grey wash under the row rather than a
+# card sitting on the art. The reach comes back to the mock's own, and the ramp gets the mock's curve.
+const HALO_REACH_FRAC := 0.083        # ~16px at our 1080 — where the mock's own shadow dies
+const HALO_FALLOFF := 2.2             # …spent as this many e-folds across that reach (0 = the old linear
+                                      # ramp). 2.2 over 16px is the mock's ~5.5px decay constant.
+const HALO_ALPHA_PCT := 45.0          # …and its alpha where it touches the paper (%). This is the alpha at
+                                      # t = 0; the innermost RING bounds the first ~1px band and so samples
+                                      # the curve a little way down it, which on a decay this steep costs
+                                      # ~15% of the contact that a linear ramp handed over for free. 45%
+                                      # renders back the 0.26 the row already shipped (and which the mock
+                                      # measures at ~0.30), so the CONTACT is unchanged and only the reach
+                                      # and the shape of the falloff moved.
 const BEVEL_FRAC := 0.008             # the lit cut edge's depth in from the edge — a HAIRLINE (~1.5px).
                                       # Measured off the mock: stepping inward from a tile's edge onto its
                                       # face, the mock gains ~+8 luma on the FIRST pixel and is flat by the
@@ -105,25 +123,57 @@ const ACTIVE_RIM_FILL := Color.WHITE
 
 # THE GLYPH'S DROP SHADOW for this row — far heavier than the shared Kit.GLYPH_SHADOW (0.18/0.12/0.07,
 # straight down), which is the default everywhere else and is untouched by this table.
-# Measured off the mock's Home tile, as darkening (1 − sampled/face luma) stepping out of the icon:
-#     below   0.50 at 1px → 0.30 at 5px → 0.08 at 9px  (931px canvas)
-#     beside  0.40 at 1px → 0.14 at 5px → 0.04 at 8px
+# Measured off the mock's Home tile, as darkening (1 − sampled/face luma) stepping SIDEWAYS out of the
+# roof's right eave onto the flat coral face (931px canvas; ×1.16 for our 1080):
+#     0.47 at 1px · 0.30 at 3px · 0.16 at 5px · 0.08 at 7px · 0.03 at 9px · 0 by ~12px
 # The shared stack could not reach that sideways at ANY alpha: its copies are offset straight DOWN, so
 # there is no lateral shadow at all — ours measured 0.13 at 1px and nothing past 3px, and the icons read
 # as stickers laid flat on the paper. So each layer here also carries `grow`: the copy is drawn that much
 # larger than the glyph (a fraction of the icon box, split evenly), which is what puts a soft pool all
 # round it. `grow` defaults to 0 in the shared applier, so no other action button changes.
-# Layers are cheap (one TextureRect each) and only the five tabs pay for them.
+#
+# THE STACK IS GENERATED, NOT HAND-AUTHORED, and that is the whole point. A hand-written five-layer table
+# (grow 0.025/0.055/0.090/0.128/0.175) puts its copies 1.5 · 3.3 · 5.4 · 7.6 · 10.4 px out from the glyph
+# on a 119px icon — steps of ~2px, each carrying an alpha JUMP of 0.05-0.19. The accumulation is therefore
+# not a pool at all but five flat plateaus with hard rings between them, which is exactly the failure
+# cut_paper.gd's own drop-shadow comment warns about: "a sparse few-copy stack (3/7/11px) shows as discrete
+# stepped bands on small elements (a button), so keep the step ≈ 1px". So this stack keeps the ENVELOPE the
+# five layers drew — the same contact darkness, the same outer reach, the same ~exponential decay fitted
+# through them (0.51 at the foot, e-folding every ~3px, gone by 10.4) — and resamples it at ~1px steps, so
+# the copies overlap into one concrete pool. `grow` and `dy` both vary smoothly across the stack.
 # NOTE: the glyph SPRITES still ship a baked cream sticker outline, which holds this shadow off the
 # artwork's own edge. That outline is being removed in a parallel pass; when it lands the same stack will
-# read heavier still, and the alphas here are the one place to pull it back.
-const GLYPH_SHADOW := [
-	{"dy": 0.020, "grow": 0.025, "a": 0.28},   # contact — tight and dark right at the icon's foot
-	{"dy": 0.032, "grow": 0.055, "a": 0.17},
-	{"dy": 0.042, "grow": 0.090, "a": 0.11},
-	{"dy": 0.050, "grow": 0.128, "a": 0.055},
-	{"dy": 0.058, "grow": 0.175, "a": 0.030},  # the outermost skirt — what the mock has and we did not
-]
+# read heavier still, and GLYPH_SHADOW_CONTACT is the one place to pull it back.
+const GLYPH_SHADOW_GROW := 0.175      # the OUTERMOST copy's size gain, as a fraction of the icon box …
+const GLYPH_SHADOW_DY := 0.058        # … and its drop. Both split across the stack, `dy` on a √ so the
+                                      # near copies keep the mock's down-bias without smearing the far ones.
+const GLYPH_SHADOW_CONTACT := 0.51    # the TOTAL darkening where the pool meets the glyph's own edge
+const GLYPH_SHADOW_FALLOFF := 3.3     # …spent as this many e-folds across the reach (≈ 3px per e-fold)
+const GLYPH_SHADOW_STEP_PX := 1.0     # …resampled THIS finely. The step is what stops the banding.
+
+## The row's glyph-shadow stack for an icon `icon_px` across — the {dy, grow, a} layer list
+## Kit.action_button consumes. A layer's copy is drawn `grow`×icon_px wider (split evenly on all four
+## sides) and `dy`×icon_px lower than the glyph, so the silhouette's outermost point moves out by
+## `grow`×icon_px/2: THAT is the distance the step count is derived from, so the copies stay ~1px apart
+## whatever size the row's tiles come out at. Per-layer alphas are solved (outermost first) so the
+## ACCUMULATION — not any single copy — follows the measured envelope.
+static func glyph_shadow(icon_px: float) -> Array:
+	var reach_px := GLYPH_SHADOW_GROW * maxf(icon_px, 1.0) * 0.5
+	var steps := maxi(4, int(round(reach_px / maxf(GLYPH_SHADOW_STEP_PX, 0.05))))
+	var out: Array = []
+	var keep := 1.0            # transmittance the copies already emitted (the outer ones) leave behind
+	for i in range(steps, 0, -1):
+		var u := float(i) / float(steps)                       # 0 at the glyph → 1 at the fringe
+		# the band this copy bounds runs from (i-1)/steps to i/steps — sample its MIDPOINT, the best a
+		# piecewise-constant stack can do against a continuous curve.
+		var want := GLYPH_SHADOW_CONTACT * CutPaper.halo_profile(GLYPH_SHADOW_FALLOFF, (float(i) - 0.5) / float(steps))
+		var target := 1.0 - want
+		var per := clampf(1.0 - target / maxf(keep, 0.0001), 0.0, 1.0)
+		keep = target
+		if per <= 0.0:
+			continue
+		out.append({"dy": GLYPH_SHADOW_DY * sqrt(u), "grow": GLYPH_SHADOW_GROW * u, "a": per})
+	return out
 
 ## The chalked tint for a nav tab whose paper role resolves to `fill`. Hue is preserved exactly — this is
 ## a chalking pass, not a re-hue, so every tab keeps its identity.
@@ -146,6 +196,7 @@ static func tab_cp(w: float, box_h: float, sheet_h: float, active := false) -> D
 		"deckle_amp": DECKLE_AMP,
 		"halo_reach": w * HALO_REACH_FRAC,
 		"halo_strength": HALO_ALPHA_PCT,
+		"halo_falloff": HALO_FALLOFF,
 		"bevel_px": w * BEVEL_FRAC,
 		"bevel_strength": BEVEL_STRENGTH_PCT,
 		"edge_feather": EDGE_FEATHER_PX,
@@ -207,5 +258,5 @@ static func tab_opts(w: float) -> Dictionary:
 		"rim_px": rim_px(w),
 		"rim_fill": ACTIVE_RIM_FILL,
 		"caption_shadow": CAPTION_SHADOW,
-		"glyph_shadow": GLYPH_SHADOW,
+		"glyph_shadow": glyph_shadow(w * GLYPH_BOX_FRAC),
 	}

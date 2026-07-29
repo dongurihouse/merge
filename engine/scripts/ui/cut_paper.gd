@@ -44,6 +44,16 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 # same however many copies the reach asks for). 0 reach = off, which is the default everywhere.
 @export var halo_reach: float = 0.0     # how far the halo reaches out from EVERY edge (px)
 @export var halo_alpha: float = 0.30     # the halo's alpha where it touches the sheet
+# …and HOW the halo dies across that reach. 0 (the default) is the plain LINEAR ramp — full alpha at the
+# contact edge falling evenly to nothing at the fringe — which is what a stack of evenly-spaced copies at
+# one alpha draws by itself. A linear ramp is not what a raised sheet actually casts: measured off the mock
+# (games/grove/assets/_concepts/screens/palette_a_meadow_sky_board.png, the Shop tile's right edge), the
+# darkening beside a tile falls 0.30 → 0.12 → 0.06 → 0 over 1 → 6 → 10 → 15 px, i.e. an EXPONENTIAL decay
+# with a ~5.5px constant, not a straight line. A linear ramp long enough to reach the same fringe carries
+# roughly twice the alpha through the middle of its run and reads as a broad smudge rather than a contact
+# shadow. > 0 selects that decay: the value is the number of e-folds spent across the whole reach, so the
+# curve is the same shape whatever the reach is (see `halo_profile`).
+@export var halo_falloff: float = 0.0
 # PAPER THICKNESS — the lit cut edge. A dense stack of INSET outlines hugging the sheet's own perimeter:
 # the edges facing the light (up) pick up a pale highlight off the paper colour, the sides take half of
 # it, only the foot darkens with the shared shadow tint, and the band fades out reading inward. Keep the
@@ -102,6 +112,7 @@ func configure(o: Dictionary, fill: Color, rim: Variant = null, tile: Texture2D 
 	halo_reach = maxf(0.0, float(o.get("halo_reach", halo_reach)))
 	if o.has("halo_strength"):
 		halo_alpha = clampf(float(o["halo_strength"]) / 100.0, 0.0, 1.0)
+	halo_falloff = maxf(0.0, float(o.get("halo_falloff", halo_falloff)))
 	bevel_px = maxf(0.0, float(o.get("bevel_px", bevel_px)))
 	if o.has("bevel_strength"):
 		bevel_strength = clampf(float(o["bevel_strength"]) / 100.0, 0.0, 1.0)
@@ -379,12 +390,26 @@ static func _offset_by(pts: PackedVector2Array, nrm: PackedVector2Array, d: floa
 		out.append(pts[i] + nrm[i] * d)
 	return out
 
+## The halo's ACCUMULATED darkening at `t` of the way out from the sheet's edge (0 = the contact edge,
+## 1 = the fringe), as a fraction of `halo_alpha`. `k` = 0 is the plain linear ramp a stack of evenly
+## spaced same-alpha copies draws on its own; k > 0 is an exponential decay spending `k` e-folds across
+## the reach, rebased so the fringe still lands on exactly 0 (an unrebased exponential ends on a visible
+## step). Pulled out as a static so the curve can be ASSERTED headlessly — a shadow profile is only
+## measurable off a real-renderer capture, and `get_image()` is null under --headless.
+static func halo_profile(k: float, t: float) -> float:
+	t = clampf(t, 0.0, 1.0)
+	if k <= 0.0:
+		return 1.0 - t
+	var e := exp(-k)
+	return (exp(-k * t) - e) / (1.0 - e)
+
 ## THE ALL-SIDES AMBIENT SHADOW. Same dense-stack idiom as the drop shadow — copies ~1px apart, each at a
 ## low alpha, overlapping into one smooth gradient — but the copies are DILATED instead of dropped, so the
 ## darkening rings the sheet (top and sides included) rather than pooling under it. The silhouette is the
 ## same low-passed tear the drop shadow uses, so the halo stays curvy and never draws the teeth as spikes.
-## `halo_alpha` is the TOTAL alpha at the sheet's own edge; the per-copy alpha is solved from it, so the
-## contact darkness holds when the reach (and hence the copy count) changes.
+## `halo_alpha` is the TOTAL alpha at the sheet's own edge and `halo_falloff` the SHAPE of its decay; each
+## ring's own alpha is solved from the pair, so the accumulation lands on `halo_profile` whatever the reach
+## (and hence the ring count) turns out to be.
 func _draw_edge_halo() -> void:
 	if not draw_shadow or halo_reach <= 0.0 or halo_alpha <= 0.0:
 		return
@@ -393,12 +418,21 @@ func _draw_edge_halo() -> void:
 	if base.size() < 3:
 		return
 	var steps := maxi(4, int(round(halo_reach)))
-	# n overlapping copies at alpha a compose to 1-(1-a)^n; invert that so the innermost ring lands on
-	# exactly `halo_alpha` and the outermost fringe on a single, invisible copy.
-	var per := 1.0 - pow(1.0 - clampf(halo_alpha, 0.0, 1.0), 1.0 / float(steps))
-	var sh := Look.shadow_color(per)
+	var peak := clampf(halo_alpha, 0.0, 1.0)
+	# Outermost ring FIRST, so `keep` is the transmittance the rings already laid down leave behind: a ring
+	# drawn at `per` takes the band it bounds from `keep` to the profile's target, which is exactly the
+	# per-ring alpha that solves 1 - Π(1-a) = the wanted accumulation.
+	var keep := 1.0
 	for i in range(steps, 0, -1):
-		draw_colored_polygon(_offset_loop(base, halo_reach * float(i) / float(steps)), sh)
+		# the band this ring bounds runs from (i-1)/steps to i/steps of the reach — sample its MIDPOINT,
+		# which is the best a piecewise-constant stack can do against a continuous curve.
+		var want := peak * halo_profile(halo_falloff, (float(i) - 0.5) / float(steps))
+		var target := 1.0 - want
+		var per := clampf(1.0 - target / maxf(keep, 0.0001), 0.0, 1.0)
+		keep = target
+		if per <= 0.0:
+			continue
+		draw_colored_polygon(_offset_loop(base, halo_reach * float(i) / float(steps)), Look.shadow_color(per))
 
 ## ── THE ANTIALIASED SILHOUETTE ───────────────────────────────────────────────────────────────────
 ## How far the opaque CORE is inset PAST the feather's inner lip. The core is itself an un-antialiased
