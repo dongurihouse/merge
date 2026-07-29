@@ -221,12 +221,12 @@ const BOOST_COST := 120                   # coins to activate one boost (the §1
 # seed items; moving one is unsocket -> carry -> place.
 const SOIL_MAX := 9
 const MAGNET_MAX := 3
-const SOIL_MAX_RANK := 3
+const SOIL_MAX_RANK := 1
 const SOIL_UNSOCKET_PRICE := 100
 const MAGNET_UNSOCKET_ACORNS := 10
-const SOIL_SEED_SELL_COINS := 250
-const MAGNET_SEED_SELL_COINS := 1000
-const SOIL_RANK_PRICES := [600, 1500]
+const SOIL_SEED_SELL_COINS := 520
+const MAGNET_SEED_SELL_COINS := 520
+const SOIL_RANK_PRICES := []
 const SOIL_WATER_COST := 10
 const SOIL_STEP_SECONDS := [10.0, 45.0, 180.0, 900.0, 1800.0, 3600.0, 14400.0, 28800.0, 57600.0, 86400.0, 172800.0]
 

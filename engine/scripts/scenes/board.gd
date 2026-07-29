@@ -3299,7 +3299,7 @@ func _select_improvement_cell(cell: Vector2i) -> void:
 	var seed_code := Improvements.seed_code_for_kind(kind)
 	if seed_code > 0:
 		_info_icon.add_child(PieceView.make_piece(seed_code, _info_item_px, 0.0))
-	_info_label.text = "Soil rank %d" % int(row.get("rank", 1)) if kind == Improvements.KIND_SOIL else "Magnet"
+	_info_label.text = "Soil" if kind == Improvements.KIND_SOIL else "Magnet"
 	if _info_desc_label != null and is_instance_valid(_info_desc_label):
 		var cap := Improvements.cap_for(kind)
 		_info_desc_label.text = "%d/%d placed" % [board.improvement_count(kind), cap]
@@ -4000,12 +4000,10 @@ func _build_seed_chips(opts: Dictionary, row: Control) -> void:
 	_info_seed_place_count = place.count
 	_info_seed_place_coin = place.coin
 	row.move_child(_info_seed_place, _info_trash.get_index())
-	var bag_chip := ActionBar.action_chip(opts, row, "Bag", _on_seed_bag, BoxContainer.ALIGNMENT_END)
-	_info_seed_bag = bag_chip.btn
-	_info_seed_bag_sb = bag_chip.sb
-	_info_seed_bag_count = bag_chip.count
-	_info_seed_bag_coin = bag_chip.coin
-	row.move_child(_info_seed_bag, _info_trash.get_index())
+	_info_seed_bag = null
+	_info_seed_bag_sb = null
+	_info_seed_bag_count = null
+	_info_seed_bag_coin = null
 
 func _build_improvement_chips(opts: Dictionary, row: Control) -> void:
 	var rank := ActionBar.action_chip(opts, row, "Rank", _on_soil_rank, BoxContainer.ALIGNMENT_END)
@@ -4054,18 +4052,25 @@ func _set_action_chip(btn: Button, sb: StyleBoxFlat, coin_slot: Control, count: 
 	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	coin_slot.add_child(ic)
 	count.text = text
+	count.visible = text != ""
 	sb.bg_color = Pal.BTN_PRIMARY if ready else Color(Pal.BTN_PRIMARY, 0.42)
 	sb.border_color = Pal.BTN_PRIMARY_EDGE if ready else Color(Pal.BTN_PRIMARY_EDGE, 0.42)
 	btn.modulate = Color(1, 1, 1, 1.0) if ready else Color(1, 1, 1, 0.7)
 	btn.visible = true
 
 func _refresh_seed_chips(cell: Vector2i) -> void:
-	if _info_seed_place == null or _info_seed_bag == null:
+	if _info_seed_place == null:
 		return
 	var can_place := board.can_place_seed(cell)
-	var can_bag := bag.size() < _bag_capacity() and board.collect_reward_at(cell).is_empty()
 	_set_action_chip(_info_seed_place, _info_seed_place_sb, _info_seed_place_coin, _info_seed_place_count, "check", "", can_place)
-	_set_action_chip(_info_seed_bag, _info_seed_bag_sb, _info_seed_bag_coin, _info_seed_bag_count, "bag", "", can_bag)
+	var row := _info_trash.get_parent() as Control
+	if row != null and _info_seed_place.get_parent() == row:
+		var sell_index := _info_trash.get_index()
+		if _info_seed_place.get_index() < sell_index:
+			sell_index -= 1
+		row.move_child(_info_seed_place, maxi(0, sell_index))
+	if _info_seed_bag != null and is_instance_valid(_info_seed_bag):
+		_info_seed_bag.visible = false
 
 func _refresh_improvement_chips(cell: Vector2i) -> void:
 	if _info_unsocket == null:
@@ -4079,7 +4084,7 @@ func _refresh_improvement_chips(cell: Vector2i) -> void:
 	_set_action_chip(_info_unsocket, _info_unsocket_sb, _info_unsocket_coin, _info_unsocket_count, "gem" if use_gem else "coin", "%d" % cost, afford)
 	if _info_soil_rank == null:
 		return
-	if kind != Improvements.KIND_SOIL:
+	if kind != Improvements.KIND_SOIL or int(G.SOIL_MAX_RANK) <= 1:
 		_info_soil_rank.visible = false
 		return
 	var rank_price := Improvements.soil_rank_price(int(row.get("rank", 1)))

@@ -332,6 +332,7 @@ static func action_chip(chip_opts: Dictionary, row: Control, caption_text: Strin
 	badge_col.add_child(count)
 	var badge := PanelContainer.new()
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.custom_minimum_size.y = 8 + icon_px + 1 + int(num_font * 1.45)
 	var sb := StyleBoxFlat.new()                     # the SAME leaf-green CTA fill the sell badge uses
 	sb.bg_color = Pal.BTN_PRIMARY
 	sb.border_color = Pal.BTN_PRIMARY_EDGE
