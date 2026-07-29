@@ -225,9 +225,14 @@ func _test_seed_info_bar_places_and_sells_without_bag_chip() -> void:
 	ok(scn._info_buy == null or not scn._info_buy.visible, "a seed is not buyable as a copy")
 	ok(scn._info_seed_place.get_parent() == scn._info_trash.get_parent() and scn._info_seed_place.get_index() + 1 == scn._info_trash.get_index(), "Place sits directly next to Sell")
 	ok(_visible_chip_captions(scn) == ["Place", "Sell"], "the selected-seed action row is exactly Place, Sell")
+	var place_size: Vector2 = scn._info_seed_place.get_global_rect().size
+	var sell_size: Vector2 = scn._info_trash.get_global_rect().size
+	ok(place_size.distance_to(sell_size) <= 2.0, "Place and Sell buttons use the same visual size (Place %s, Sell %s)" % [place_size, sell_size])
 	ok(scn._info_trash_count.text == "520", "a Soil seed shows the 520 sell price")
 	var check: Control = scn._info_seed_place_coin.get_child(0) if scn._info_seed_place_coin.get_child_count() > 0 else null
 	var badge := scn._info_seed_place_coin.get_parent().get_parent() as Control
+	var sell_badge := scn._info_trash_coin.get_parent().get_parent() as Control
+	ok(badge != null and sell_badge != null and badge.get_global_rect().size.distance_to(sell_badge.get_global_rect().size) <= 2.0, "Place and Sell colored boxes use the same visual size (Place %s, Sell %s)" % [badge.get_global_rect().size if badge != null else Vector2.ZERO, sell_badge.get_global_rect().size if sell_badge != null else Vector2.ZERO])
 	ok(check != null and badge != null and check.get_global_rect().get_center().distance_to(badge.get_global_rect().get_center()) <= 2.0, "the Place check mark is centered in the green badge")
 	ok(scn._place_seed(soil), "scene Place action installs the seed as a cell improvement")
 	ok(Save.coins() == coins_b, "placing a seed is free")
