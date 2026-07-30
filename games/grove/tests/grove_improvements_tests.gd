@@ -207,7 +207,7 @@ func _open_soil_ftue_teach_scene(save_id: String) -> Dictionary:
 	Save.mark_board_tutorial_seen()
 	Save.mark_ftue_seen("merge")
 	Save.mark_ftue_seen("gen_tap")
-	Save.grove()["coins_earned"] = G.coins_at_level(6)
+	Save.earn_coins(G.coins_at_level(G.FEATURE_LEVEL["soil"]))
 	Save.grove_write()
 	var scn := _open_board()
 	await _settle()
@@ -956,6 +956,8 @@ func _assert_selection_kind_survives(kind: String) -> void:
 	var was_weather: bool = bool(Feat.FLAGS.get("weather_hours", true))
 	var was_forced: String = Ambient.forced_weather
 	Feat.FLAGS["weather_hours"] = true
+	if kind == "sky":
+		Save.earn_coins(G.coins_at_level(G.FEATURE_LEVEL["weather"]))
 	# Pin the hour: Sunbeam for the sky case, Calm for every other kind — a live lane rolling over the
 	# test's cell would otherwise let the sky branch win the tap and make the sweep hour-dependent.
 	# THE TOKEN IS A SKIN NAME, NOT A SKY NAME. `Ambient.WEATHER_DEBUG_STATES` is the whole vocabulary
@@ -1051,11 +1053,11 @@ func _test_soil_completion_wakes_magnet_and_opens_bramble() -> void:
 func _test_soil_ftue_grants_seed_once() -> void:
 	fresh("improve_ftue")
 	Save.mark_board_tutorial_seen()
-	Save.grove()["coins_earned"] = G.coins_at_level(6)
+	Save.earn_coins(G.coins_at_level(G.FEATURE_LEVEL["soil"]))
 	Save.grove_write()
 	var scn := _open_board()
 	await _settle()
-	ok(Save.ftue_seen("soil"), "level-6 soil FTUE marks its once-only ledger")
+	ok(Save.ftue_seen("soil"), "level-13 soil FTUE marks its once-only ledger")
 	var seed_cell: Vector2i = scn.board.first_item_of(Improvements.seed_code_for_kind(Improvements.KIND_SOIL))
 	ok(seed_cell.x >= 0, "soil FTUE grants a deterministic Soil seed on the board")
 	ok(_nodes_with_meta(scn, "improvement_build_button").is_empty(), "soil FTUE does not show a build-mode button")
@@ -1117,7 +1119,7 @@ func _test_soil_ftue_bag_dismisses_without_teaching() -> void:
 func _test_soil_ftue_waits_when_seed_has_no_destination() -> void:
 	fresh("improve_ftue_no_destination")
 	Save.mark_board_tutorial_seen()
-	Save.grove()["coins_earned"] = G.coins_at_level(6)
+	Save.earn_coins(G.coins_at_level(G.FEATURE_LEVEL["soil"]))
 	Save.grove_write()
 	var scn := _open_board()
 	_clear_board_model(scn.board)

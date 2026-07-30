@@ -60,6 +60,7 @@ const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 const HandHint = preload("res://engine/scripts/ui/hand_hint.gd")   # FTUE: the merge / generator-tap teach overlay
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
+const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims the t8-sell premium here
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")   # pre-warm Map off-thread so Home is snappy
 const Game = preload("res://engine/scripts/core/game.gd")
@@ -2532,7 +2533,7 @@ func _refresh_item_line_dim() -> void:
 		node.modulate = ITEM_UNUSED if unused else Color(1, 1, 1, 1)
 
 func _ensure_cascade_outline() -> Control:
-	if not Features.on("cascade") or board_area == null or not is_instance_valid(board_area):
+	if not FeatureGate.armed("cascade") or board_area == null or not is_instance_valid(board_area):
 		if _cascade_outline != null and is_instance_valid(_cascade_outline):
 			_cascade_outline.queue_free()
 		_cascade_outline = null
@@ -2577,7 +2578,7 @@ func _refresh_cascade_outline() -> void:
 	outline.set_runways(BoardLogic.runways(board, RUNWAY_MIN_N))
 
 func _show_cascade_drag_guides(from: Vector2i) -> void:
-	if not Features.on("cascade") or board == null or board.is_gen(from):
+	if not FeatureGate.armed("cascade") or board == null or board.is_gen(from):
 		return
 	var code := board.item_at(from)
 	if code <= 0:
@@ -3637,9 +3638,7 @@ func _after_magnet_merge(out: Dictionary, render := true) -> void:
 		_refresh_locked_cells()
 
 func _maybe_soil_ftue() -> void:
-	if not _improvements_enabled() or Save.ftue_seen("soil") or not Save.board_tutorial_seen():
-		return
-	if G.level() < 6:
+	if Save.ftue_seen("soil") or not FeatureGate.armed("soil"):
 		return
 	var code := Improvements.seed_code_for_kind(Improvements.KIND_SOIL)
 	var granted := false
@@ -5518,7 +5517,7 @@ func _prepare_chain(a: Vector2i, b: Vector2i) -> void:
 	_chain_auto_step = false
 	_chain_origin_cell = Vector2i(-1, -1)
 	_chain_reward_cell = Vector2i(-1, -1)
-	if not Features.on("cascade"):
+	if not FeatureGate.armed("cascade"):
 		_refresh_chain_board_visibility()
 		return
 	_chain_run = BoardLogic.chain_path(board, a, b)
@@ -6125,12 +6124,18 @@ func debug_bump_mastery(delta: int) -> void:
 	_after_board_change()
 
 func _blocked_seed_drop_lines() -> Array:
-	if not _improvements_enabled():
-		return [
-			Improvements.seed_line_for_kind(Improvements.KIND_SOIL),
-			Improvements.seed_line_for_kind(Improvements.KIND_MAGNET),
-		]
-	return Improvements.blocked_seed_drop_lines(board, bag)
+	var blocked: Array = []
+	if not FeatureGate.armed("soil"):
+		blocked.append(Improvements.seed_line_for_kind(Improvements.KIND_SOIL))
+	if not FeatureGate.armed("magnet"):
+		blocked.append(Improvements.seed_line_for_kind(Improvements.KIND_MAGNET))
+	if blocked.is_empty():
+		return Improvements.blocked_seed_drop_lines(board, bag)
+	# An unarmed kind is blocked OUTRIGHT; an armed one still respects the held-unplaced filter.
+	for line in Improvements.blocked_seed_drop_lines(board, bag):
+		if not blocked.has(int(line)):
+			blocked.append(int(line))
+	return blocked
 
 func _collect_coin(cell: Vector2i, node: Control) -> void:
 	# RULE in the pure action (take the coin + credit the wallet); the scene renders the fly-to-HUD.

@@ -39,6 +39,7 @@ const NAV_ROLE := {
 }
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
+const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims earned premium here
 const VaultUI = preload("res://engine/scripts/ui/vault.gd")                  # T45: the diegetic piggy-bank jar (chrome entry point)
 const Login = preload("res://engine/scripts/core/login.gd")                  # T45: the forgiving daily-login calendar (auto-popup gate)
@@ -1167,9 +1168,9 @@ func _build_hand_panel(rect: Rect2) -> Control:
 		collect.size = collect.custom_minimum_size
 		collect.pressed.connect(_on_dock_collect)
 		panel.add_child(collect)
-	# the acquire loop opens once the bucket has cells — i.e. once ANY home building is completed
-	# (cells come from buildings now, spec 2026-07-17). Same condition as the Collect chip.
-	var exped_open := cells_total > 0
+	# Expedition opens once its rush gate is armed; Bucket.cells_total() remains its extra condition
+	# inside FeatureGate, while the Collect chip still follows its own immediate bucket rule.
+	var exped_open := FeatureGate.armed("rush")
 	if exped_open:
 		var exped := ResidentView.dock_chip_button("BucketExpeditionButton", "Expedition", true)
 		exped.position = Vector2(cx + cw * 0.56 + 4.0, chip_y)

@@ -44,6 +44,7 @@ func _mount_board(forced_weather: String):
 	Save.mark_board_tutorial_seen()
 	Save.mark_ftue_seen("merge")
 	Save.mark_ftue_seen("gen_tap")
+	Save.earn_coins(G.coins_at_level(G.FEATURE_LEVEL["weather"]))
 	Feat.FLAGS["weather_hours"] = true
 	Ambient.forced_weather = forced_weather
 	var b = load("res://engine/scenes/Board.tscn").instantiate()

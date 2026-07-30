@@ -18,6 +18,7 @@ const Design = preload("res://engine/scripts/core/design.gd")   # THE design-vie
 const Game = preload("res://engine/scripts/core/game.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")
+const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
 const RB = preload("res://engine/scripts/core/resident_bucket.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
@@ -304,7 +305,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	footer.add_theme_constant_override("separation", int(8.0 * scale))
 	footer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var on_expedition: Callable = (opts as Dictionary).get("on_expedition", Callable())
-	if on_expedition.is_valid() and Bucket.cells_total() > 0:
+	if on_expedition.is_valid() and FeatureGate.armed("rush"):
 		var exped := _action_pill(Kit, "EXPEDITION", true, false, scale)
 		exped.name = "ResidentsExpeditionButton"
 		exped.pressed.connect(func() -> void:

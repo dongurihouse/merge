@@ -74,6 +74,7 @@ func _open_board(name: String) -> Node:
 	Save.mark_board_tutorial_seen()
 	Save.mark_ftue_seen("merge")
 	Save.mark_ftue_seen("gen_tap")
+	Save.earn_coins(G.coins_at_level(G.FEATURE_LEVEL["cascade"]))
 	var b = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(b)
 	return b
