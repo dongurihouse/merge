@@ -186,8 +186,13 @@ func _check_level_badge_layout() -> void:
 	# the Label centres its LINE BOX, which is pushed one px past the disc to land the visible INK on
 	# it (Look.MEDAL_NUM_INK_BIAS_PX) — so that px is expected here, not slack in the tolerance.
 	var want_y := disc_y + Look.MEDAL_NUM_INK_BIAS_PX
-	ok(num != null and absf(num_center.x - badge_center.x) <= 0.5 and absf(num_center.y - want_y) <= 0.5,
-		"level badge number rect sits on the medal's DISC (dx from badge=%.2f, dy from disc+bias=%.2f, disc is %.1f px off the badge centre)" \
-		% [num_center.x - badge_center.x, num_center.y - want_y, disc_y - badge_center.y])
+	# Horizontally the Label is deliberately NOT centred on the badge: it is offset so the digits'
+	# INK is (this face is tabular, so `1` sits left inside its own advance). The rect therefore
+	# carries that offset, and the badge's own centre is the wrong thing to compare it to.
+	var want_x := badge_center.x + Look.medal_num_ink_dx(num.text, num.get_theme_font("font"),
+		num.get_theme_font_size("font_size")) if num != null else INF
+	ok(num != null and absf(num_center.x - want_x) <= 0.5 and absf(num_center.y - want_y) <= 0.5,
+		"level badge number rect sits on the medal's DISC (dx from ink centre=%.2f, dy from disc+bias=%.2f, disc is %.1f px off the badge centre)" \
+		% [num_center.x - want_x, num_center.y - want_y, disc_y - badge_center.y])
 	host.queue_free()
 	await process_frame

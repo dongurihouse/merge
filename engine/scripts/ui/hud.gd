@@ -264,7 +264,13 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		var lnum: Label = badge_state["level"]
 		if lnum != null:
 			_set_or_tick(lnum, lvl)
-			lnum.add_theme_font_size_override("font_size", _lv_font_size(lvl, lv_px))   # keep the number inside as digits grow
+			var lfont := _lv_font_size(lvl, lv_px)
+			lnum.add_theme_font_size_override("font_size", lfont)   # keep the number inside as digits grow
+			# …and re-place it. The horizontal correction that lands the digits' INK on the disc is a
+			# property of the GLYPHS (this face gives `1` 7 px less ink than `8` inside the same
+			# advance), so it does NOT survive a text change: leaving the build-time offset in place
+			# would walk the number sideways every time the level ticks. Vertical rides along.
+			Look.place_medal_number(lnum, str(lvl), Look.medal_spec(lvl), lv_px, lfont)
 		# host hook: a scene that keeps live state derived from Save (the board's water cache + its
 		# empty-water refill stack) re-syncs here, so a shop grant lands without per-currency callbacks.
 		var host_refresh: Variant = opts.get("on_refresh")

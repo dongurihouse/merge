@@ -28,14 +28,23 @@ const Pal = Game.PALETTE
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 
 const PX := 116.0            # the shipped HUD slot: ceil(pill_h 87 × Hud.LEVEL_BADGE_SCALE 1.35)
-const CELL := Vector2(190, 210)
+const CELL := Vector2(175, 210)
 const ORIGIN := Vector2(40, 40)
 const FIELD := Color(0.42, 0.44, 0.46)   # flat, mid, unsaturated: fuses with neither the cream
                                          # disc (bright) nor Pal.INK (dark) nor any ribbon
-## One exemplar level per medal tier, and one per digit count. The tier column comes from the
-## LEVEL (the shipping map); the digit column is forced on top of it.
+## One exemplar level per medal tier, and one column per STRING. The tier row comes from the LEVEL
+## (the shipping map); the string is forced on top of it. The strings are chosen for their INK, not
+## their digit count: this face gives every digit the same 30 px advance at font 49 but only 22 px of
+## ink to `1` against 29 px to `8`, so a `1` is where a centred advance box shows up worst, and `11`
+## / `100` are where it compounds or cancels across a multi-digit string.
 const TIER_LEVELS := [2, 24, 85]         # the three approved mocks' own labels
-const DIGIT_LEVELS := [7, 88, 888]
+const DIGIT_LEVELS := [1, 7, 11, 88, 100, 888]
+## Every digit at every shipped font size, for the bias plate: the horizontal ink offset is a
+## per-GLYPH property, so a table that only samples one digit per size cannot see it.
+const BIAS_FONTS := [49, 39, 31]
+const BIAS_DIGITS := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+const BIAS_CELL := Vector2(130, 130)
+const BIAS_COLS := 5
 
 func _initialize() -> void:
 	var ctx := await Base.begin(self, {"tool": "medal_badge", "default_out": "/tmp/medal_badge.png", "save": false})
@@ -57,7 +66,11 @@ func _initialize() -> void:
 			badge.position = ORIGIN + Vector2(CELL.x * c, CELL.y * r)
 			var num := badge.get_node_or_null("lv_num") as Label
 			if num != null:
-				num.text = str(lvl)          # the digit count, applied the way Hud.refresh applies it
+				# the string, applied the way Hud.refresh applies it: set the text, then RE-PLACE.
+				# Skipping the re-place is exactly the bug this plate exists to catch.
+				num.text = str(lvl)
+				Look.place_medal_number(num, num.text, Look.medal_spec(int(TIER_LEVELS[r])),
+					PX, Hud._lv_font_size(lvl, PX))
 				nums.append(num)
 			root.add_child(badge)
 	# the machine-readable cell map, so the measuring script never guesses where a badge is
@@ -68,7 +81,7 @@ func _initialize() -> void:
 	var err := Base.capture(self, out, ctx["args"])
 	if err != OK:
 		print("FAIL: no image (run through quiet_godot.sh, not --headless)")
-		quit(1)
+		Base.finish(self, 1)
 		return
 	# ... and the same sheet with the numbers suppressed: the blank plate the ink is differenced against
 	for n in nums:
@@ -79,7 +92,7 @@ func _initialize() -> void:
 	err = Base.capture(self, blank, ctx["args"])
 	if err != OK:
 		print("FAIL: no image for the blank plate")
-		quit(1)
+		Base.finish(self, 1)
 		return
 	# ... and the BIAS plate: the same Label geometry with no art under it, at INTEGER positions, so
 	# the face's own line-box-vs-ink bias can be read without the badge's fractional offset or the
@@ -93,33 +106,35 @@ func _initialize() -> void:
 			c.queue_free()
 	var Kit = Game.kit_script()
 	bg.color = Color(0.96, 0.92, 0.86)          # flat cream: dark ink on it, nothing else
-	var fonts := [49, 39, 31]
-	for r in fonts.size():
-		for c in DIGIT_LEVELS.size():
-			var box := ColorRect.new()          # the rect whose centre the ink is measured against
-			box.color = Color(0.55, 0.75, 0.55)
-			box.position = ORIGIN + Vector2(CELL.x * c, CELL.y * r)
-			box.size = Vector2(PX, PX)
-			root.add_child(box)
-			var l := Label.new()
-			l.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			l.text = str(DIGIT_LEVELS[c])
-			l.add_theme_font_override("font", Kit.bold_font())
-			l.add_theme_font_size_override("font_size", int(fonts[r]))
-			l.add_theme_color_override("font_color", Pal.INK)
-			l.add_theme_constant_override("outline_size", 0)
-			box.add_child(l)
-	print("BIAS_SHEET origin=%.0f,%.0f cell=%.0f,%.0f box=%.0f fonts=%s cols=%s" % \
-		[ORIGIN.x, ORIGIN.y, CELL.x, CELL.y, PX, str(fonts), str(DIGIT_LEVELS)])
+	for i in BIAS_FONTS.size() * BIAS_DIGITS.size():
+		var fs := int(BIAS_FONTS[i / BIAS_DIGITS.size()])
+		var txt := String(BIAS_DIGITS[i % BIAS_DIGITS.size()])
+		var box := ColorRect.new()          # the rect whose centre the ink is measured against
+		box.color = Color(0.55, 0.75, 0.55)
+		box.position = ORIGIN + Vector2(BIAS_CELL.x * (i % BIAS_COLS), BIAS_CELL.y * (i / BIAS_COLS))
+		box.size = Vector2(PX, PX)
+		root.add_child(box)
+		var l := Label.new()
+		l.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		l.text = txt
+		l.add_theme_font_override("font", Kit.bold_font())
+		l.add_theme_font_size_override("font_size", fs)
+		l.add_theme_color_override("font_color", Pal.INK)
+		l.add_theme_constant_override("outline_size", 0)
+		box.add_child(l)
+	print("BIAS_SHEET origin=%.0f,%.0f cell=%.0f,%.0f box=%.0f cols=%d fonts=%s digits=%s" % \
+		[ORIGIN.x, ORIGIN.y, BIAS_CELL.x, BIAS_CELL.y, PX, BIAS_COLS, str(BIAS_FONTS), str(BIAS_DIGITS)])
 	await process_frame
 	await process_frame
 	var bias: String = out.get_basename() + "_bias." + out.get_extension()
 	err = Base.capture(self, bias, ctx["args"])
 	if err != OK:
 		print("FAIL: no image for the bias plate")
-		quit(1)
+		Base.finish(self, 1)
 		return
 	print("wrote ", out, ", ", blank, " and ", bias)
-	quit(0)
+	# Base.finish, NOT quit(): under `make shot-batch` this tool is one item in a live SceneTree that
+	# the runner keeps driving, and a bare quit ends the whole batch at item 1 (measured).
+	Base.finish(self, 0)

@@ -38,9 +38,11 @@ const BATCHABLE := {
 	"grove": "res://games/grove/tools/grove_shot.gd",
 	"map": "res://games/grove/tools/map_shot.gd",
 	"widget": "res://games/grove/tools/widget_shot.gd",
+	"medal": "res://games/grove/tools/medal_badge_shot.gd",
 	"games/grove/tools/grove_shot": "res://games/grove/tools/grove_shot.gd",
 	"games/grove/tools/map_shot": "res://games/grove/tools/map_shot.gd",
 	"games/grove/tools/widget_shot": "res://games/grove/tools/widget_shot.gd",
+	"games/grove/tools/medal_badge_shot": "res://games/grove/tools/medal_badge_shot.gd",
 }
 
 ## Keeps the runner alive: the driver's `_initialize()` frame is discarded by the first `set_script`,

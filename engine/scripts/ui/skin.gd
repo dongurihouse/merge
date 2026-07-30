@@ -186,15 +186,18 @@ const MEDAL_ART_DIR := "kit/"
 ## that centre and the number reads high. MEASURED on the game's own face, which is NOT the one the
 ## study assumed: games/grove/game.gd ships FONT := "", so the face is the engine's SystemFont
 ## fallback ("Arial Rounded MT Bold" on macOS, weight 700) emboldened 0.6 by Kit.bold_font(), not
-## Open Sans SemiBold and not Arial Bold. Read off the real renderer at the three shipped sizes
-## (games/grove/tools/medal_badge_shot.gd's bias plate, a Label at an INTEGER rect so nothing else
-## is in the way): ink centre − rect centre = −1.0 px at font 49, −1.0 at 39, −1.5 at 31.
+## Open Sans SemiBold and not Arial Bold. Read off the real renderer (medal_badge_shot.gd's bias
+## plate: a Label at an INTEGER rect, so nothing else is in the way), ink centre − rect centre:
+##     font 49  −0.5 px     font 39  −0.5 px     font 31  −1.0 px
 ##
-## IT IS A PIXEL COUNT, NOT A FRACTION OF THE FONT SIZE, and that is the measurement talking: the
-## term is dominated by integer rasterisation (ascent/descent/line height are whole pixels), so it
-## does not scale — −1.0 px covers 49 AND 39. The extra half pixel at 31 is the renderer snapping a
-## half-pixel baseline, which appears whenever the face's line height at that size is odd; it is
-## inside the ±0.5 px draw-origin quantisation that no constant can remove.
+## WHY THIS AXIS GETS A CONSTANT AND THE OTHER GETS A MEASUREMENT. Those numbers are IDENTICAL for
+## all ten digits at a given size — the glyphs' vertical ink extents agree, so shape contributes
+## nothing here. What does move them is the RECT'S OWN Y: the renderer snaps a half-pixel baseline,
+## so the same digit at the same size reads −0.5 or −1.0 depending on the parity of where the Label
+## sits. That is rasterisation, and no per-string measurement can predict it (Godot's glyph boxes
+## carry asymmetric vertical padding — they mis-predict this axis by a whole pixel, measured). So
+## the vertical correction is one constant plus an irreducible ±0.5 px, while the HORIZONTAL one
+## (below) is per-glyph and is measured per string.
 const MEDAL_NUM_INK_BIAS_PX := 1.0        # px pushed DOWN, cancelling the ink's rise above the line box
 ## Used only when data/level_badges.json carries no "medal" block (a stripped data dir): one tier,
 ## the plain medal, centred on its own disc. Never the shipping path.
@@ -265,7 +268,6 @@ static func make_star_level_badge(level: int, px: float, num_font: int = -1, cfg
 	var fsize := num_font if num_font > 0 else int(px * 0.42)
 	var num := Label.new()
 	num.name = "lv_num"
-	num.text = str(level)
 	num.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -274,15 +276,36 @@ static func make_star_level_badge(level: int, px: float, num_font: int = -1, cfg
 	num.add_theme_color_override("font_color", Pal.INK)
 	num.add_theme_constant_override("outline_size", 0)
 	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var dy := medal_num_offset(spec, px, fsize)
-	num.offset_top = dy
-	num.offset_bottom = dy
+	num.text = str(level)
+	place_medal_number(num, num.text, spec, px, fsize)
 	badge.add_child(num)
 
 	var art2 := badge.get_node_or_null("lv_badge_art") as TextureRect
 	if art2 != null and art2.texture != null:
 		_lay_silhouette_shadow(badge, art2, shadow_params(cfg))
 	return badge
+
+## Place the badge's number Label so the INK of `text` lands on the disc — BOTH axes.
+##
+## The caller owns the Label's TEXT; this places for the string it is handed. That split is
+## deliberate: during a level count-up FX.tick owns `text` frame by frame, and the placement should
+## be the settled value's, not a per-frame chase of the tween.
+##
+## THE HORIZONTAL OFFSET DEPENDS ON THE DIGITS, so this has to be re-run whenever the number
+## changes, not baked in once at build. This face is tabular: every digit carries the same 30 px
+## advance at font 49, but `1` has only 19 px of ink in it and `7` 26 px, sitting differently inside
+## that advance. A Label centres the ADVANCE box, so measured on the real render the ink lands
+## −2.5 px (`1`) to +2.0 px (`7`) off centre — a 4.5 px spread that no single constant can close,
+## and Level 1 is the badge every player sees first. Hence Hud.refresh calls this on every tick.
+static func place_medal_number(num: Label, text: String, spec: Dictionary, px: float, font_size: int) -> void:
+	if num == null:
+		return
+	var dy := medal_num_offset(spec, px)
+	var dx := medal_num_ink_dx(text, num.get_theme_font("font"), font_size)
+	num.offset_left = dx
+	num.offset_right = dx
+	num.offset_top = dy
+	num.offset_bottom = dy
 
 ## How far the number's Label slides DOWN from the badge's own centre to sit on the disc: the disc
 ## centre in badge coordinates, minus the badge centre, plus the font's line-box-vs-ink bias.
@@ -293,6 +316,53 @@ static func medal_num_offset(spec: Dictionary, px: float, _font_size: int = -1) 
 	var art_y := -(art_px - px) * 0.5
 	var disc_y := art_y + float(spec.get("circle_cy", 0.5)) * art_px
 	return disc_y - px * 0.5 + MEDAL_NUM_INK_BIAS_PX
+
+## How far RIGHT the Label must slide for the string's INK to sit where its advance box sits —
+## i.e. the gap the "centre the ink bbox, not the layout box" rule is about, MEASURED for the exact
+## glyphs being drawn rather than assumed.
+##
+## The engine already knows this: shape the string through the TextServer, walk the glyphs, and take
+## the union of each one's own ink box (pen + shaping offset + the glyph's bearing, over the glyph's
+## width) against the advance width the Label centres. The rasteriser's bitmap padding cancels out of
+## a CENTRE as long as it is symmetric left-to-right, which on this axis it measurably is — the
+## prediction agrees with the rendered ink to within half a pixel on all 30 digit × size cases (it
+## does NOT on the vertical axis, where the padding is lopsided; see MEDAL_NUM_INK_BIAS_PX).
+##
+## Cached per (font, size, text): the HUD re-places the number on every wallet refresh, and a level
+## count-up tween re-writes it per frame.
+static var _ink_dx_cache: Dictionary = {}
+static func medal_num_ink_dx(text: String, font: Font, font_size: int) -> float:
+	if text.is_empty() or font == null or font_size <= 0:
+		return 0.0
+	var key := "%d|%d|%s" % [font.get_instance_id(), font_size, text]
+	if _ink_dx_cache.has(key):
+		return float(_ink_dx_cache[key])
+	var ts := TextServerManager.get_primary_interface()
+	var rid := ts.create_shaped_text()
+	ts.shaped_text_add_string(rid, text, font.get_rids(), font_size)
+	ts.shaped_text_shape(rid)
+	var advance := ts.shaped_text_get_width(rid)
+	var pen := 0.0
+	var lo := INF
+	var hi := -INF
+	for g in ts.shaped_text_get_glyphs(rid):
+		var gd: Dictionary = g
+		var frid: RID = gd["font_rid"]
+		var gi := int(gd["index"])
+		var size_key := Vector2i(int(gd["font_size"]), 0)
+		var bearing: Vector2 = ts.font_get_glyph_offset(frid, size_key, gi)
+		var gsize: Vector2 = ts.font_get_glyph_size(frid, size_key, gi)
+		var x: float = pen + (gd["offset"] as Vector2).x + bearing.x
+		lo = minf(lo, x)
+		hi = maxf(hi, x + gsize.x)
+		pen += float(gd["advance"])
+	ts.free_rid(rid)
+	# a string with no drawable glyph (a space, a missing face) has no ink to centre
+	var dx: float = 0.0 if lo > hi else advance * 0.5 - (lo + hi) * 0.5
+	if _ink_dx_cache.size() > 256:
+		_ink_dx_cache.clear()
+	_ink_dx_cache[key] = dx
+	return dx
 
 class _RimOverlay extends Control:
 	var radius: float = Tune.RADIUS_CARD
