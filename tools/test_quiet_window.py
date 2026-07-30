@@ -9,15 +9,35 @@ in fact composited at full size for ~1000 ms on every capture (~2900 ms for the 
 hiding the window was an in-script `window_set_mode(MINIMIZED)` that ran ~460 ms into boot and then
 played macOS's synchronous ~560 ms genie animation. A claim nothing tests is a claim that rots.
 
-WHAT IT MEASURES. One real capture is run while this process samples CGWindowListCopyWindowInfo
-(`.optionOnScreenOnly`) every 30 ms, keeping only windows owned by the capture's own process tree,
-and intersects each window's bounds with the real display rects. The check is on AREA, not presence:
-the capture window is born 1x1 just past the screen's bottom-right corner (Godot clamps a BIRTH
-position into the usable rect, so the corner is as far out as a window can be born) and macOS reports
-its frame one point larger on every side, so a single corner point of shadow fringe touches the
-screen for ~200 ms before shot_base parks the window at (-32000, -32000). That is the floor on this
-platform. A regression to the old behaviour is a ~1.1-million-point overlap — four orders of
-magnitude over the limit here, so this is a wide, non-flaky margin, not a tuned threshold.
+WHAT IT MEASURES. One real capture is run while this process walks CGWindowListCopyWindowInfo every
+30 ms, keeping only windows owned by the capture's own process tree, and intersects each window's
+bounds with the real display rects. The check is on AREA, not presence: the capture window is born
+1x1 just past the screen's bottom-right corner (Godot clamps a BIRTH position into the usable rect,
+so the corner is as far out as a window can be born) and macOS reports its frame one point larger on
+every side, so a single corner point of shadow fringe can touch the screen before shot_base parks the
+window at (-32000, -32000). With the shim in place that fringe is composited for <=23 ms of a ~1.5 s
+run; with the shim disabled it is on screen for 210 ms. Either way the area is 1 pt^2 — that is the
+floor on this platform. A regression to the old behaviour is a ~1.1-million-point overlap — four
+orders of magnitude over the limit here, so this is a wide, non-flaky margin, not a tuned threshold.
+
+TWO WINDOW LISTS, TWO JOBS. The on-screen list (`.optionOnScreenOnly`) answers "did this paint over
+the owner's desktop", and only it can: a window that exists but is composited nowhere covers nothing,
+so the AREA check reads that list and no other. It cannot carry the PRECONDITION, because the fix's
+whole point is that the window is hardly ever composited — measured with a 23 ms sampler over 6 runs,
+the capture's window appears in the on-screen list in 5 runs, exactly ONE sample each, which the
+35 ms walk here misses outright. That is why "never saw a window owned by the capture process" used
+to fire on a passing run. The precondition therefore reads the ALL-windows list (the same call with
+kCGWindowListExcludeDesktopElements alone, no extra permission), where the same window is present in
+6/6 runs for ~60 samples, from ~180 ms to process exit. Windows are attributed to the capture by
+PROCESS TREE membership, never by owner name: a Prohibited process is not an app and can report an
+empty owner name.
+
+WHERE THE PIDS COME FROM. The capture's pids are enumerated from the process tree (`ps`, refreshed
+every 250 ms), not from window sightings. That is what lets the policy sampling below cover the WHOLE
+run: the policy is readable from ~65 ms into a ~1.5 s run, while Launch Services' promotion — the
+thing that check exists to catch — lands at ~575 ms, and a sightings-driven sampler would not have
+started until after it. A run in which no capture process ever had a readable policy is a FAIL, not a
+pass: the focus and foreground numbers mean nothing when the instrument was never live.
 
 AND WHAT IT MEASURES SECOND. Hiding the window was only half of "quiet": the capture also became the
 FRONTMOST APPLICATION and stayed there until it exited — measured, 500-1500 ms per launch on a
@@ -32,11 +52,25 @@ It samples the activation POLICY as well, which is the cause rather than the sym
 are not interchangeable: the run that sent this guard red on 2026-07-30 was frontmost for 0 ms in 0
 grabs and foreground-ELIGIBLE for 878 ms. See MAX_FOREGROUND_MS.
 
+NEGATIVE CONTROL, and it is a mode of this guard rather than a note about one:
+
+    TU_NOFOCUS=0 python3 tools/test_quiet_window.py
+
+runs the same capture with the shim disabled (TU_NOFOCUS is the variable quiet_godot.sh reads) and
+INVERTS the expectation — the guard must FAIL, and a run that produces no failures is itself the
+failure, because a guard that passes an unshimmed capture is measuring nothing. Measured unshimmed:
+on screen 210 ms, worst overlap 1 pt^2, foreground-eligible 502 ms and 608 ms over two runs. It is
+the FOREGROUND check that fires there, not the area one. On top of that, a pure self-check of the
+failure decisions runs on EVERY invocation before any capture launches: the measured-good vector must
+produce no failures and the recorded pre-fix defect vector must produce failures naming the area,
+focus and foreground checks, or the guard fails without running anything.
+
 SKIPS (exit 0, with the reason printed) when there is nothing to measure: not macOS, no `godot`, no
 GUI session (no active displays), or another quiet run already owns override.cfg. CI is headless, so
 it skips there; it is the dev machine — the one with an owner to interrupt — that it protects.
 """
 
+import collections
 import ctypes
 import ctypes.util
 import os
@@ -55,6 +89,10 @@ QUIET = ROOT / "engine" / "tools" / "quiet_godot.sh"
 TOOL = "res://games/grove/tools/widget_shot.gd"
 
 SAMPLE_S = 0.030
+# How often the process tree is re-read while the capture runs. A `ps` costs 10-15 ms, so it is not
+# run on every 30 ms walk once a policy-readable process has been found — before that it is, because
+# nothing can be sampled until the tree is known.
+TREE_REFRESH_S = 0.250
 # Largest on-screen overlap (square points) a capture window may ever have. The measured floor is
 # 1 point (the corner of a 1x1 window's fringe); a full-size window is >1_000_000.
 MAX_OVERLAP_AREA = 16
@@ -87,6 +125,15 @@ MAX_FOCUS_MS = 150
 # and well below every regression band, and the coin flip itself is gone — see the WHY POLLING
 # section of engine/tools/nofocus_shim.m.
 MAX_FOREGROUND_MS = 200
+# Least time at least one capture process must have had a READABLE activation policy, i.e. how long
+# the foreground instrument was actually live. Measured: readable from ~65 ms to process exit, ~1.4 s
+# of a ~1.5 s run. 200 ms is a wide margin under that; below it the focus/foreground numbers are not
+# evidence of anything and the run must not be reported as a pass.
+MIN_POLICY_MS = 200
+
+# The environment variable quiet_godot.sh reads to decide whether to inject the focus shim. Setting
+# it to 0 here turns this guard into its own negative control — see the module docstring.
+NEGATIVE_CONTROL = os.environ.get("TU_NOFOCUS", "1") == "0"
 
 
 def skip(reason: str) -> None:
@@ -184,9 +231,9 @@ def displays() -> list[tuple[float, float, float, float]]:
     return out
 
 
-def on_screen_windows() -> list[tuple[int, str, tuple[float, float, float, float]]]:
-    """(pid, owner, (x, y, w, h)) for every window the window server is currently compositing."""
-    arr = CG.CGWindowListCopyWindowInfo(ON_SCREEN_ONLY | EXCLUDE_DESKTOP, 0)
+def _window_list(option: int) -> list[tuple[int, str, tuple[float, float, float, float]]]:
+    """(pid, owner, (x, y, w, h)) for every window the window server reports under `option`."""
+    arr = CG.CGWindowListCopyWindowInfo(option, 0)
     if not arr:
         return []
     try:
@@ -205,6 +252,20 @@ def on_screen_windows() -> list[tuple[int, str, tuple[float, float, float, float
         return out
     finally:
         CF.CFRelease(arr)
+
+
+def on_screen_windows() -> list[tuple[int, str, tuple[float, float, float, float]]]:
+    """Only what the window server is COMPOSITING — the one list that can answer "did this cover
+    the owner's screen". It is a poor detector of the capture: with the shim in place the window is
+    on this list for a single sample of one run in six."""
+    return _window_list(ON_SCREEN_ONLY | EXCLUDE_DESKTOP)
+
+
+def all_windows() -> list[tuple[int, str, tuple[float, float, float, float]]]:
+    """Every window that EXISTS, composited or not. Presence here is the precondition ("the sampler
+    is attached to the right process"), never the area measurement — a window that exists off-screen
+    covers nothing, and counting it as coverage would be a false FAIL."""
+    return _window_list(EXCLUDE_DESKTOP)
 
 
 def overlap_area(rect, screens) -> float:
@@ -307,7 +368,111 @@ def descends_from(pid: int, root: int, tree: dict[int, int]) -> bool:
     return False
 
 
+def descendants(root: int, tree: dict[int, int]) -> set[int]:
+    """Every live pid in `root`'s subtree, root included. This is how the capture is identified —
+    from the PROCESS side, so it works before, after and during the moments its window happens to be
+    composited, and so the policy sampling can start at ~65 ms instead of at the first sighting."""
+    return {pid for pid in tree if descends_from(pid, root, tree)}
+
+
+# --- the failure decisions, as a pure function of the measured quantities ------------------------
+#
+# Split out of main() so the same thresholds that judge a real capture can be judged themselves, at
+# startup, against two fixed vectors (see self_check). A guard whose checks have been quietly gutted
+# by a threshold edit prints PASS just as convincingly as one that works.
+
+Failure = collections.namedtuple("Failure", "check message")
+
+
+def evaluate(*, rc: int, png_exists: bool, seen_any_window: bool, seen_capture_window: bool,
+             policy_ms: int, worst_area: float, worst_rect, visible_ms: int, focus_ms: int,
+             focus_grabs: int, foreground_ms: int) -> list[Failure]:
+    failures: list[Failure] = []
+    if rc != 0:
+        failures.append(Failure("rc", f"the capture itself failed (rc={rc}) — this guard proves "
+                                      f"nothing"))
+    if not png_exists:
+        failures.append(Failure("png", "no PNG was written — the capture did not render"))
+    # A scanner that reports nothing is a bug until it is shown finding something.
+    if not seen_any_window:
+        failures.append(Failure("blind", "CGWindowListCopyWindowInfo returned no windows at all — "
+                                         "this guard is blind, not passing"))
+    if not seen_capture_window:
+        failures.append(Failure("attached", "never saw a window owned by the capture process in the "
+                                            "ALL-windows list — cannot distinguish 'well hidden' "
+                                            "from 'sampling the wrong process'"))
+    if policy_ms < MIN_POLICY_MS:
+        failures.append(Failure(
+            "instrument",
+            f"no capture process had a readable activation policy for more than {policy_ms}ms "
+            f"(floor {MIN_POLICY_MS}ms). The focus and foreground-eligible numbers below mean "
+            f"NOTHING on this run — the instrument was not live. Look for a capture that died early "
+            f"or a process tree this run failed to enumerate."))
+    if worst_area > MAX_OVERLAP_AREA:
+        failures.append(Failure(
+            "area",
+            f"a capture window covered {worst_area:.0f}pt^2 of the screen (limit "
+            f"{MAX_OVERLAP_AREA}), rect={worst_rect}, for >={visible_ms}ms. A quiet capture must not "
+            f"paint over the owner's desktop — see engine/tools/quiet_godot.sh and "
+            f"shot_base.hide_offscreen()."))
+    if focus_ms > MAX_FOCUS_MS:
+        failures.append(Failure(
+            "focus",
+            f"the capture owned the keyboard for {focus_ms}ms across {focus_grabs} grab(s) "
+            f"(limit {MAX_FOCUS_MS}ms). Everything typed in that window went into the capture "
+            f"instead of the owner's editor — see engine/tools/nofocus_shim.m, which quiet_godot.sh "
+            f"injects to keep the process out of the foreground."))
+    if foreground_ms > MAX_FOREGROUND_MS:
+        failures.append(Failure(
+            "foreground",
+            f"the capture ran as a REGULAR (foreground-eligible) application for {foreground_ms}ms "
+            f"(limit {MAX_FOREGROUND_MS}ms). It may not have taken the keyboard on this run — that "
+            f"part is intermittent — but nothing stopped it from doing so. engine/tools/"
+            f"nofocus_shim.m is what holds the activation policy at Prohibited; check that "
+            f"quiet_godot.sh still injects it (clang missing? TU_NOFOCUS=0 set?)."))
+    return failures
+
+
+# The numbers a good run produces on this machine, and the ones the pre-fix defect produced. Both are
+# measured, not invented: the good vector is a shimmed widget_shot capture; the defect vector is the
+# full-size window of the old recipe (~1.1 M pt^2), the 878 ms focus hold, and the 606 ms the
+# notification-only shim left the process foreground-eligible.
+GOOD_VECTOR = dict(rc=0, png_exists=True, seen_any_window=True, seen_capture_window=True,
+                   policy_ms=1400, worst_area=1.0, worst_rect=(1512.0, 944.0, 1.0, 1.0),
+                   visible_ms=23, focus_ms=0, focus_grabs=0, foreground_ms=0)
+DEFECT_VECTOR = dict(rc=0, png_exists=True, seen_any_window=True, seen_capture_window=True,
+                     policy_ms=1400, worst_area=1_100_000.0, worst_rect=(0.0, 0.0, 1193.0, 1051.0),
+                     visible_ms=880, focus_ms=878, focus_grabs=3, foreground_ms=606)
+
+
+def self_check() -> list[str]:
+    """Costs microseconds, runs every time, and is the only thing standing between a future
+    threshold edit and a guard that prints PASS on the defect it was written for."""
+    problems = []
+    good = evaluate(**GOOD_VECTOR)
+    if good:
+        problems.append("the self-check's measured-GOOD vector was failed by " +
+                        ", ".join(f.check for f in good) +
+                        " — the thresholds now reject a run this guard is meant to accept")
+    caught = {f.check for f in evaluate(**DEFECT_VECTOR)}
+    missed = {"area", "focus", "foreground"} - caught
+    if missed:
+        problems.append("the self-check's recorded DEFECT vector was NOT caught by " +
+                        ", ".join(sorted(missed)) +
+                        " — those checks no longer detect the behaviour they exist for")
+    return problems
+
+
 def main() -> int:
+    broken = self_check()
+    if broken:
+        for problem in broken:
+            print(f"FAIL: {problem}")
+        print("FAIL test_quiet_window: the guard's own checks are broken — nothing was captured")
+        return 1
+    if NEGATIVE_CONTROL:
+        print("NEGATIVE CONTROL (TU_NOFOCUS=0): the shim is disabled, so this run must FAIL. "
+              "A capture with no failures is the failure.")
     if platform.system() != "Darwin":
         skip("not macOS — the quiet-window recipe is macOS-specific")
     if not shutil.which(os.environ.get("GODOT", "godot")):
@@ -335,8 +500,14 @@ def main() -> int:
     focus_samples = 0            # 2 ms samples in which the capture owned the keyboard
     focus_grabs = 0              # how many separate times it took it
     had_focus = False
-    capture_pids: set[int] = set()
+    capture_pids: set[int] = set(descendants(proc.pid, tree))
+    # The subset of capture_pids that has ever answered runningApplicationWithProcessIdentifier: —
+    # i.e. the processes that ARE applications. Only these are polled at 500 Hz; asking Launch
+    # Services about a shell pid 500 times a second buys nothing but -1.
+    app_pids: set[int] = set()
     foreground_samples = 0       # 2 ms samples in which a capture process was a Regular app
+    policy_samples = 0           # 2 ms samples in which SOME capture process had a readable policy
+    last_tree_s = time.monotonic()
     deadline = time.monotonic() + 180
 
     def is_ours(pid: int) -> bool:
@@ -348,9 +519,11 @@ def main() -> int:
         return ours[pid]
 
     def sample_focus(seconds: float) -> None:
-        """Watch the frontmost app for `seconds`, at FOCUS_SAMPLE_S. Replaces the plain sleep, so
-        the keyboard is under continuous observation while the window list is walked between."""
-        nonlocal focus_samples, focus_grabs, had_focus, foreground_samples
+        """Watch the frontmost app and the capture's activation policy for `seconds`, at
+        FOCUS_SAMPLE_S. Replaces the plain sleep, so both are under continuous observation while the
+        window lists are walked between — and both are driven by the process tree, so the watch runs
+        for the whole capture rather than starting at the first window sighting."""
+        nonlocal focus_samples, focus_grabs, had_focus, foreground_samples, policy_samples
         until = time.monotonic() + seconds
         while True:
             pid = frontmost_pid()
@@ -360,23 +533,44 @@ def main() -> int:
                 if not had_focus:
                     focus_grabs += 1
             had_focus = now_ours
-            for cap in capture_pids:
-                if activation_policy(cap) == POLICY_REGULAR:
-                    foreground_samples += 1
+            policies = [activation_policy(cap) for cap in app_pids]
+            # At most ONE sample per tick, however many processes the capture has: these are
+            # durations in wall-clock milliseconds, not process-milliseconds.
+            if any(p != -1 for p in policies):
+                policy_samples += 1
+            if any(p == POLICY_REGULAR for p in policies):
+                foreground_samples += 1
             if time.monotonic() >= until:
                 return
             time.sleep(FOCUS_SAMPLE_S)
 
     while time.monotonic() < deadline:
         alive = proc.poll() is None
-        for pid, owner, rect in on_screen_windows():
+        now = time.monotonic()
+        # Re-read the tree every pass until something in it is an application (the capture's own
+        # process takes ~65 ms to check in), then at TREE_REFRESH_S to pick up late children.
+        if not app_pids or now - last_tree_s >= TREE_REFRESH_S:
+            tree = parents(proc.pid)
+            capture_pids |= descendants(proc.pid, tree)
+            last_tree_s = now
+        for cap in capture_pids - app_pids:
+            if activation_policy(cap) != -1:
+                app_pids.add(cap)
+        # PRECONDITION channel: every window that exists. The capture's window is here for ~60 of
+        # these samples; it reaches the on-screen list below for at most one. It is a boolean, so
+        # the extra list walk stops the moment it is answered.
+        if not seen_capture_window:
+            for pid, _owner, _rect in all_windows():
+                if pid in capture_pids:
+                    seen_capture_window = True
+                    break
+        # COVERAGE channel: only what is composited, which is the only thing that can cover the
+        # owner's screen. Attribution is by tree membership — the owner's own long-lived godot
+        # session is not in the tree, and a Prohibited capture may report no owner name at all.
+        for pid, _owner, rect in on_screen_windows():
             seen_any_window = True
-            if "godot" not in owner.lower():
+            if pid not in capture_pids:
                 continue
-            if not is_ours(pid):
-                continue                              # the owner's own long-lived godot session
-            seen_capture_window = True
-            capture_pids.add(pid)
             area = overlap_area(rect, screens)
             if area > 0:
                 onscreen_samples += 1
@@ -391,47 +585,43 @@ def main() -> int:
     rc = proc.wait()
     visible_ms = int(onscreen_samples * SAMPLE_S * 1000)
     focus_ms = int(focus_samples * FOCUS_SAMPLE_S * 1000)
+    foreground_ms = int(foreground_samples * FOCUS_SAMPLE_S * 1000)
+    policy_ms = int(policy_samples * FOCUS_SAMPLE_S * 1000)
     print(f"displays={screens}")
     print(f"capture rc={rc} samples={samples} capture-window-seen={seen_capture_window} "
+          f"pids={sorted(capture_pids)} app-pids={sorted(app_pids)} "
           f"worst-overlap={worst[0]:.0f}pt^2 rect={worst[1]} on-screen>={visible_ms}ms")
-    foreground_ms = int(foreground_samples * FOCUS_SAMPLE_S * 1000)
     print(f"focus: the capture was frontmost for {focus_ms}ms in {focus_grabs} grab(s) "
           f"(limit {MAX_FOCUS_MS}ms); it was a foreground-eligible app for {foreground_ms}ms "
-          f"(limit {MAX_FOREGROUND_MS}ms)")
+          f"(limit {MAX_FOREGROUND_MS}ms); its policy was readable — the instrument live — for "
+          f"{policy_ms}ms (floor {MIN_POLICY_MS}ms)")
 
-    failures = []
-    if rc != 0:
-        failures.append(f"the capture itself failed (rc={rc}) — this guard proves nothing")
+    failures = evaluate(rc=rc, png_exists=out_png.exists(), seen_any_window=seen_any_window,
+                        seen_capture_window=seen_capture_window, policy_ms=policy_ms,
+                        worst_area=worst[0], worst_rect=worst[1], visible_ms=visible_ms,
+                        focus_ms=focus_ms, focus_grabs=focus_grabs, foreground_ms=foreground_ms)
     if not out_png.exists():
-        failures.append(f"no PNG at {out_png} — the capture did not render")
-    # A scanner that reports nothing is a bug until it is shown finding something.
-    if not seen_any_window:
-        failures.append("CGWindowListCopyWindowInfo returned no windows at all — this guard is "
-                        "blind, not passing")
-    if not seen_capture_window:
-        failures.append("never saw a window owned by the capture process — cannot distinguish "
-                        "'well hidden' from 'sampling the wrong process'")
-    if worst[0] > MAX_OVERLAP_AREA:
-        failures.append(
-            f"a capture window covered {worst[0]:.0f}pt^2 of the screen (limit {MAX_OVERLAP_AREA}), "
-            f"rect={worst[1]}, for >={visible_ms}ms. A quiet capture must not paint over the "
-            f"owner's desktop — see engine/tools/quiet_godot.sh and shot_base.hide_offscreen().")
-    if focus_ms > MAX_FOCUS_MS:
-        failures.append(
-            f"the capture owned the keyboard for {focus_ms}ms across {focus_grabs} grab(s) "
-            f"(limit {MAX_FOCUS_MS}ms). Everything typed in that window went into the capture "
-            f"instead of the owner's editor — see engine/tools/nofocus_shim.m, which quiet_godot.sh "
-            f"injects to keep the process out of the foreground.")
-    if foreground_ms > MAX_FOREGROUND_MS:
-        failures.append(
-            f"the capture ran as a REGULAR (foreground-eligible) application for {foreground_ms}ms "
-            f"(limit {MAX_FOREGROUND_MS}ms). It may not have taken the keyboard on this run — that "
-            f"part is intermittent — but nothing stopped it from doing so. engine/tools/"
-            f"nofocus_shim.m is what holds the activation policy at Prohibited; check that "
-            f"quiet_godot.sh still injects it (clang missing? TU_NOFOCUS=0 set?).")
+        print(f"(expected PNG at {out_png})")
 
     for f in failures:
-        print(f"FAIL: {f}")
+        print(f"FAIL: {f.message}")
+    if NEGATIVE_CONTROL:
+        # Only the checks that measure QUIETNESS count as the control being caught. A broken run
+        # (rc, no PNG, blind scanner, dead instrument) fails for reasons that have nothing to do
+        # with the shim, and must not be read as the guard working.
+        caught = {f.check for f in failures} & {"area", "focus", "foreground"}
+        if caught:
+            print("PASS test_quiet_window (negative control): the shim was disabled and the guard "
+                  "caught it — " + ", ".join(sorted(caught)))
+            return 0
+        if failures:
+            print("FAIL: the negative control did not run cleanly enough to prove anything — the "
+                  "failures above are about the run itself, not about the missing shim.")
+            return 1
+        print("FAIL: the guard passed an unshimmed capture — it is no longer measuring anything. "
+              "Every check was satisfied by a run with TU_NOFOCUS=0, so a real regression would "
+              "pass too.")
+        return 1
     if failures:
         return 1
     print("PASS test_quiet_window: the capture never covered the screen or took the keyboard")
