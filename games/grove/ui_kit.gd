@@ -5910,6 +5910,10 @@ static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
 	var shadow_corner := float(corner)
 	if frame_style == "meadow":
 		shadow_corner = clampf(minf(size.x, size.y) * 0.035, 14.0, 30.0)
+	# The panel's REAL rounding, stamped once on the root: the shadow wrappers read it, and so does the
+	# Weather Hours lane wash, which clips its square bands to this silhouette (engine/scripts/ui/
+	# sky_patch.gd). Nothing downstream may re-derive the expression above.
+	root.set_meta(Look.SHADOW_CORNER_META, shadow_corner)
 	# the soft drop shadow under the WHOLE board (both styles) — the SHARED box-shadow, a sibling drawn BEHIND
 	# (show_behind_parent) so it bleeds past the edge. NinePatchRect has no native shadow. On via the toggle.
 	if bool(opts.get("shadow", false)):
