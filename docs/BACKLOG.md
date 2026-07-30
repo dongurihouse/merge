@@ -14,7 +14,10 @@ Buckets:
 
 ## High priority — build now
 
-_(The mystery-reward dialog shipped as **T53**, 2026-06-23 — see `tasks/ux-feel.md`.)_
+_(The mystery-reward dialog shipped as **T53**, 2026-06-23 — see `tasks/ux-feel.md`. It is PARKED as of
+**T65**, 2026-07-29: the grove reward config declares no mystery slots, so every daily rung is a fixed grant
+and the reveal is unreachable in game. Code + dialog + workbench preview all stay; re-add a `mystery` block to
+`games/grove/login_rewards.json` to bring it back.)_
 
 - **FTUE system — redesign as ONE reusable hand-gesture spotlight. [SPECCED · PARKED · old code
   removed]** Full design: `docs/superpowers/specs/2026-06-23-ftue-hand-gesture-spotlight-design.md`.
@@ -156,16 +159,27 @@ _(The mystery-reward dialog shipped as **T53**, 2026-06-23 — see `tasks/ux-fee
 
 ## Tuning (owner feel / pacing calls)
 
-- **Mystery reward pools.** Re-tune the pools in **`games/grove/login_rewards.json`** (the reward config is
-  now data — `LOGIN_*` consts removed from `grove_data.gd` in T53) — day-4 to a mid-week reward tier, day-7
-  to a milestone tier, against the wider coin/gem economy; keep every `water` entry ≤ `water_safe_max`
-  (= 15, the §4/§10 faucet guard, asserted by tests). *(was follow-up 1.1.)*
-- **Mystery spin pacing (day-7 length).** The deceleration *curve* reads right (measured 0.035s→0.17s ramp,
+- **Mystery reward pools. [PARKED — NO LIVE MYSTERY DAYS since T65]** The Dev's call (2026-07-29) removed the
+  `mystery` block from **`games/grove/login_rewards.json`** entirely: slots 4 and 7 now pay FIXED rungs
+  (`{coins: 60, water: 12}` · `{coins: 250, gems: 2}`), so there is no pool left to tune and no reveal
+  reachable in game. What remains live here is the ordinary **daily-ladder** tuning — the 7 rungs + the day-30
+  milestone against the wider coin/gem economy, keeping every `water` entry ≤ `water_safe_max` (= 15, the
+  §4/§10 faucet guard, asserted by tests). Re-tuning POOLS only becomes real again if a config re-adds a
+  `mystery` slot (the engine + dialog are untouched and data-gated). *(was follow-up 1.1.)*
+- **Daily card readability — the day-7 capstone shows no number. [Dev call, opened by T65]** Every grid day
+  now states its amount (T65 added per-icon numbers for multi-currency rungs, so day 4 reads "60 · 12"), but
+  the **capstone banner** still renders the mock's treasure chest with no amount at all — so the week's
+  biggest FIXED reward (250 coins + 2 acorns) is only revealed by the claim celebration. That is the
+  `daily_gifts_1080x1920` mock's own design and predates T65, left untouched deliberately. Decide whether the
+  capstone should state its reward (icons + numbers beside the chest, or replacing it). Owner eyeball.
+- **Mystery spin pacing (day-7 length). [PARKED — no live mystery day fires this spin since T65]** Kept for
+  the day a config re-declares a mystery slot. The deceleration *curve* reads right (measured 0.035s→0.17s ramp,
   visible card-to-card slowdown) so T53 left `_spin` untouched. The one open feel call: a 2-winner day (slot 7)
   runs ~3.6s of spin (vs ~1.6s for the 1-winner slot 4) because each extra winner appends a full ~2s segment,
   then a 1.5s "You won!" hold → ~5s total before auto-dismiss. If that reads long for a weekly-repeating reward,
   shorten the per-winner step counts in `login_mystery.gd:_spin` (`steps = 14 + wi*5` → e.g. `10 + wi*4`) and/or
-  the 1.5s finish hold. Owner eyeball — captures shared with the T53 handoff.
+  the 1.5s finish hold. Owner eyeball — captures shared with the T53 handoff. The workbench still previews the
+  reveal (`make shot-workbench EL=mystery`) off its OWN demo pools (`ui_workbench_view.gd MYSTERY_DEMO`).
 
 - **Economy feel sign-offs (T43/T44).** Owner pacing pass on the cash → 💎 price ladder, rewarded-ad
   caps, the out-of-water discount (T43), and the vault skim rate / pig price / login ladder + milestones
@@ -202,13 +216,18 @@ _(The mystery-reward dialog shipped as **T53**, 2026-06-23 — see `tasks/ux-fee
 
 ## Testing (re-enable / add coverage)
 
-- **Re-enable the login UI test suite.** `engine/tests/login_tests.gd` (15 assertions, passes today)
-  sits in the Makefile's `ENGINE_TESTS_DISABLED`; fold it back into `ENGINE_TESTS`. It covers: (1)
-  claim-feedback z-order — the daily-reward celebration renders ABOVE the z=100 calendar modal, not
-  behind the veil; (2) mystery-chest wiring — a mystery slot is the claimable "today" rung, wears the
-  "?" chest, and opens the spin (not an instant grant); (3) mystery reveal grant — opening a day-7
-  reveal claims the day, bumps the streak by 1, fires `on_done`; (4) reveal cards show concrete reward
-  amounts, not icon-only. *(was follow-up 1.2.)*
+- **Re-enable the login UI test suite. [STALE — the file is GONE; rewrite, don't re-enable]**
+  `engine/tests/login_tests.gd` no longer exists in the tree and `ENGINE_TESTS_DISABLED` is now empty, so
+  there is nothing to fold back into `ENGINE_TESTS` — this is a write-it-again item. What it used to cover,
+  and what is worth re-authoring: (1) claim-feedback z-order — the daily-reward celebration renders ABOVE
+  the z=100 calendar modal, not behind the veil; (2) **[PARKED behind no live mystery days — T65]**
+  mystery-chest wiring — a mystery slot is the claimable "today" rung, wears the chest, and opens the spin
+  (not an instant grant); (3) **[PARKED, same reason]** mystery reveal grant — opening a day-7 reveal claims
+  the day, bumps the streak by 1, fires `on_done`; (4) reveal cards show concrete reward amounts, not
+  icon-only. (2)+(3) would need a SYNTHETIC reward config (`Login._cfg` / `Login._reset()`, the seam
+  `save_tests.gd` 21g-21k uses) since no shipping config declares a mystery slot. The FIXED-rung calendar
+  face + the day-4/day-7 grants are already covered in `engine/tests/save_tests.gd` (21a-21f).
+  *(was follow-up 1.2.)*
 
 - **IAP / StoreKit purchase flow (generic).** Coverage for the IAP purchase → grant → (receipt-validate)
   path across every SKU — the vault crack (`com.tidyup.piggybank`) and the shop gem packs / starter pack.

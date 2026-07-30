@@ -745,13 +745,14 @@ const VAULT_CAP := 500                    # a generous ceiling so the jar art ha
 
 # The daily login calendar (§18) reward tables are now DATA, not consts: the repeating
 # WEEK `ladder` (escalating small rewards), the `milestones` keyed by absolute streak day
-# (a bigger payout that OVERRIDES the week slot), the MYSTERY `mystery` slots (an auto-spin
-# reveal drawing `show` rewards and landing on `win`), and the `water_safe_max` faucet guard
+# (a bigger payout that OVERRIDES the week slot), and the `water_safe_max` faucet guard
 # all live in `games/grove/login_rewards.json`, read by engine/scripts/core/login.gd off
 # Game.active() (mirrors strings.json). Re-tune rewards/cadence THERE — no code edit.
 # Faucet discipline still holds (mostly COINS; WATER a modest top-up ≤ water_safe_max, far
 # under a day's ~720 natural regen; PREMIUM 💎 the weekly capstone + milestones); the streak
-# stays FORGIVING (Save.daily soft-decays a missed day, never to day 1).
+# stays FORGIVING (Save.daily soft-decays a missed day, never to day 1). EVERY day pays a FIXED
+# rung — the optional `mystery` spin-reveal pools were dropped from the grove config in T65, so that
+# machinery (core/login.gd + ui/login_mystery.gd) is parked until a config re-declares a slot.
 
 # The one-time gift for fully unlocking a map (all spots restored + gate delivered). Escalates with the
 # map index z: more coins/diamonds on later maps, plus one free signature spirit (the map's non-premium

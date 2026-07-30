@@ -18,7 +18,7 @@ const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")   # the que
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")     # merge pieces for the Board preview
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")     # the selected-cell corner-bracket highlight
 const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")  # the mystery spin-reveal dialog (build_reveal)
-const Login = preload("res://engine/scripts/core/login.gd")            # mystery_config(slot) → the demo pool for the preview
+const Login = preload("res://engine/scripts/core/login.gd")            # reward_for(day) → the REAL weekly rungs the daily preview shows
 const LoginUI = preload("res://engine/scripts/ui/login.gd")            # the REAL daily dialog / day-cell renderer (the game's daily card)
 const LadderUI = preload("res://engine/scripts/ui/ladder.gd")          # the REAL discovery-ladder renderer (corner tier chips + generator header)
 const ShopUI = preload("res://engine/scripts/ui/shop.gd")              # the REAL shop storefront renderer (Shop.build_body — sage art-left cards)
@@ -98,7 +98,10 @@ const TEST_KEYS := {
 	"daily_card": ["preview", "ribbon"],   # preview/ribbon view toggles
 	"frame": ["snap", "preview_text"],     # snap is the drag-grid helper; preview_text is sample title text — neither saved
 	"dialog": ["entries"],
-	"daily": [],
+	# the DAILY dialog is the game's real login screen — the grid/capstone layout lives in login.gd, so the
+	# only knob here is preview state: `today` picks WHICH weekly rung renders as the claimable card (the
+	# rewards themselves come from the live login_rewards.json, never from a demo table).
+	"daily": ["today"],
 	# the MYSTERY spin-reveal dialog has no own saved knobs — it inherits the shared frame (edited on the
 	# Frame item) and sizes by the engine's min(560, 94%) rule; `preview` just picks which pool + state to show.
 	"mystery": ["preview"],
@@ -337,7 +340,10 @@ func _default_params() -> Dictionary:
 			"tint": Pal.CREAM.to_html(false), "icon": "gem", "title": "Acorns", "body": "premium currency for shortcuts", "chip_text": "400"},
 		# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 		# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
-		"daily": {"cols": 3, "list_max_h": 0},
+		# `today` = which weekly rung renders as the claimable card (test-only). It defaults to 4 — the
+		# mid-week gift rung, the one day whose face carries a two-currency reward — so the plain
+		# `make shot-workbench EL=daily` capture lands on the most informative state.
+		"daily": {"cols": 3, "list_max_h": 0, "today": 4},
 		# the MYSTERY spin-reveal dialog (login_mystery.gd) — the shared frame + a row of reward cards the spin
 		# lands on. NO saved knobs (the frame is the shared one; width is the engine's min(560, 94%) cap). `preview`
 		# picks the pool (day 4 = 3 cards/1 win · day 7 = 5 cards/2 wins) and the state (all shown · winners landed).
@@ -1175,23 +1181,21 @@ func _bag_price(k: int, prices: Array, start: int) -> int:
 	var idx := (k - 1) - start
 	return int(prices[idx]) if idx >= 0 and idx < prices.size() else 0
 
-## A demo day for the standalone Daily-card preview, in the chosen state (today shows the today badge,
-## mystery shows the milestone badge + chest).
-## The full 7-day demo ladder for the daily-dialog preview — days 1-2 done, day 3 today (claimable), a
-## slot-4 mystery gift, days 5-6 future, day 7 the capstone milestone.
+## The 7-day ladder for the daily-dialog preview: the REAL weekly rungs (Login.reward_for — so the tool
+## shows the SHIPPED calendar's own reward faces, day 4's mid-week gift and day 7's capstone included, and
+## a re-tune of `login_rewards.json` shows up here) worn by a synthetic STATE mix, so one capture carries
+## all three card states — every day before the `today` param claimed (✓), that day the claimable card,
+## the rest future (reward hidden behind the varied gift box, exactly as the game hides them).
+## NO mystery marker: no shipping reward config declares a mystery slot (T65), so faking one here would
+## misreport the game. The kit's own `DEMO_DAILY` (ui_kit.gd, baked via games/tools/bake_targets.gd) keeps
+## the hidden-reward chest marker exercised, and the Mystery element previews the parked reveal itself.
 func _daily_demo_days() -> Array:
-	var rewards := [{"water": 10}, {"coins": 50}, {"coins": 150}, {"gems": 30}, {"coins": 100}, {"water": 40}, {"gems": 100}]
+	var today: int = clampi(int(_params["daily"].get("today", 4)), 1, 7)
 	var out: Array = []
 	for i in 7:
 		var day := i + 1
-		var st := "done" if day < 3 else ("today" if day == 3 else "future")
-		var d := {"day": day, "label": "Day %d" % day, "reward": rewards[i], "state": st}
-		if day == 4:
-			d["mystery"] = true
-			d["mystery_icon"] = LoginUI.ART_GIFT   # slot-4 mystery gift
-		if day == 7:
-			d["mystery"] = true                    # the capstone milestone chest
-		out.append(d)
+		var st := "done" if day < today else ("today" if day == today else "future")
+		out.append({"day": day, "label": "Day %d" % day, "reward": Login.reward_for(day), "state": st})
 	return out
 
 ## The daily dialog exactly as the game builds it: the shared dialog frame (edited on the Frame item)
@@ -1249,10 +1253,20 @@ func _daily_dialog_preview() -> Control:
 ## selected + the Claim button. The reels are DETERMINISTIC (first `show` pool entries — no shuffle), and
 ## "▶ Play spin" (sidebar) replays the real animation on this element. Reuses LoginMystery.build_reveal,
 ## so it's byte-for-byte the dialog the game opens; frame_cfg: _params flows live Frame edits through.
+##
+## The pools are the workbench's OWN (MYSTERY_DEMO below), not Login.mystery_config(): the grove reward
+## config declares no mystery slots any more (T65 — every day pays a fixed rung), so reading live data
+## here would render an EMPTY dialog at exit 0. The reveal is a parked-but-previewable feature.
+const MYSTERY_DEMO := {
+	4: {"show": 3, "win": 1, "pool": [
+		{"coins": 120}, {"water": 12}, {"coins": 60, "water": 6}, {"gems": 1}, {"coins": 150}]},
+	7: {"show": 5, "win": 2, "pool": [
+		{"coins": 200}, {"gems": 2}, {"coins": 100, "gems": 1}, {"water": 14}, {"coins": 300}, {"gems": 3}]},
+}
 func _mystery_preview(which: String) -> Control:
 	var slot := 4 if which.begins_with("day 4") else 7
 	var pick_state := which.ends_with("pick")
-	var mc: Dictionary = Login.mystery_config(slot)
+	var mc: Dictionary = MYSTERY_DEMO[slot]
 	var pool: Array = mc.get("pool", [])
 	var show: int = mini(int(mc.get("show", 0)), pool.size())
 	var win: int = mini(int(mc.get("win", 0)), show)
@@ -1690,7 +1704,9 @@ func _element_sidebar(_id: String) -> void:
 			# the daily dialog is the game's real login screen (LoginUI's grid + capstone) inside the shared
 			# frame. The frame (banner · border · ✕) is edited on the Frame item; the day grid + capstone
 			# layout is fixed in login.gd, so there are no grid knobs here.
-			_sidebar_note("The daily dialog is the game's real login screen (login.gd) — the day grid + capstone are fixed there. Edit the shared frame on the Frame item.")
+			_sidebar_note("The daily dialog is the game's real login screen (login.gd) — the day grid + capstone are fixed there, and the rewards come from games/grove/login_rewards.json. Edit the shared frame on the Frame item.")
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_slider_row(["today", 1, 7]))   # which rung is the claimable card (earlier days ✓, later hidden)
 		"mystery":
 			# no saved knobs: the frame is shared (Frame item), width is the engine's min(560, 94%) cap.
 			# The preview-state picker (which pool · revealed-vs-pick) + "▶ Play spin" to watch the real animation.
