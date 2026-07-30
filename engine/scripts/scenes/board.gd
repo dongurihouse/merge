@@ -25,6 +25,7 @@ const Music = preload("res://engine/scripts/core/music.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Paper = preload("res://engine/scripts/ui/paper_button.gd")   # the shared paper-button SURFACE treatment (nav tabs wear it too)
+const EdgeTab = preload("res://engine/scripts/ui/edge_tab.gd")     # …and the screen-edge TAB geometry (bleed + flare) the bottom row wears
 const Tuning = preload("res://engine/scripts/core/tuning.gd")   # UI-redesign role dials (Tuning.UiSkin.*)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")   # the selected-cell corner-bracket highlight
@@ -97,7 +98,10 @@ const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with
 const QUEST_GAP := 16.0          # fallback gap BETWEEN cards — the workbench quest_card.gap overrides (via _giver_lay)
 const UNLOCK_BAR_H_FRAC := 0.10  # the NEXT UNLOCK strip's height as a fraction of screen width (mock: board_next_unlock_v1)
 const EDGE_GAP := BoardFit.EDGE_GAP   # the EQUAL page margin: HUD pills → content top == board bottom → bottom bar
-const BOTTOM_BAR_INSET := 14.0   # the floating bottom bar's gap off the screen (safe-area) bottom edge
+# (there is no `BOTTOM_BAR_INSET` any more. The bottom row USED to float 14px above the safe-area line;
+# it is now a TAB BAR bled to the screen edge like the home/map nav row — its three sheets SIT on that
+# line and their paper runs on through it, off the screen. The band everything else clears is therefore
+# `safe_bottom + _bottom_bar_h_px`, with no gap underneath. See engine/scripts/ui/edge_tab.gd.)
 const ALMANAC_INSET_FRAC := 0.30 # the empty-tray Almanac chip's gap off the info row's right edge, as a
                                  # fraction of the chip's own size (so it scales with the tray)
 const MASTERY_RANKUP_FX_DELAY := 0.45 # after the 0.3s tile flight and 0.4s wallet arrival settle
@@ -445,8 +449,10 @@ func _ready() -> void:
 	var bar_margin := _tray_side_margin_px()
 	bar.offset_left = bar_margin
 	bar.offset_right = _view_size().x - bar_margin
-	bar.offset_top = -bottom_bar_h - BOTTOM_BAR_INSET - sb_inset
-	bar.offset_bottom = -BOTTOM_BAR_INSET - sb_inset
+	# the row's BASELINE is the safe-area line: the three sheets' boxes end there and their paper bleeds
+	# through it off the screen — no margin under the row at all (the nav row's own contract).
+	bar.offset_top = -bottom_bar_h - sb_inset
+	bar.offset_bottom = -sb_inset
 	bar.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	bar.set_meta("shared_action_tray", true)
 	add_child(bar)
@@ -1530,7 +1536,9 @@ func _recompute_board_geometry() -> void:
 	var bar_h := _unlock_bar_h_px()
 	_place_unlock_bar(bar_h)
 	var top_reserve := _content_top_px()
-	var bar_top_y := view.y - Look.safe_bottom(self) - BOTTOM_BAR_INSET - bottom_bar_h
+	# the bottom row is edge-anchored: its band runs from the screen bottom up through the safe-area inset
+	# and the bar's own height. The paper bleeds BELOW that line, but nothing the board must clear does.
+	var bar_top_y := view.y - Look.safe_bottom(self) - bottom_bar_h
 	if _stack != null and is_instance_valid(_stack):
 		_stack.offset_top = top_reserve
 		_stack.offset_bottom = -(view.y - bar_top_y + EDGE_GAP)   # cap the stack EDGE_GAP above the bottom bar
@@ -3731,9 +3739,13 @@ func _rebuild_action_bar_row(row: HBoxContainer, bottom_btn_px: float, action_op
 	row.add_child(home_btn)
 	# centre: the painted cream tray, holding the selected-item info bar and nothing else. The tray is
 	# sized to the SAME px box as the Home/Bag tiles beside it, so all three read as one row of equals
-	# (bottom_bar_h only sets the band the row centres in).
+	# (bottom_bar_h only sets the band the row sits at the bottom of), and it bleeds off the screen edge
+	# on the SAME contract — through the safe-area inset and one of its own corner radii past it. Its
+	# MATERIAL is scaled from the well size, not from its own width: see EdgeTab.sheet_cp.
+	var tray_bleed := EdgeTab.bleed_px(Look.safe_bottom(self), float(ActionBar.bar_corner_px(bottom_btn_px)))
 	row.add_child(ActionBar.offset_slot( \
-		ActionBar.info_tray(_build_info_bar(bottom_btn_px, action_opts, bottom_btn_px), bottom_btn_px, action_opts), \
+		ActionBar.info_tray(_build_info_bar(bottom_btn_px, action_opts, bottom_btn_px), bottom_btn_px, \
+			action_opts, tray_bleed, bottom_btn_px), \
 		float(action_opts.get("info_x_frac", 0.0)), "ActionBarInfoOffset"))
 	row.add_child(_build_bag_box(bottom_btn_px, action_opts))   # right: the Bag tile, OUTSIDE the info tray
 	if preserve_selection and prior_selection.x >= 0 and board != null:
@@ -3756,8 +3768,8 @@ func _relayout_action_bar() -> void:
 	var bar_margin := _tray_side_margin_px()
 	bottom_bar.offset_left = bar_margin
 	bottom_bar.offset_right = _view_size().x - bar_margin
-	bottom_bar.offset_top = -bottom_bar_h - BOTTOM_BAR_INSET - sb_inset
-	bottom_bar.offset_bottom = -BOTTOM_BAR_INSET - sb_inset
+	bottom_bar.offset_top = -bottom_bar_h - sb_inset
+	bottom_bar.offset_bottom = -sb_inset
 	(bottom_bar as PanelContainer).add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	var row := bottom_bar.find_child("ActionBarRow", true, false) as HBoxContainer
 	if row != null:
@@ -3806,8 +3818,9 @@ func _make_bag_button(px: float, action_opts: Dictionary = {}) -> Button:
 	var bag_opts: Dictionary = KitB.action_button_opts_from_config(Game.kit_config())
 	bag_opts["name"] = "BagWell"
 	# the SHARED paper-button material the nav tabs wear (Paper.surface_cp + its dense glyph shadow): a
-	# smooth feathered edge, the scene's directional cast shadow, a lit hairline, no rim. Not the tab's
-	# GEOMETRY — a free-standing well does not flare and has no screen edge to bleed off.
+	# smooth feathered edge, the scene's directional cast shadow, a lit hairline, no rim — AND, since the
+	# board's bottom row became a tab bar in its own right, the shared screen-edge tab GEOMETRY too: the
+	# sheet bleeds off the screen bottom and flares (_apply_bottom_tab_geometry).
 	#
 	# THE FILL IS NOT CHALKED, unlike the nav row's. The chalk pass exists because the mock's TABS are
 	# pastel and the shipped role fills were poster colours; these two wells already sit in the mock's
@@ -3817,9 +3830,10 @@ func _make_bag_button(px: float, action_opts: Dictionary = {}) -> Button:
 	# falls 1.74:1 → 1.34:1, which is under the ratio that made the nav row give its captions a heavier
 	# shadow. Material is shared; fill stays each surface's own.
 	Paper.apply(bag_opts, Vector2(px, px))
+	_apply_bottom_tab_geometry(bag_opts, px, px)
 	var b: Button = KitB.action_button("bag", Vector2(px, px), Callable(self, "_open_bag_overlay"), bag_opts)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.size_flags_vertical = Control.SIZE_SHRINK_END   # a tab SITS on the row's bottom edge, not centred in its band
 	var content := CenterContainer.new()
 	content.name = "BagContent"
 	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -3920,14 +3934,37 @@ func _home_nav_button(px: float, action_opts: Dictionary = {}) -> Button:
 		var ho: Dictionary = KitH.action_button_opts_from_config(Game.kit_config())
 		ho["name"] = "BoardHomeTile"
 		Paper.apply(ho, Vector2(px, px))     # the shared paper-button material — see _make_bag_button
+		_apply_bottom_tab_geometry(ho, px, px)   # …and the shared screen-edge tab geometry
 		b = KitH.action_button("home", Vector2(px, px), go, ho)
 	else:
 		b = ActionBar.home_well(px, "house", "nav_home.png", "", -1.0, action_opts)
 		ActionBar.clear_button_frame(b)
 		b.pressed.connect(go)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.size_flags_vertical = Control.SIZE_SHRINK_END   # a tab SITS on the row's bottom edge
 	return b
+
+# THE BOTTOM ROW'S TAB GEOMETRY, on one sheet. The board's bottom row is a TAB BAR bled to the screen edge
+# (mock: _concepts/screens/palette_a_meadow_sky_board.png) — the same format the home/map nav row wears —
+# so each of its three sheets (this Home well, the cream info tray, the Bag well) runs its paper through
+# the safe-area inset and one corner radius past the screen bottom, and flares into a trapezoid.
+#
+# The flare is asked for by LEAN, not by the nav tab's 5.5%-of-width figure: `cut_paper.flare` is a
+# fraction of the sheet's own WIDTH, so one number handed to a square well and to the ~660px tray beside
+# it would lean their sides by 1.5° and 4.9° — three trapezoids in a row meant to read as one bar. See
+# engine/scripts/ui/edge_tab.gd.
+#
+# NOT applied to the almanac chip: it lives INSIDE the info tray (_build_almanac_chip), several px above
+# the screen edge with the tray's own paper behind it, so it has nothing to bleed off. It keeps the shared
+# MATERIAL alone — which is exactly what the mock draws, its bag well inset in the cream sheet the same way.
+func _apply_bottom_tab_geometry(opts: Dictionary, face_w: float, box_h: float) -> Dictionary:
+	var cp: Dictionary = (opts.get("cp", {}) as Dictionary).duplicate()
+	var corner := float(opts.get("corner", cp.get("corner", 20.0)))
+	var bleed := EdgeTab.bleed_px(Look.safe_bottom(self), corner)
+	opts["bleed_bottom"] = bleed
+	cp["flare"] = EdgeTab.flare_for_lean(face_w, box_h + bleed)
+	opts["cp"] = cp
+	return opts
 
 # The center INFO BAR: [info button] [selected piece + name] [trashcan/sell]. Tapping a board item fills it
 # (see _select_item); empty otherwise. The info button opens the Tiers ladder; the trashcan sells the item.

@@ -11,12 +11,17 @@ extends RefCounted
 ## is no margin under the row at all. The band anything else must clear is therefore the ACTIVE tile's
 ## height — the tallest thing in the row — never the plain tile's.
 
-# THE MATERIAL — smooth feathered edge · directional cast shadow · lit hairline · dense glyph shadow ·
-# no rim on a plain tile — is NOT the nav row's; it is what every cut-paper button in the game is made
-# of, and it lives in one place (the board's Home/Bag wells, its almanac chip and the place-picker's
-# back button wear the same numbers). What is left in THIS file is the tab's own geometry: the flare,
-# the bottom bleed, the caption, the row's slot solve and its chalked tint.
+# NEITHER THE MATERIAL NOR THE TAB GEOMETRY IS THE NAV ROW'S ANY MORE. Both started here and both left
+# as soon as a second surface needed them:
+#   * the MATERIAL — smooth feathered edge · directional cast shadow · lit hairline · dense glyph shadow ·
+#     no rim on a plain tile — is what every cut-paper button in the game is made of
+#     (engine/scripts/ui/paper_button.gd);
+#   * the screen-edge TAB GEOMETRY — the bottom bleed and the trapezoid flare — is what every sheet
+#     ANCHORED to the screen's bottom edge is shaped like (engine/scripts/ui/edge_tab.gd). The board's
+#     bottom row (Home well · info tray · Bag well) is the second row to wear it.
+# What is left in THIS file is the nav ROW: its slot solve, its gaps, its captions and its chalked tint.
 const Paper = preload("res://engine/scripts/ui/paper_button.gd")
+const EdgeTab = preload("res://engine/scripts/ui/edge_tab.gd")
 
 const DEFAULT_PX := 150.0     # nav button box size
 const SIDE_INSET := 32.0      # left/right inset of the row
@@ -49,11 +54,6 @@ const ACTIVE_RIM_FRAC := 0.037        # its white rim, drawn OUTSIDE the fill
 const GAP_FRAC := 0.0074
 const GAP_MIN_PX := 5.0               # …floored so a narrow phone keeps a visible cut between the tabs
 const GAP_MAX_PX := 12.0              # …and capped so a tablet does not spread the row into five islands
-
-# The tab's own GEOMETRY on top of the shared material. The trapezoid is the one paper knob that is
-# genuinely the nav row's: a tab is anchored to the screen edge and reads as pulled up out of it, which a
-# free-standing well must not do. Its default is inert, so it bites on this row and nowhere else.
-const FLARE := 0.055                  # the VISIBLE bottom edge reads 5.5% wider than the top (a trapezoid)
 
 # CHALK — the nav row's OWN tint transform, applied to whatever fill each tab's paper role resolves to.
 # The roles (cream · sky · green · coral · gold) are shared with dialogs, pills, the board and the shop and
@@ -88,21 +88,6 @@ static func chalk(fill: Color) -> Color:
 	var s := minf(fill.s * CHALK_SAT, CHALK_SAT_MAX)
 	var v := minf(fill.v + (1.0 - fill.v) * CHALK_LIFT, CHALK_VALUE_MAX)
 	return Color.from_hsv(fill.h, s, v, fill.a)
-
-## The nav tab's CUT-PAPER knob patch — the SHARED paper-button material (Paper.surface_cp: smooth
-## feathered edge · directional cast shadow · lit hairline · rimless plain tile) plus the one thing that
-## is the tab's alone, the flare. Merged over the shared action-button opts so the whole patch lands on
-## THIS row only. `sheet_h` is the paper's full drawn height (the box plus whatever it bleeds off the
-## screen); the flare is scaled by sheet_h/box_h so the 5.5% is measured across the part the player can
-## SEE, not across the run that finishes below the screen edge. `active` is the raised current tab, the
-## only tile in the row that keeps a border.
-static func tab_cp(w: float, box_h: float, sheet_h: float, active := false) -> Dictionary:
-	var f := FLARE
-	if box_h > 0.0 and sheet_h > box_h:
-		f = FLARE * sheet_h / box_h
-	var o: Dictionary = Paper.surface_cp(w, active)
-	o["flare"] = f
-	return o
 
 ## THE GAP between two neighbouring tabs' DRAWN sheets, on a screen `view_w` px wide. One accessor for
 ## the whole row — the slot metric and the layout pass must never compute this twice.

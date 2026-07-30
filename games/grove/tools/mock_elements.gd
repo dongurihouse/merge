@@ -34,9 +34,11 @@ extends RefCounted
 const Game = preload("res://engine/scripts/core/game.gd")
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")
 const Paper = preload("res://engine/scripts/ui/paper_button.gd")   # the shared paper-button surface treatment
+const EdgeTab = preload("res://engine/scripts/ui/edge_tab.gd")     # …and the screen-edge tab geometry (bleed + flare)
+const ActionBar = preload("res://engine/scripts/ui/action_bar.gd") # the board's bottom-row builders (the info tray)
 
 ## Every element name a region may name. An unknown one REFUSES the run rather than rendering a blank.
-const NAMES := ["nav", "wallet", "well"]
+const NAMES := ["nav", "wallet", "well", "tray"]
 
 ## The cut-paper knobs that are LENGTHS in px, and so must be rescaled with the face (see the header).
 ## Knobs that are fractions, percentages, counts or colours are deliberately absent.
@@ -73,6 +75,7 @@ static func build(element: String, args: Dictionary, face_w: float, mods: Dictio
 		"nav": return _build_nav(args, face_w, mods)
 		"wallet": return _build_wallet(args, face_w, mods)
 		"well": return _build_well(args, face_w, mods)
+		"tray": return _build_tray(args, face_w, mods)
 	push_error("mock_elements: no adapter named '%s' (have: %s)" % [element, ", ".join(NAMES)])
 	return {}
 
@@ -80,7 +83,7 @@ static func build(element: String, args: Dictionary, face_w: float, mods: Dictio
 ## Does this element accept a forced face colour? `fill=` is the rig's way of removing the fill as a
 ## variable, and an adapter that cannot honour it must say so rather than quietly ignoring it.
 static func takes_fill(element: String) -> bool:
-	return element in ["nav", "wallet", "well"]
+	return element in ["nav", "wallet", "well", "tray"]
 
 
 # --- shared -------------------------------------------------------------------------------
@@ -207,7 +210,7 @@ static func _build_nav(args: Dictionary, face_w: float, mods: Dictionary) -> Dic
 	var bleed := float(o["corner"])
 	o["bleed_bottom"] = bleed
 	var cp: Dictionary = (o.get("cp", {}) as Dictionary).duplicate()
-	cp.merge(NavBar.tab_cp(face_w, box.y, box.y + bleed, active), true)
+	cp.merge(EdgeTab.tab_cp(face_w, box.y, box.y + bleed, active), true)
 	if not _report(patch(o, cp, mods, face_w)):
 		return {}
 	o["cp"] = cp
@@ -283,6 +286,56 @@ static func _build_well(args: Dictionary, face_w: float, mods: Dictionary) -> Di
 	var b: Button = Kit.action_button(role, box, Callable(), o)
 	b.size = box
 	return {"node": b, "drawn_w": box.x, "face_w": box.x, "face_h": box.y, "face_dx": 0.0}
+
+
+# --- the board's bottom INFO TRAY -----------------------------------------------------------
+
+## The board's cream info tray — the MIDDLE sheet of its bottom row — built through the shipping call
+## (ActionBar.info_tray), so what stands on the field is the panel the board draws and not a stand-in.
+## The mock draws this sheet too, as the info bar above its nav row.
+##
+## SCALE (rule 3). Everything this sheet's look is made of is derived from the height handed to
+## `info_tray`: its corner is `_bar_corner(bar_h)` and its whole material is a fraction of `material_px`,
+## which on the shipping screen IS the tray's own visible height (the row's well size). So passing the
+## mock's own face height scales the sheet coherently. ONE knob does not follow: `shadow_reach` comes
+## from the config in absolute px, so it is scaled here by hand — the same job `scale_cp` does for `well`,
+## applied to the built panel because this builder takes no cp dict.
+##
+## `args`: face_h (the mock's own sheet height) · native_px (the height the tray SHIPS at, for that one
+## rescale) · bleed_frac (px of paper past the box, as a fraction of the corner radius — 1.0 is what the
+## board ships; the region defaults it to 0).
+## Mods: `:bleed=N` px of bled paper, `:fill=#RRGGBB`. `cp=` / `opt=` are REFUSED rather than ignored:
+## this element is not built from an opts dict, so a knob written here would change nothing at all and
+## the cell would render the BASELINE under the tuning's own label (rule 4).
+static func _build_tray(args: Dictionary, face_w: float, mods: Dictionary) -> Dictionary:
+	var Kit := _kit()
+	if Kit == null:
+		return {}
+	for bad in ["cp", "opt"]:
+		if mods.has(bad):
+			print("REFUSED: the 'tray' element is not built from an opts dict, so `%s=` would be" % bad)
+			print("silently ignored and the cell would render the BASELINE under the tuning's label.")
+			print("  this element's own mods: bleed=N, fill=#RRGGBB")
+			return {}
+	var face_h := float(args.get("face_h", face_w * 0.18))
+	var native_px := maxf(1.0, float(args.get("native_px", 162.0)))
+	var bleed := float(mods.get("bleed", float(args.get("bleed_frac", 0.0)) * float(ActionBar.bar_corner_px(face_h))))
+
+	var inner := Control.new()          # the info bar's slot: the sheet is what is under test, not its contents
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tray: Control = ActionBar.info_tray(inner, face_h, {}, bleed, face_h)
+	tray.custom_minimum_size = Vector2(face_w, face_h)
+	tray.size = Vector2(face_w, face_h)
+	var surface := tray.find_child(ActionBar.DECKLE_SURFACE_NODE, false, false) as Control
+	if surface == null:
+		push_error("mock_elements: the info tray built no cut-paper surface")
+		return {}
+	surface.size = Vector2(face_w, face_h + bleed)
+	surface.shadow_reach *= face_h / native_px      # the one absolute length the shipping call does not scale
+	if mods.has("fill"):
+		surface.paper_color = Color(String(mods["fill"]))
+	ActionBar._reflare(surface)
+	return {"node": tray, "drawn_w": face_w, "face_w": face_w, "face_h": face_h, "face_dx": 0.0}
 
 
 # --- wallet pill --------------------------------------------------------------------------

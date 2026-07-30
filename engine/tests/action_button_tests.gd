@@ -111,30 +111,31 @@ func _initialize() -> void:
 
 	# 4d) OPT-IN. A torn surface must draw exactly what it always drew, so the feather is off unless the
 	# knob set asks for it; the nav tab — the one smooth surface — asks.
-	var NavBar := load("res://engine/scripts/ui/nav_bar.gd")
+	var EdgeTab := load("res://engine/scripts/ui/edge_tab.gd")
 	var plain: Control = load(Kit.CUT_PAPER).new()
 	root.add_child(plain)
 	plain.configure(Kit.cut_paper_opts_from_config({}, "action_button", Kit.ACTION_BUTTON_CP_DEFAULTS), Color.WHITE)
 	ok(is_equal_approx(plain.edge_feather, 0.0), "a shared cut-paper surface feathers nothing by default")
 	var tab: Control = load(Kit.CUT_PAPER).new()
 	root.add_child(tab)
-	tab.configure(NavBar.tab_cp(200.0, 166.0, 220.0), Color.WHITE)
+	tab.configure(EdgeTab.tab_cp(200.0, 166.0, 220.0), Color.WHITE)
 	ok(tab.edge_feather > 0.0, "the nav tab asks for the feather (%.2fpx)" % tab.edge_feather)
 	ok(is_equal_approx(tab.deckle_amp, 0.0), "…precisely because its edge is smooth, with no tear to hide the stairs")
 
 	# 4e) THE SHARED PAPER-BUTTON MATERIAL (engine/scripts/ui/paper_button.gd). The nav tabs, the board's
-	# Home + Bag wells, its almanac chip and the place-picker's back button are all the same MATERIAL —
-	# smooth feathered edge, the scene's directional cast shadow, a lit hairline, a dense glyph shadow and
-	# no rim — and they read it from ONE module rather than three copies of the same numbers. What is NOT
-	# shared is the tab's geometry: the flare, the bottom bleed and the caption belong to an edge-anchored
-	# tab and must never reach a free-standing well.
+	# Home + Bag wells, its info tray, its almanac chip and the place-picker's back button are all the same
+	# MATERIAL — smooth feathered edge, the scene's directional cast shadow, a lit hairline, a dense glyph
+	# shadow and no rim — and they read it from ONE module rather than five copies of the same numbers.
+	# The tab's GEOMETRY (flare · bottom bleed) is a SECOND shared module, engine/scripts/ui/edge_tab.gd:
+	# every sheet ANCHORED to the screen's bottom edge wears it (both bottom rows), and nothing else does —
+	# a free-standing button (the almanac chip, the place-picker's back arrow) has nothing to bleed off.
 	var Paper := load("res://engine/scripts/ui/paper_button.gd")
 	var FACE := 158.0                          # the size these buttons actually ship at
 	var mat: Dictionary = Paper.surface_cp(FACE)
 	ok(not mat.has("flare") and not mat.has("bleed_bottom") and not mat.has("caption"),
 		"the shared material carries no tab geometry — no flare, no bleed, no caption")
 	# ONE source: the nav row's own patch IS this material plus its flare, not a second copy of it.
-	var tabp: Dictionary = NavBar.tab_cp(FACE, 131.0, 158.0)
+	var tabp: Dictionary = EdgeTab.tab_cp(FACE, 131.0, 158.0)
 	var same := true
 	for k in mat:
 		if k == "halo_offset":
@@ -144,6 +145,36 @@ func _initialize() -> void:
 	ok(same, "the nav tab's paper IS the shared material — every knob, one source")
 	ok(float(tabp.get("flare", 0.0)) > 0.0 and mat.size() + 1 == tabp.size(),
 		"…and the flare is the ONE thing the tab adds to it")
+
+	# 4f) THE TAB GEOMETRY'S TWO SPELLINGS AGREE. `FLARE` is the mock's own figure — the nav tab's visible
+	# bottom edge reads 5.5% wider than its top — and it is only meaningful at that tile's proportions,
+	# because `cut_paper.flare` is a fraction of the sheet's WIDTH. `LEAN` is the same geometry as an
+	# ANGLE, which is what any OTHER shape (a square well, a 4:1 tray) has to be given to sit in the same
+	# row without reading as a different trapezoid. The nav row keeps the FLARE spelling so its shipped
+	# render cannot move by a float; this is the guard that stops the two drifting. A re-tune of FLARE
+	# that is not re-derived into LEAN fails HERE rather than shipping a mismatched bottom row.
+	var NAV := load("res://engine/scripts/ui/nav_bar.gd")
+	for tile_w in [162.0, 197.5, 247.3]:                 # a 5-tab row, a 4-tab row, and the shipped size
+		var box_h: float = tile_w * NAV.TILE_H_FRAC
+		var sheet_h: float = box_h + tile_w * NAV.CORNER_FRAC       # the bleed: one corner radius (safe area 0)
+		var got: float = EdgeTab.lean_of(tile_w, sheet_h, EdgeTab.tab_flare(box_h, sheet_h))
+		ok(absf(got - EdgeTab.LEAN) < 0.0004,
+			"a %.0fpx nav tab leans %.4f — EdgeTab.LEAN says %.4f" % [tile_w, got, EdgeTab.LEAN])
+	# …and the inverse really is an inverse: handing `flare_for_lean` a sheet and asking for the lean it
+	# produced must give the flare back. Checked on the two shapes the board's row actually carries.
+	for shape in [Vector2(162.0, 203.0), Vector2(662.0, 191.0)]:    # the square well, the wide info tray
+		var f: float = EdgeTab.flare_for_lean(shape.x, shape.y)
+		ok(is_equal_approx(EdgeTab.lean_of(shape.x, shape.y, f), EdgeTab.LEAN),
+			"a %.0fx%.0f sheet flared %.4f leans exactly LEAN" % [shape.x, shape.y, f])
+	# THE BLEED ON A REAL DEVICE. `Look.safe_bottom` is 0 on every desktop capture and in every headless
+	# suite (it reads the display's safe area, which a Mac window does not have), so the one case that
+	# only ever runs on a phone is asserted on the function instead: the paper runs through the home
+	# indicator's inset AND a corner radius past it, so the sheet meets the physical screen edge while
+	# the box — captions, counts, tap area — stays above the inset.
+	ok(is_equal_approx(EdgeTab.bleed_px(0.0, 41.0), 41.0),
+		"off-device the bleed is one corner radius (%.1f)" % EdgeTab.bleed_px(0.0, 41.0))
+	ok(is_equal_approx(EdgeTab.bleed_px(34.0, 41.0), 75.0),
+		"on a phone it is the safe-area inset AS WELL (%.1f)" % EdgeTab.bleed_px(34.0, 41.0))
 
 	# THE UNTREATED CALLER IS UNTOUCHED. Any action button that does not ask for the material renders
 	# exactly what it always did: a torn deckle, a warm rim, and none of the cast shadow / bevel / feather.

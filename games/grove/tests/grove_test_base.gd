@@ -17,6 +17,7 @@ const Pal = preload("res://games/grove/grove_palette.gd")      # UI redesign —
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # UI redesign — board component builders
 const PieceViewScript = preload("res://engine/scripts/ui/piece_view.gd")  # UI redesign — locked-cell builder
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")  # flush prewarmed loads at teardown
+const EdgeTabKit = preload("res://engine/scripts/ui/edge_tab.gd")  # the screen-edge tab geometry (bleed · flare · lean)
 
 # Script handles shared across the split suites (were per-section locals).
 const Shop = preload("res://engine/scripts/ui/shop.gd")
@@ -129,7 +130,12 @@ func assert_unclipped(node: Control, axes: String, tol: float, label: String) ->
 # tests, with their literal px bounds); what this asserts, per button, is that the button IS on it —
 # smooth + feathered, casting the scene's directional shadow, a lit hairline, rimless — and that it did
 # NOT inherit the tab's flare. A shared module is only worth having if every caller is provably reading it.
-func assert_paper_button(btn: Button, label: String) -> void:
+## `edge_tab` says this button is a sheet ANCHORED to the screen's bottom edge (the board's Home/Bag wells,
+## the nav tabs): it must then carry the shared tab GEOMETRY as well as the material — a trapezoid flare
+## and paper bled past its own box. Left false, the button must carry NEITHER: a free-standing button (the
+## almanac chip inside the info tray, the place-picker's back arrow) has no screen edge to run off and must
+## not taper. Both directions are asserted, so the geometry can neither go missing nor leak.
+func assert_paper_button(btn: Button, label: String, edge_tab := false) -> void:
 	if btn == null:
 		ok(false, "%s exists to carry the shared paper-button material" % label)
 		return
@@ -149,8 +155,25 @@ func assert_paper_button(btn: Button, label: String) -> void:
 	# ~160px well) 0.008 W lands between half a pixel and two. A band reaching further reads as volume.
 	ok(p.bevel_px >= 0.4 and p.bevel_px <= 2.5 and p.bevel_strength > 0.0,
 		"%s — paper thickness is a lit hairline (%.2fpx)" % [label, p.bevel_px])
-	ok(is_equal_approx(p.flare, 0.0),
-		"%s — does NOT taper: the tab's flare is screen-edge geometry, not material" % label)
+	if edge_tab:
+		# a screen-edge sheet: the trapezoid AND the bleed. The bleed is read off the sheet the panel really
+		# draws — it is anchored FULL_RECT to its button, so a positive offset_bottom IS the paper running
+		# past the button's own box (and past the screen edge below it).
+		ok(p.flare > 0.0, "%s — tapers: it is a tab pulled out of the screen edge (flare %.3f)" % [label, p.flare])
+		ok(p.offset_bottom >= p.corner - 0.5,
+			"%s — its paper bleeds a full corner radius past its box, so only the TOP corners round (%.1f ≥ %.1f)"
+				% [label, p.offset_bottom, p.corner])
+		# …and it leans at the SAME angle as every other sheet in the row. `flare` is a fraction of the
+		# sheet's own WIDTH, so equal flares on unequal shapes are UNEQUAL trapezoids — the lean is the
+		# thing the eye reads across a row, and the bound is a literal, not EdgeTab.LEAN restated.
+		var lean: float = EdgeTabKit.lean_of(p.size.x, p.size.y, p.flare)
+		ok(lean > 0.026 and lean < 0.037,
+			"%s — leans like a nav tab (%.4f px in per px of sheet; the row's own is 0.0311)" % [label, lean])
+	else:
+		ok(is_equal_approx(p.flare, 0.0),
+			"%s — does NOT taper: the tab's flare is screen-edge geometry, not material" % label)
+		ok(is_equal_approx(p.offset_bottom, 0.0),
+			"%s — and bleeds nothing: it is free-standing, with no screen edge to run off" % label)
 	# the glyph's own pool. The kit default drops three copies of the icon straight DOWN at the icon's own
 	# size, so there is no lateral shadow at all and the glyph reads as a sticker laid flat. The material's
 	# stack GROWS every copy, so the widest shadow copy is measurably wider than the glyph itself — and

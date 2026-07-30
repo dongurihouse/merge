@@ -13,7 +13,13 @@
     "refuses to report past it. Overstating `clean` by 6px is how a profile reports a serene 0.000 and",
     "gets believed.",
     "",
-    "rect format is [x, y, w, h] in the mock's OWN pixels."
+    "rect format is [x, y, w, h] in the mock's OWN pixels.",
+    "",
+    "`encloses` names regions the mock draws INSIDE this one's sheet (its info bar holds a bag well).",
+    "It exempts exactly that pair from the clean-window and field-patch guards, which exist for an",
+    "element BESIDE another: a container's own contents are never crossed by a profile stepping OUT",
+    "from its face, and the enclosed element's field genuinely IS the enclosing sheet. The guard",
+    "verifies the claim — an `encloses` name whose face is not contained in this one's fails."
   ],
 
   "mocks": {
@@ -44,6 +50,17 @@
       "field": [[0, 1560, 15, 128], [916, 1560, 15, 128]],
       "bleed": "bottom",
       "note": "the RIGHTMOST tab — 37px of real sky to its RIGHT. Pair it with nav_home: one carries the lit edge, the other the shadow edge, and no single symmetric ring is both."
+    },
+
+    "infobar_tray": {
+      "mock": "meadow_board",
+      "element": "tray",
+      "args": {"face_h": 146, "native_px": 162},
+      "face": [52, 1395, 829, 146],
+      "clean": [0, 1391, 931, 158],
+      "field": [[4, 1400, 40, 130], [890, 1400, 38, 130]],
+      "encloses": ["infobar_bag"],
+      "note": "the INFO BAR — the wide cream sheet the board's own info tray is the counterpart of. It sits on plain sky with 52px of clean ground to its LEFT (to the canvas edge) and 51px to its RIGHT, and almost none above or below: the board frame's own dark bottom edge closes in 4px above it and the nav row's tiles begin 10px below, so neither vertical profile may be read. It ENCLOSES infobar_bag — the mock draws that bag well ON this sheet — which is why the clean-window and field-patch guards skip that one pair; a container's contents are not a neighbour, and a profile that steps OUT from this face never crosses them. TWO THINGS THE MOCK DOES NOT SHOW, and which this region is therefore no authority on: this sheet FLOATS (its bottom edge is drawn, at y=1541, with the tab row a separate row below it) and its sides are straight — measured, the left edge holds x=52 and the right 879-880 down its whole run, a lean of ~0.01 against the nav tabs' 0.031. Ours bleeds and flares because the owner asked for one bottom row, not two. The material is what this region is for."
     },
 
     "infobar_bag": {

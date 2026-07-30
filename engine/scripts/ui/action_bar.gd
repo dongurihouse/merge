@@ -3,8 +3,11 @@ extends RefCounted
 ## reused by the board scene). The centre tray's styled surface, the offset slot, the round nav/Home/Bag
 ## wells, and the green action-chip recipe (burst / buy) all live here so the board scene keeps only the
 ## ORCHESTRATION (which wells, in what order, wired to which handlers + state).
-## The bar reads as THREE free-standing pieces: the Home tile, the cream info tray, the Bag tile. Only the
-## centre tray is painted here — the Home/Bag tiles carry their own paper surface (Kit.home_button).
+## The bar is THREE SHEETS OF ONE TAB BAR: the Home tile, the cream info tray, the Bag tile. All three are
+## anchored to the screen's bottom edge — each bleeds its paper through the safe-area inset and off the
+## screen so only its top corners round, and each is the same trapezoid at the same lean
+## (engine/scripts/ui/edge_tab.gd) in the same paper-button material (engine/scripts/ui/paper_button.gd).
+## Only the centre tray is painted here — the Home/Bag tiles carry their own paper surface (Kit.action_button).
 ## Usage:  row.add_child(ActionBar.offset_slot(info_bar, x_frac, "ActionBarInfoOffset"))
 ##         var chip := ActionBar.action_chip(opts, row, caption, on_press)   # → {btn, sb, count, coin}
 ## Every builder is a pure static func: params in, a node (or value) out — no board state is read or
@@ -13,6 +16,7 @@ extends RefCounted
 ## the engine skin (Look) + palette (Pal).
 
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const EdgeTab = preload("res://engine/scripts/ui/edge_tab.gd")   # the screen-edge tab geometry: bleed + flare
 const Game = preload("res://engine/scripts/core/game.gd")
 const Tuning = preload("res://engine/scripts/core/tuning.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
@@ -34,6 +38,12 @@ const BOTTOM_BTN_MIN := 110.0                           # a well stays tappable 
 const WELL_GAP_FRAC := 0.14                             # gap between the Home/Bag tiles and the centre tray
 const PAPER_SURFACE_NODE := "ActionBarPaperSurface"
 const DECKLE_SURFACE_NODE := "ActionBarInfoDeckleSurface"
+# …and the plain Control it hangs from. A PanelContainer is a CONTAINER: it re-fits EVERY Control child
+# to its own content rect on every layout pass, so a sheet anchored to the tray directly had its
+# `offset_bottom` overwritten and bled −2px (measured: the tray reached 2px SHORT of its own box while
+# the wells beside it ran 41px past). A plain Control does not lay its children out, so the bleed
+# survives — the container fits the HOST, and the sheet is anchored inside that.
+const DECKLE_HOST_NODE := "ActionBarInfoSheetHost"
 const PAPER_TEXTURE := "texture_cream.png"
 const PAPER_FILL := Pal.CREAM
 const PAPER_EDGE := Color("#FFF9EC")
@@ -68,36 +78,83 @@ static func bar_style(bar_h: float = BOTTOM_BAR_H, action_opts: Dictionary = {})
 static func _bar_corner(bar_h: float) -> int:
 	return maxi(12, int(roundf(bar_h * PAPER_CORNER_FRAC)))
 
+## The info tray's corner radius, for a caller that must solve the tray's BLEED (one corner radius past
+## the screen edge) before the tray exists. ONE spelling — the surface reads the same function.
+static func bar_corner_px(bar_h: float) -> int:
+	return _bar_corner(bar_h)
 
+
+# The tray shell draws nothing and INSETS nothing. The 2px content margin it used to carry existed so a
+# painted light code edge stayed visible around the paper child; the tray wears the shared paper-button
+# material now, whose edge just ends, and the inset only made the sheet 4px narrower than the box the row
+# laid out — 4px the two wells beside it do not give up.
 static func _transparent_tray_style() -> StyleBox:
 	var flat := StyleBoxFlat.new()
 	flat.bg_color = Color(0, 0, 0, 0)
 	flat.draw_center = false
-	flat.content_margin_left = 2.0
-	flat.content_margin_right = 2.0
-	flat.content_margin_top = 2.0
-	flat.content_margin_bottom = 2.0
 	return flat
 
-static func _apply_info_deckle_surface(tray: Control, bar_h: float, action_opts: Dictionary = {}) -> Control:
+# THE INFO TRAY'S SHEET. It is the middle of the board's bottom row, and that row is a TAB BAR bled to
+# the screen edge (mock: _concepts/screens/palette_a_meadow_sky_board.png) — so the tray wears exactly what
+# the Home and Bag wells on either side of it wear:
+#   * the SHARED PAPER-BUTTON MATERIAL (Paper.surface_cp, applied by EdgeTab.sheet_cp) — a smooth
+#     antialiased edge instead of the torn deckle it used to carry, the scene's directional cast shadow,
+#     a lit hairline, and NO rim. It used to draw a cream rim (PAPER_EDGE) around a torn edge, and beside
+#     two smooth rimless wells that read as a different material entirely.
+#   * the SCREEN-EDGE TAB GEOMETRY — `bleed` px of paper past its own box (through the safe-area inset and
+#     one corner radius beyond, so only the top corners ever read as round) and the trapezoid flare.
+# `material_px` is the row's own well size, NOT the tray's width — see EdgeTab.sheet_cp for why a 660px
+# sheet must not scale a material whose metrics are fractions of a button's width.
+#
+# The FLARE is re-solved on every resize because the tray is the row's EXPANDING child: its width is not
+# known until the HBox has laid out, and the flare knob is a fraction of that width. `configure` derives
+# `shape` from the flare, so the re-solve has to set both.
+static func _apply_info_deckle_surface(tray: Control, bar_h: float, action_opts: Dictionary = {}, bleed: float = 0.0, material_px: float = 0.0) -> Control:
 	var Kit: GDScript = Game.kit_script()
 	if Kit == null or tray == null:
 		return null
-	var surface := tray.find_child(DECKLE_SURFACE_NODE, false, false) as Control
+	var host := tray.find_child(DECKLE_HOST_NODE, false, false) as Control
+	if host == null:
+		host = Control.new()
+		host.name = DECKLE_HOST_NODE
+		host.show_behind_parent = true          # behind the tray's own panel, and first among its children
+		host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tray.add_child(host)
+		tray.move_child(host, 0)
+	var surface := host.find_child(DECKLE_SURFACE_NODE, false, false) as Control
 	if surface == null:
 		surface = load(Kit.CUT_PAPER).new()
 		surface.name = DECKLE_SURFACE_NODE
-		surface.show_behind_parent = true
 		surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		host.add_child(surface)
 		surface.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		tray.add_child(surface)
 	var cp: Dictionary = Kit.cut_paper_opts_from_config(Game.kit_config(), "action_button", Kit.ACTION_BUTTON_CP_DEFAULTS)
 	var corner := float(_bar_corner(bar_h))
 	cp["corner"] = corner
-	surface.configure(cp, PAPER_FILL, PAPER_EDGE, Kit.cut_paper_tile())
+	# the sheet runs `bleed` px past the tray's own rect; the tray's rect (and everything laid out in it)
+	# stays on-screen above the safe-area line.
+	surface.offset_bottom = bleed
+	var mat_px := material_px if material_px > 0.0 else bar_h
+	cp.merge(EdgeTab.sheet_cp(maxf(surface.size.x, 1.0), maxf(surface.size.y, bar_h + bleed), mat_px), true)
+	surface.configure(cp, PAPER_FILL, null, Kit.cut_paper_tile())
 	surface.corner = corner
+	_reflare(surface)
+	if not surface.has_meta("edge_tab_hooked"):
+		surface.set_meta("edge_tab_hooked", true)
+		surface.resized.connect(func() -> void: _reflare(surface))
 	tray.set_meta(Look.SHADOW_CORNER_META, corner)
 	return surface
+
+# Re-solve a bled sheet's trapezoid for the size it actually came out at, so every sheet in the row leans
+# at the SAME angle however wide it is (EdgeTab.LEAN). `shape` follows the flare exactly as `configure`
+# derives it — setting the knob alone would leave the panel drawing a plain rounded rect.
+static func _reflare(surface: Control) -> void:
+	if surface == null or not is_instance_valid(surface):
+		return
+	var f := EdgeTab.flare_for_lean(surface.size.x, surface.size.y)
+	surface.flare = f
+	surface.shape = "tab" if f > 0.0 else "rect"
+	surface.queue_redraw()
 
 # The paper always gets the shell's fixed 2px inset; optional Workbench padding belongs only to content.
 #
@@ -207,17 +264,19 @@ static func info_bar_frame(info_opts: Dictionary) -> StyleBoxEmpty:
 	return empty
 
 # The painted cream tray that now holds ONLY the info bar — the Home and Bag tiles stand outside it, so the
-# tray spans just the centre of the bottom row. It wears the same shape/edge/shadow/paper the full-width bar
-# used to, and the info pill keeps its own transparent padding frame inside.
-static func info_tray(info_bar: Control, bar_h: float, action_opts: Dictionary = {}) -> PanelContainer:
+# tray spans just the centre of the bottom row. It is the row's MIDDLE TAB: SHRINK_END, so its box bottom
+# lands on the row's bottom edge (the safe-area line) exactly like the wells beside it, with `bleed` px of
+# paper running on through that inset and off the screen. The info pill keeps its own transparent padding
+# frame inside.
+static func info_tray(info_bar: Control, bar_h: float, action_opts: Dictionary = {}, bleed: float = 0.0, material_px: float = 0.0) -> PanelContainer:
 	var tray := PanelContainer.new()
 	tray.name = "ActionBarInfoTray"
 	tray.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tray.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	tray.size_flags_vertical = Control.SIZE_SHRINK_END
 	tray.custom_minimum_size = Vector2(1.0, bar_h)
 	tray.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tray.add_theme_stylebox_override("panel", _transparent_tray_style())
-	_apply_info_deckle_surface(tray, bar_h, action_opts)
+	_apply_info_deckle_surface(tray, bar_h, action_opts, bleed, material_px)
 	tray.add_child(info_bar)
 	return tray
 

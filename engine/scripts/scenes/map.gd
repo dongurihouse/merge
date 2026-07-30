@@ -30,6 +30,7 @@ const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared bottom nav row (board + map)
 const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")   # cut-paper sprite tile (the gear)
 const Paper = preload("res://engine/scripts/ui/paper_button.gd")   # the shared paper-button SURFACE treatment (nav tabs wear it too)
+const EdgeTab = preload("res://engine/scripts/ui/edge_tab.gd")     # …and the screen-edge TAB geometry (bleed + flare), shared with the board's bottom row
 # The bottom-bar tiles build through the shared code-drawn Kit.action_button (rugged edge + glyph) —
 # the baked nav_<x>.png sprites are retired. Map each bottom-bar node name to its action role.
 const NAV_ROLE := {
@@ -2310,13 +2311,13 @@ func _build_bottom_bar(specs: Array, parent: Node = self, track := true) -> Dict
 			o["fill"] = NavBar.chalk(Kit.action_role_fill(role, action_opts.get("tints", {})))
 			# the paper runs past the button's bottom edge, through the safe-area inset and one corner
 			# radius beyond the screen, so the bottom corners round off-screen and only the top two show.
-			var bleed := safe_b + float(tab["corner"])
+			var bleed := EdgeTab.bleed_px(safe_b, float(tab["corner"]))
 			o["bleed_bottom"] = bleed
-			# the tab's OWN cut-paper knobs (flare · ambient halo · slab bevel) patched over the shared
-			# action-button set — scoped to THIS row, so no other cut-paper surface in the game changes.
+			# the SHARED material + the SHARED screen-edge tab geometry (flare · bleed), patched over the
+			# action-button set. The board's bottom row wears the same two — EdgeTab is where they live.
 			# The flare is measured across the VISIBLE box, so the full drawn sheet height goes in with it.
 			var cp: Dictionary = (o.get("cp", {}) as Dictionary).duplicate()
-			cp.merge(NavBar.tab_cp(tile_w, box.y, box.y + bleed, active), true)
+			cp.merge(EdgeTab.tab_cp(tile_w, box.y, box.y + bleed, active), true)
 			o["cp"] = cp
 			b = Kit.action_button(role, box, spec.action, o)
 		else:

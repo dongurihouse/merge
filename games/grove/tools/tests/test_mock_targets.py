@@ -100,27 +100,60 @@ class MockTargetsTests(unittest.TestCase):
                 self.assertTrue(contains(canvas, region["clean"]),
                                 "%s: the clean window runs off the mock" % name)
 
+    def test_every_encloses_claim_is_true(self):
+        """`encloses` buys an exemption from the two guards below, so it has to be earned.
+
+        A region may only claim to enclose a region on the SAME mock whose face is genuinely inside its
+        own — i.e. something the mock DREW on this sheet. Without this, `encloses` would be a way to
+        wave away a real neighbour standing beside the element, which is the exact failure rule 7 is
+        about.
+        """
+        for name, region in self.reg["regions"].items():
+            for inner in region.get("encloses", []):
+                with self.subTest(region=name, encloses=inner):
+                    self.assertIn(inner, self.reg["regions"], "%s encloses no such region" % name)
+                    other = self.reg["regions"][inner]
+                    self.assertEqual(other["mock"], region["mock"],
+                                     "%s and %s are not even on the same mock" % (name, inner))
+                    self.assertTrue(contains(region["face"], other["face"]),
+                                    "%s does not actually contain %s — this is a NEIGHBOUR, and the "
+                                    "guards it would skip are exactly the ones it needs" % (name, inner))
+
+    def _encloses(self, a, b):
+        """Does region `a` draw region `b` on its own sheet (or the other way round)?"""
+        return (b in self.reg["regions"][a].get("encloses", [])
+                or a in self.reg["regions"][b].get("encloses", []))
+
     def test_a_clean_window_never_reaches_another_regions_element(self):
         """`clean` is what the crop may take. Reaching a neighbour puts ITS shadow in this profile."""
         for name, region in self.reg["regions"].items():
             for other_name, other in self.reg["regions"].items():
                 if other_name == name or other["mock"] != region["mock"]:
                     continue
+                if self._encloses(name, other_name):
+                    continue    # contents, not a neighbour: a profile stepping OUT never crosses them
                 with self.subTest(region=name, neighbour=other_name):
                     self.assertFalse(overlaps(region["clean"], other["face"]),
                                      "%s's clean window reaches %s's face" % (name, other_name))
 
     def test_field_patches_are_clear_of_every_element_on_that_mock(self):
         for name, region in self.reg["regions"].items():
-            faces = [r["face"] for r in self.reg["regions"].values() if r["mock"] == region["mock"]]
+            faces = [(n, r["face"]) for n, r in self.reg["regions"].items()
+                     if r["mock"] == region["mock"]]
             canvas = [0, 0] + list(self.image(region["mock"]).size)
             for i, patch in enumerate(region.get("field", [])):
                 with self.subTest(region=name, patch=i):
                     self.assertTrue(contains(canvas, patch), "patch %d runs off the mock" % i)
-                    for face in faces:
+                    for face_name, face in faces:
+                        # an ENCLOSED element's field genuinely is the enclosing sheet's own paper (the
+                        # mock's bag well is drawn on its info bar), so that one pair is exempt — and
+                        # only in that direction: a patch of the CONTAINER must still stay off its
+                        # contents, or it would average an icon into the background.
+                        if name in self.reg["regions"][face_name].get("encloses", []):
+                            continue
                         self.assertFalse(overlaps(patch, face, FIELD_CLEARANCE),
-                                         "patch %d sits within %dpx of an element — it would average "
-                                         "that element into the flat field" % (i, FIELD_CLEARANCE))
+                                         "patch %d sits within %dpx of %s — it would average that "
+                                         "element into the flat field" % (i, FIELD_CLEARANCE, face_name))
 
     def test_field_patches_are_actually_flat(self):
         """The rule-9 diagnostic, run on the patches themselves: blur, then max-min.

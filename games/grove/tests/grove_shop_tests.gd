@@ -524,8 +524,8 @@ func _initialize() -> void:
 	# for a tile anchored to the screen edge. Verified against the mock on the like-for-like rig
 	# (`make shot-mock CELLS="mock:infobar_bag infobar_bag:fill=#A798C0"`; the mock draws this same bag
 	# well in its info bar): left-side rms 0.009 against the mock's own paper grain of 0.009.
-	assert_paper_button(home_tile, "the board Home well")
-	assert_paper_button(bag_well, "the board Bag well")
+	assert_paper_button(home_tile, "the board Home well", true)
+	assert_paper_button(bag_well, "the board Bag well", true)
 	var unlock_bar := bx.find_child("NextUnlockBar", true, false) as Control
 	ok(unlock_bar != null and unlock_bar.find_child("UnlockDeckleSurface", true, false) != null,
 		"the NEXT UNLOCK bar wears a code-drawn rugged paper edge")
@@ -556,6 +556,8 @@ func _initialize() -> void:
 	var info_btn := info_bar.get_meta("info_btn") as Button if info_bar != null else null
 	ok(info_btn != null and info_btn.find_child("InfoIconShadow", true, false) != null,
 		"the bottom info icon casts a shadow")
+	await create_timer(0.05).timeout          # the row's geometry is what is under test: let it settle
+	await _check_bottom_row_is_a_tab_bar(bx, home_tile, info_tray, bag_well)
 	bx.queue_free()
 	# ── T44 · the diegetic return surfaces build + drive (§10/§13 · §18) ─────────
 	# Both surfaces are world objects (parchment cards), not bare chrome. Open them on a
@@ -816,6 +818,110 @@ func _initialize() -> void:
 	dhost.queue_free()
 
 	finish()
+
+# THE BOARD'S BOTTOM ROW IS A TAB BAR bled to the screen edge — the same format the home/map nav row
+# wears (mock: _concepts/screens/palette_a_meadow_sky_board.png). All three of its sheets — the Home
+# well, the cream info tray, the Bag well — must:
+#   * end their BOX on the safe-area line, with no margin under the row at all;
+#   * run their PAPER on through that line, a full corner radius past it, so only the TOP corners round;
+#   * flare into a trapezoid at the SAME lean as each other (they are three different shapes, and
+#     `flare` is a fraction of each one's own width — see EdgeTab);
+#   * still be tappable over every pixel of paper the player can see;
+# …without the board's own grid landing under the band or leaving a hole above it.
+# Control geometry is float32 → is_equal_approx or a strict inequality, never ==.
+func _check_bottom_row_is_a_tab_bar(bx, home_tile: Button, info_tray: Control, bag_well: Button) -> void:
+	await create_timer(0.02).timeout
+	var base_y: float = bx._view_size().y - Look.safe_bottom(bx)     # the row's baseline: the screen edge
+	var sheets := {"Home well": home_tile, "info tray": info_tray, "Bag well": bag_well}
+	var leans: Array[float] = []
+	for label in sheets:
+		var node: Control = sheets[label]
+		ok(node != null, "the bottom row carries the %s" % label)
+		if node == null:
+			continue
+		# 1. the BOX bottom lands on the screen's own bottom edge
+		var box := node.get_global_rect()
+		ok(is_equal_approx(box.end.y, base_y),
+			"the %s reaches the screen bottom (%.1f of %.1f)" % [label, box.end.y, base_y])
+		# 2. …and the PAPER runs on past it. Read off the drawn sheet, not off the opts.
+		# the TRAY's own sheet is looked for FIRST: the almanac chip lives inside it and carries an
+		# "ActionButtonDeckleSurface" of its own, which a depth-first search finds instead (measured — the
+		# whole tray block then profiled a 65px chip and reported it as the tray).
+		var panel := node.find_child("ActionBarInfoDeckleSurface", true, false) as Control
+		if panel == null:
+			panel = node.find_child("ActionButtonDeckleSurface", true, false) as Control
+		ok(panel != null, "the %s draws a cut-paper sheet" % label)
+		if panel == null:
+			continue
+		var sheet := panel.get_global_rect()
+		ok(sheet.end.y >= base_y + panel.corner - 0.5,
+			"the %s bleeds a full corner radius past the screen edge, so only its TOP corners round (%.1f ≥ %.1f)"
+				% [label, sheet.end.y - base_y, panel.corner])
+		# 3. the TRAPEZOID, measured off the outline the panel actually draws — not off the knob. The lean
+		# is read between two bands of the STRAIGHT sides (inside the top corner arc, above the bottom one),
+		# which is the only stretch where the silhouette is the taper and nothing else.
+		var pts: PackedVector2Array = panel.call("_deckle_polygon", panel.size, panel.corner)
+		ok(pts.size() > 8, "the %s draws a real sheet outline (%d points)" % [label, pts.size()])
+		if pts.size() <= 8:
+			continue
+		var y_hi: float = float(panel.corner) + 4.0
+		var y_lo := maxf(y_hi + 20.0, node.size.y - 6.0)
+		var hi := _span_x_at(pts, y_hi)
+		var lo := _span_x_at(pts, y_lo)
+		ok(lo.y - lo.x > hi.y - hi.x + 1.0,
+			"the %s tapers: wider low than high (%.1f > %.1f)" % [label, lo.y - lo.x, hi.y - hi.x])
+		var lean := ((lo.y - lo.x) - (hi.y - hi.x)) * 0.5 / maxf(y_lo - y_hi, 1.0)
+		leans.append(lean)
+		# a LITERAL band, per rule 12 — writing it as EdgeTab.LEAN × k would move with the constant under
+		# test, and a row re-leaned to a different angle would sail through.
+		ok(lean > 0.026 and lean < 0.037,
+			"…at the nav tab's own angle (%.4f px in per px down; the row's own is 0.0311)" % lean)
+		# 4. the TAP TARGET covers every pixel of paper on screen. The sheet only ever narrows INSIDE its
+		# box and only ever grows DOWNWARD past it, so the button's rect must contain the whole visible run.
+		var min_x := 1e9
+		var max_x := -1e9
+		for p in pts:
+			if p.y <= node.size.y:
+				min_x = minf(min_x, p.x)
+				max_x = maxf(max_x, p.x)
+		ok(min_x > -0.5 and max_x < node.size.x + 0.5,
+			"the %s's tap target covers all of its visible paper (x %.1f…%.1f in a %.0f box)"
+				% [label, min_x, max_x, node.size.x])
+	# every sheet in the row leans the SAME, which is the whole reason the flare is asked for by lean and
+	# not by the nav tab's 5.5%-of-width figure: these are a square, a square and a ~4:1 tray.
+	if leans.size() == 3:
+		leans.sort()
+		ok(leans[2] - leans[0] < 0.004,
+			"all three sheets lean alike (%.4f … %.4f — one bar, not three trapezoids)" % [leans[0], leans[2]])
+	# 5. THE BAND. The board's own frame clears the row with a real gap and no overlap — the bar is taller
+	# than its sheets by design, so the clearance is measured to the BAR, which is what the board reserves.
+	var bar := bx.bottom_bar as Control
+	ok(bar != null and is_equal_approx(bar.get_global_rect().end.y, base_y),
+		"the bar's band ends on the safe-area line — nothing floats above it")
+	var frame := bx._board_center as Control
+	if bar != null and frame != null:
+		var slack := bar.get_global_rect().position.y - frame.get_global_rect().end.y
+		ok(slack >= 0.0, "the board grid does not run under the bottom row (%.1f px clear)" % slack)
+		ok(slack < bx._view_size().y * 0.10,
+			"…and does not leave a hole above it either (%.1f px, under a tenth of the screen)" % slack)
+	# 6. the ALMANAC CHIP lives INSIDE the tray, so it takes the material and NOT the geometry: it has no
+	# screen edge to bleed off and a tapered chip inside a tapered sheet would read as a mistake.
+	var chip := bx._info_almanac as Button
+	if chip != null:
+		var chip_panel := chip.find_child("ActionButtonDeckleSurface", true, false) as Control
+		ok(chip_panel != null and is_equal_approx(chip_panel.flare, 0.0)
+				and is_equal_approx(chip_panel.offset_bottom, 0.0),
+			"the almanac chip keeps the material without the tab geometry — it sits inside the tray")
+
+## The outline's left/right extent in a 3px band around `y` (the sheet's own local space).
+func _span_x_at(pts: PackedVector2Array, y: float) -> Vector2:
+	var lo := 1e9
+	var hi := -1e9
+	for p in pts:
+		if absf(p.y - y) <= 3.0:
+			lo = minf(lo, p.x)
+			hi = maxf(hi, p.x)
+	return Vector2(lo, hi) if hi > lo else Vector2.ZERO
 
 func _button_with_text(overlay: Control, text: String) -> Button:
 	for b in overlay.find_children("*", "Button", true, false):

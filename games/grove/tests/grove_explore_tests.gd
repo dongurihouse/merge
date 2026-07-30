@@ -17,7 +17,7 @@ const FxWorkbenchView = preload("res://games/grove/tools/fx_workbench_view.gd")
 const Kit = preload("res://games/grove/ui_kit.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 const MapScript = preload("res://engine/scripts/scenes/map.gd")
-const NavBarKit = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared nav-tab metric table (flare · halo · bevel)
+const NavBarKit = preload("res://engine/scripts/ui/nav_bar.gd")   # the nav ROW's metric table (slots · gaps · chalk)
 const CutPaper = preload("res://engine/scripts/ui/cut_paper.gd")  # …and the shadow falloff curve it tunes
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
 
@@ -1483,9 +1483,9 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 		# …by exactly the flare the metric table asks for, read off a fit of the whole straight-sided
 		# stretch (two spot samples would just measure where the tear happened to wobble).
 		var gain := _flare_gain(pts, panel.size.x * 0.5, float(panel.get("corner")) + 2.0, vis_h, vis_h)
-		ok(absf(gain - NavBarKit.FLARE) < 0.01,
+		ok(absf(gain - EdgeTabKit.FLARE) < 0.01,
 			"%s flares by ~%.1f%% across the visible box (asked %.1f%%)"
-				% [tile_name, gain * 100.0, NavBarKit.FLARE * 100.0])
+				% [tile_name, gain * 100.0, EdgeTabKit.FLARE * 100.0])
 		# THE TOP READS AS A CARD, NOT A DOME. The straight run along the sheet's top edge — what is left
 		# of the width once the two corner arcs and the flare's squeeze have taken their bites — measured
 		# on the outline itself. The mock's own tiles run straight across ~63% of their width; ours must
