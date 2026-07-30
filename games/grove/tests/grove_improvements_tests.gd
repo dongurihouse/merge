@@ -207,13 +207,16 @@ func _open_soil_ftue_teach_scene(save_id: String) -> Dictionary:
 	Save.mark_board_tutorial_seen()
 	Save.mark_ftue_seen("merge")
 	Save.mark_ftue_seen("gen_tap")
+	Save.mark_ftue_seen("unlock_weather")
+	Save.mark_ftue_seen("unlock_cascade")
 	Save.earn_coins(G.coins_at_level(G.FEATURE_LEVEL["soil"]))
 	Save.grove_write()
 	var scn := _open_board()
 	await _settle()
 	var soil_seed := Improvements.seed_code_for_kind(Improvements.KIND_SOIL)
 	var seed_cell: Vector2i = scn.board.first_item_of(soil_seed)
-	ok(seed_cell.x >= 0, "%s setup: level-6 Soil FTUE grants a visible seed" % save_id)
+	ok(seed_cell.x >= 0, "%s setup: level-%d Soil FTUE grants a visible seed" % [
+		save_id, int(G.FEATURE_LEVEL["soil"])])
 	ok(scn._hand_hint_id == "soil_seed", "%s setup: the first Soil seed teach is active" % save_id)
 	ok(_hint_covers_rect(scn, _cell_rect_in_scene(scn, seed_cell)), "%s setup: the teach cutout covers the seed cell" % save_id)
 	return {"scn": scn, "seed_cell": seed_cell, "code": soil_seed}
