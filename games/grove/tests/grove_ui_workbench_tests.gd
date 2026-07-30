@@ -552,14 +552,29 @@ func _shared_shadow_spread_outruns_offset() -> void:
 	ok(up <= 0.0, "the shipped shadow never reaches above the element (a cast, not a grey outline)")
 
 func _gold_pill_backer_tracks_face_width() -> void:
-	# the backer must follow the pill's REAL size (the HUD stretches the pill to fill its slot via
-	# SIZE_EXPAND_FILL), not the nominal pill_w — else a wide face gets a narrow under-sheet.
+	# THE WALLET PILL NO LONGER STACKS. With the top chrome restyled into the nav row's paper language
+	# a pill is ONE sheet (the concept draws no under-sheet, and no nav tab has one), so the gold backer
+	# is gone from the pill — see ui_kit.gd gold_currency_pill. The `backer*` config keys stay, because
+	# the NEXT UNLOCK strip still reads them (unlock_bar.gd _configure_backer).
 	var grow := 8.0
-	var opts := Kit.gold_currency_pill_opts_from_config({"gold_currency_pill":
+	var pill_opts := Kit.gold_currency_pill_opts_from_config({"gold_currency_pill":
 		{"backer": true, "backer_grow": grow, "pill_w": 292, "pill_h": 100}})
-	var pill := Kit.gold_currency_pill(opts, {"water": 100}) as Control
-	var backer := pill.find_child("PaperBacker", true, false) as Control
-	ok(backer != null, "the pill builds a paper backer when backer is on")
+	var flat := Kit.gold_currency_pill(pill_opts, {"water": 100}) as Control
+	ok(flat.find_child("PaperBacker", true, false) == null,
+		"the wallet pill is ONE sheet — `backer` no longer stacks a second one behind it")
+	flat.free()
+	# …and the shared builder the unlock strip uses still tracks the face it is given. The backer must
+	# follow its host's REAL size (the strip is stretched to fill its row), not any nominal width —
+	# else a wide face gets a narrow under-sheet.
+	var pill := Control.new()
+	pill.custom_minimum_size = Vector2(292, 100)
+	pill.size = Vector2(292, 100)
+	var backer := Kit.paper_backer(pill.size, pill_opts, pill_opts.get("cp", {})) as Control
+	ok(backer != null, "paper_backer builds an under-sheet when backer is on")
+	if backer == null:
+		pill.free()
+		return
+	pill.add_child(backer)
 	# full-rect anchors with a `grow` bleed → the backer's rect is the parent's rect grown by `grow`.
 	ok(is_equal_approx(backer.anchor_right, 1.0) and is_equal_approx(backer.anchor_bottom, 1.0),
 		"the backer is anchored to the parent's full rect (tracks its real width)")

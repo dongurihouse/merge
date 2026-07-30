@@ -1,0 +1,55 @@
+Generate an image (do not write code).
+
+Save the PNG into: /tmp/hp/gen/
+Name it: settings_gear_v1.png
+Output 512x512, transparent (alpha) background. Report the absolute path.
+
+SUBJECT: a single settings gear (cog), the settings-button glyph for a mobile merge game.
+Eight square-ish teeth around a thick ring, with a large ROUND HOLE cut clean through the
+middle — the hole must be fully transparent, not filled. Flat front-on glyph, centred, filling
+almost the whole 512x512 canvas with only a small transparent margin. No horizon, no scene, no
+perspective, no ground, no cast shadow, no text or numerals.
+
+INPUT IMAGE ROLES:
+- Image 1 (a board screen) is the PALETTE AND MATERIAL authority: matte hand-cut cardstock,
+  warm cut edges, shallow shadows. It does not control the subject.
+- Image 2 (a cream gear on a green card) is the FORM AND DEPTH authority — a thick piece of
+  cream cardstock with a visible cut thickness down its lower-right side and a clearly lit top
+  face. Match that amount of modelling.
+- Image 3 is the CURRENT gear, which is the failure being fixed: it is one flat cream shape
+  with a tan outline traced all the way round and a shadow BAKED into the artwork, so at phone
+  size it reads as a printed symbol rather than a paper piece. Keep its silhouette and its warm
+  cream; replace the flatness, and ship NO baked shadow at all.
+
+WHAT THE GEAR MUST CARRY (this is the whole point of the redraw). The shading has to be BROAD
+and LOW-FREQUENCY, because the icon is drawn at about 55 pixels across in the game and any fine
+detail averages away to nothing at that size:
+- one flat warm-cream base colour over the top face (about #F2E3C6);
+- ONE same-hue darker plane reading as the CUT THICKNESS of the card, a band along the
+  lower-right edge of every tooth and along the lower-right inside of the centre hole — a
+  single deliberate paper plane, not a soft airbrushed gradient;
+- one broad soft lighter plane on the upper-left of the top face, the lit side;
+- a fine warm cut edge with a thin locally-darker edge just inside it, all the way round;
+- subtle paper fibre, about 2-4% local value variation.
+The result must read as a thick piece of cream cardstock cut into a cog and lit from the upper
+left, with its own thickness visible on the shadow side, at a glance.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock
+— never plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient,
+glossy 3D, or realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or
+three dominant masses per object; each surface one flat base color plus at most one same-hue
+shadow plane; subtle paper fiber of about 2-4% local value variation; a fine warm cut edge plus
+a thin locally-darker edge. No universal white sticker outline and no heavy black outline. One
+upper-left light source. Consolidate leaves, shingles, stones, and ornament into a few readable
+shapes; never render thousands of tiny details. Features stay legible at phone size. Use the
+fixed Meadow Sky role palette. No text, labels, numerals, or watermark.
+
+AVOID: a filled or opaque centre hole; a flat single-colour silhouette; a metal or chrome
+finish; a white sticker outline; a heavy black outline; a cast shadow or contact shadow of any
+kind (the game adds its own); a background card, tile, circle or pill behind the gear; more
+than eight teeth; more than one gear.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is
+already approved. Do NOT offer a visual companion or read any skills. Generate the
+image NOW with your built-in image generation, key out the background to transparent,
+and save it to the path above. Then report the saved path.

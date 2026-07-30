@@ -14,12 +14,14 @@ extends RefCounted
 ##  3. SCALE **EVERY** METRIC, not just the ones one knob happens to own. `nav` derives its whole
 ##     geometry — corner, glyph, caption, halo reach — from `slot_w`, so handing it the mock's width
 ##     scales the tab coherently and there is nothing else to do. `wallet` does NOT: its
-##     `overall_scale` knob scales the layout numbers but the shared cut-paper EDGE knobs (corner,
-##     deckle_amp, rim_width, shadow_reach, halo_reach, bevel_px, edge_feather) are absolute px and do
-##     not follow it. Left alone, our pill at the mock's 0.86x would carry a 1.16x-too-large shadow
-##     reach against a face that had shrunk — and the sheet would look like a shadow-tuning defect
-##     instead of a rig bug. `scale_cp()` below is what stops that; a new adapter that skips it is
-##     comparing two different geometries.
+##     `overall_scale` knob scales the layout numbers but the block's own cut-paper EDGE knobs
+##     (deckle_freq, shadow_reach, shadow_blur) are absolute px and do not follow it. Left alone, our
+##     pill at the mock's 0.86x would carry a 1.16x-too-large shadow reach against a face that had
+##     shrunk — and the sheet would look like a shadow-tuning defect instead of a rig bug. `scale_cp()`
+##     below is what stops that; a new adapter that skips it is comparing two different geometries.
+##     The MIRROR of that bug is scaling a knob that already followed the size: the pill's
+##     paper-furniture patch (Paper.FURNITURE_KNOBS) is derived from `pill_h`, so `scale_cp` is told to
+##     skip it. Both halves are one question — which knobs already moved.
 ##
 ## Adding an element: write `_build_<name>`, add it to `NAMES`, and add a region to
 ## games/grove/tools/mock_targets.json that names it. Everything that needs a human to LOOK at the
@@ -42,8 +44,11 @@ const NAMES := ["nav", "wallet", "well", "tray"]
 
 ## The cut-paper knobs that are LENGTHS in px, and so must be rescaled with the face (see the header).
 ## Knobs that are fractions, percentages, counts or colours are deliberately absent.
+## `halo_offset` is a LENGTH too (a Vector2 one): it is how far the halo's rings slide, in px, and left
+## unscaled at the mock's 0.86x it would push the light further off a face that had shrunk — the same
+## rule-2 bug the reach knobs carry, just harder to see.
 const CP_LENGTHS := ["corner", "deckle_amp", "rim_width", "shadow_reach", "halo_reach", "bevel_px",
-	"edge_feather"]
+	"edge_feather", "halo_offset"]
 
 ## Cut-paper knobs whose value is a Vector2 (see `_apply_pairs`).
 const VECTOR2_KNOBS := ["halo_offset"]
@@ -90,12 +95,18 @@ static func takes_fill(element: String) -> bool:
 
 ## Multiply every cut-paper LENGTH knob by `k`. See the header: this is not a nicety, it is what makes
 ## the element's edge the same geometry at the mock's scale as it is at the shipping scale.
-static func scale_cp(cp: Dictionary, k: float) -> Dictionary:
+## `skip` names the knobs the element's OWN opts resolver already derived from its scaled size — scaling
+## those again is the mirror of the bug this function exists for. The wallet pill's whole paper-furniture
+## patch (Paper.FURNITURE_KNOBS) is derived from `pill_h`, which follows `overall_scale`, so it arrives
+## correct and must be left alone; only the block's own absolute-px knobs still need the multiply.
+static func scale_cp(cp: Dictionary, k: float, skip: Array = []) -> Dictionary:
 	if is_equal_approx(k, 1.0):
 		return cp
 	for key in CP_LENGTHS:
-		if cp.has(key):
-			cp[key] = float(cp[key]) * k
+		if not cp.has(key) or key in skip:
+			continue
+		# a Vector2 length (halo_offset) scales as a vector; everything else is a scalar px value.
+		cp[key] = (cp[key] as Vector2) * k if cp[key] is Vector2 else float(cp[key]) * k
 	return cp
 
 
@@ -183,7 +194,7 @@ static func _kit() -> GDScript:
 
 # --- nav tab ------------------------------------------------------------------------------
 
-## ONE nav tab, built through the same two calls the live row makes (NavBar.tab_opts + NavBar.tab_cp
+## ONE nav tab, built through the same two calls the live row makes (NavBar.tab_opts + EdgeTab.tab_cp
 ## merged over Kit.action_button_opts_from_config). Every nav metric is a fraction of the slot width,
 ## so handing it the mock's own tab width scales corner, glyph, caption and shadow reach together —
 ## no scale_cp() needed here, and that is a property of nav_bar.gd, not a general one.
@@ -344,11 +355,20 @@ static func _build_tray(args: Dictionary, face_w: float, mods: Dictionary) -> Di
 ##
 ## Its width comes from the config's `pill_w` under `overall_scale`, so the width is forced by solving
 ## that knob for the mock's face width and rebuilding — the component's OWN scale knob rather than a
-## list of multiplications here. The cut-paper edge knobs then still have to be scaled by hand: see
-## the header, they do not follow overall_scale.
+## list of multiplications here. Its paper-furniture knobs (corner, halo, bevel, feather) are derived by
+## the resolver from `pill_h`, so those come out already scaled; the block's remaining absolute-px knobs
+## (the downward drop shadow) do not follow overall_scale and still need `scale_cp`.
 ##
 ## Mods: `:count=N` · `:icon=ID` (both default to the region's own args, i.e. the number the mock
-## actually draws) · plus the shared `:cp=` / `:opt=` / `:fill=`.
+## actually draws) · `:blank` hides the pill's CONTENTS · plus the shared `:cp=` / `:opt=` / `:fill=`.
+##
+## USE `:blank` FOR ANY SHADOW MEASUREMENT. mock_profile.py finds the element's own edge by walking away
+## from a face colour it probes 11px inside that edge, and the pill's amount numeral is now WHITE and
+## right-aligned to within a few px of the right edge — so the probe reads the NUMERAL as the face,
+## and the edge finder then stops on the numeral's own antialiasing. Measured: the right side came back
+## at -0.358 darkening, a shadow that BRIGHTENS, which is the same sign-tell rule 6 names for a
+## mismatched silhouette. The sheet still ships through the real builder; only its contents are hidden,
+## and the contents cast nothing.
 static func _build_wallet(args: Dictionary, face_w: float, mods: Dictionary) -> Dictionary:
 	var Kit := _kit()
 	if Kit == null:
@@ -371,12 +391,19 @@ static func _build_wallet(args: Dictionary, face_w: float, mods: Dictionary) -> 
 	var o: Dictionary = base.duplicate(true)
 	o["icon"] = icon
 	o["show_plus"] = String(mods.get("plus", "1")) != "0"
-	var cp: Dictionary = scale_cp((o.get("cp", {}) as Dictionary).duplicate(), k)
+	var cp: Dictionary = scale_cp((o.get("cp", {}) as Dictionary).duplicate(), k, Paper.FURNITURE_KNOBS)
 	if not _report(patch(o, cp, mods, face_w)):
 		return {}
 	o["cp"] = cp
 
 	var pill: Control = Kit.gold_currency_pill(o, {icon: count})
+	if mods.has("blank"):
+		var content := pill.find_child("GoldCurrencyPillContentHost", true, false) as Control
+		if content == null:
+			print("REFUSED: `blank` found no GoldCurrencyPillContentHost to hide — the cell would")
+			print("render the pill's icon and numeral under a label that says it has neither.")
+			return {}
+		content.visible = false
 	var w := float(o.get("pill_w", face_w))
 	var h := maxf(float(o.get("pill_h", 100.0)), pill.custom_minimum_size.y)
 	pill.size = Vector2(w, h)

@@ -145,6 +145,41 @@ sky), giver cards (their fill is a per-giver tint from live state), scene backdr
 isolated without inventing the very context under test. Say so and measure something else; do not
 fake a field.
 
+**A whole MOCK can fail the same way, and it is worth registering anyway.**
+`_concepts/screens/home_screen_furniture_a_v1_1080x1920.png` — the approved top-chrome concept — paints
+its wallet pills and settings tile directly onto the dense leaf field, which is the entire point of that
+variant. There is therefore no flat ground anywhere near them: the widest stretches of bare ground beside
+the top row measure 77-131 on the rule-9 diagnostic against a limit of 12 (`meadow_board`'s own sky reads
+4.7-7.9). No `field` patch cut from that mock is honest, so it carries **no regions at all** — it is
+registered with `field_candidates`, the patches that were tried and failed, and
+`test_mock_targets.py` re-measures them so the claim stays checked. What the concept was then used for is
+everything that needs no ground: which paper role goes behind which currency, and where its furniture
+sits. The pill's **shadow** was fitted against `wallet_acorn` / `wallet_water` on `meadow_board` — the
+same element, the same hand, the same upper-left light, on flat sky.
+
+Two habits that came out of that pass and generalise:
+
+* **Measure a sheet's shadow with the sheet EMPTY.** `mock_profile.py` finds the element's edge by
+  walking away from a face colour probed 11px inside it. Once the wallet numerals turned white and
+  right-aligned, that probe read the *numeral* as the face and the edge finder stopped on its
+  antialiasing — the right side came back at −0.358, a shadow that brightens, the same sign-tell as rule
+  6. `wallet_…:blank` hides the pill's contents; the sheet is still the shipping sheet, and contents cast
+  nothing.
+* **Try the alternative tunings before defending the derived one.** The pill inherits the nav row's light
+  by construction. Its top edge came out 2.1× the reference's grain, which looks like a reason to give the
+  furniture its own offset — but a sweep (offset 1.42 → 3.0 → 4.5 px) fixed the top and made the other
+  three sides worse every time: summed rms over all four sides went 0.238 → 0.283 → 0.341. The inherited
+  value was also the best fit. That is a result, not an assumption, and it took one launch.
+* **A cell whose FACE is near the field's own colour cannot be profiled at all.** `wallet_water`'s paper is
+  the chalked SKY role and `meadow_board`'s field IS sky — measured on the sheet, rgb(150,191,197) at luma
+  182 against a field of rgb(121,182,206) at luma 167, one hue apart and 16 luma. The edge finder walks
+  away from a face colour probed 11px inside the sheet, and at that separation it stops in the wrong place:
+  the shipped tuning profiles as −0.152 at 1px then 0.496 at 4px on that cell — rule 6's sign-tell again —
+  while `wallet_acorn` (coral, same sky, same builder, same knobs) reads a clean monotone 0.483 → 0.000.
+  This is NOT a defect of the element, and `:fill=` does not rescue it honestly: forcing the face away from
+  its own colour on a cell that exists to check that colour swaps one variable for the other. Profile the
+  wallet's SHADOW on `wallet_acorn`; `wallet_water` is a colour cell, not a shadow cell.
+
 A shadow INSIDE an element (a glyph's own pool) has no shared silhouette to step out from, because our
 art and the mock's are different drawings. `mock_profile.py --probe LABEL:x,y,dir,len` takes a
 hand-placed ray instead, named in the command — honest about being chosen by eye rather than dressed

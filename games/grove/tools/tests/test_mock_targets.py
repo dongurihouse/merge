@@ -172,6 +172,48 @@ class MockTargetsTests(unittest.TestCase):
                                          "patch %d has a low-frequency range of %.1f — it spans "
                                          "structure, not field" % (i, got))
 
+    def test_every_mock_either_carries_regions_or_says_why_not(self):
+        """A mock with no regions must declare the `field_candidates` that ruled it out.
+
+        Otherwise "we could not measure that one" is a memory. A registered mock earns its place
+        either by being measurable or by carrying the evidence that it is not.
+        """
+        for name, mock in self.reg["mocks"].items():
+            with self.subTest(mock=name):
+                has_regions = any(r["mock"] == name for r in self.reg["regions"].values())
+                if has_regions:
+                    continue
+                self.assertTrue(mock.get("field_candidates"),
+                                "%s carries no regions and no field_candidates — nothing says whether "
+                                "it was measurable" % name)
+
+    def test_a_no_region_mocks_field_candidates_really_are_not_field(self):
+        """The rule-9 diagnostic run the other way: prove the ground really is unusable.
+
+        A `field_candidates` patch that measures FLAT would mean the mock could have carried a region
+        after all, and the note claiming otherwise is wrong.
+        """
+        checked = 0
+        for name, mock in self.reg["mocks"].items():
+            if any(r["mock"] == name for r in self.reg["regions"].values()):
+                continue
+            img = self.image(name)
+            canvas = [0, 0] + list(img.size)
+            for i, patch in enumerate(mock.get("field_candidates", [])):
+                with self.subTest(mock=name, patch=i):
+                    self.assertTrue(contains(canvas, patch), "candidate %d runs off the mock" % i)
+                    x0, y0, x1, y1 = rect(patch)
+                    got = flat_range(img, (x0, y0, x1, y1))
+                    self.assertIsNotNone(got, "candidate %d is too small to check" % i)
+                    self.assertGreater(got, FLAT_LIMIT,
+                                       "%s candidate %d reads %.1f — that IS flat field, so this mock "
+                                       "could carry a region and the note saying it cannot is wrong"
+                                       % (name, i, got))
+                    checked += 1
+        # Anti-Potemkin: an empty registry, or one where every mock happens to have regions, would
+        # sail through the loop above reporting a check that never ran.
+        self.assertGreater(checked, 0, "no field_candidates were measured — this guard ran vacuously")
+
     def test_the_flatness_check_finds_a_known_positive(self):
         """A checker that has never failed is not a checker (rule 3).
 
