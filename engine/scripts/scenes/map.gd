@@ -737,10 +737,12 @@ func _page_manifest(z: int) -> Dictionary:
 		_home_manifest_cache[path] = HomePageView.load_manifest(path)
 	return _home_manifest_cache[path]
 
-# The shared cream card shell: the code-drawn RUGGED cut-paper edge (a deckled/torn cream sheet with a
-# warm rim + shape-true drop shadow) — the SAME edge the dialog frames, buttons and settings rows wear,
-# so the gallery cards match the rest of the skin. Returns the root Control (rect-sized); the tear inset
-# is stashed on it as `cut_inset` so content builders can seat art inside the torn border (_card_inset).
+# The shared cream card shell: the code-drawn cut-paper edge (a smooth, antialiased cream sheet with a
+# shape-true drop shadow) — the SAME edge the dialog frames, buttons and settings rows wear, so the
+# gallery cards match the rest of the skin. Returns the root Control (rect-sized); the edge's content
+# clearance is stashed on it as `cut_inset` so the builders can seat art inside the cream border
+# (_card_inset). That clearance is the panel's own contract, so it tracks the edge treatment rather than
+# being a number this file guesses — see CutPaperPanel.content_inset.
 func _maps_card_shell(rect: Rect2) -> Control:
 	var root := Control.new()
 	root.position = rect.position
@@ -748,7 +750,8 @@ func _maps_card_shell(rect: Rect2) -> Control:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var Kit: GDScript = Game.kit_script()
 	var opts: Dictionary = Kit.cut_paper_opts_from_config(Game.kit_config(), "mail_card", Kit.MAIL_CP_DEFAULTS).duplicate() \
-		if Kit != null else {"deckle": true, "corner": CARD_CORNER, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+		if Kit != null else {"deckle": true, "corner": CARD_CORNER, "deckle_amp": 0, "deckle_freq": 5,
+			"rim_width": 2, "edge_shadow": true, "edge_feather": Paper.EDGE_FEATHER_PX}
 	opts["corner"] = CARD_CORNER
 	var cp = load("res://engine/scripts/ui/cut_paper.gd").new()
 	cp.configure(opts, CREAM, CREAM.darkened(0.12), Kit.cut_paper_tile() if Kit != null else null)
@@ -758,7 +761,8 @@ func _maps_card_shell(rect: Rect2) -> Control:
 	root.set_meta("cut_inset", cp.content_inset())
 	return root
 
-# How far card content must sit inside the rugged tear so nothing touches the torn edge.
+# How far card content must sit inside the cut edge so nothing touches it (CutPaperPanel.content_inset:
+# the corner arc, any tear, and the antialias band's inner half).
 func _card_inset(card: Control) -> float:
 	return float(card.get_meta("cut_inset", 10.0))
 
@@ -828,10 +832,10 @@ func _maps_page_thumb(z: int, size: Vector2, corner := 0.0, right_square := fals
 # CONTINUE stacked on the right. CONTINUE (a real button) and a card tap both open the map.
 func _maps_featured_card(z: int, rect: Rect2, title_font: int) -> Control:
 	var card := _maps_card_shell(rect)
-	var edge := _card_inset(card)                          # seat art inside the rugged tear
+	var edge := _card_inset(card)                          # seat art inside the cut edge
 	var inset := edge + clampf(rect.size.y * 0.04, 6.0, 14.0)
-	# the preview is a full-height rounded square seated inside the torn edge on the card's LEFT; the
-	# rugged cream border frames it on every side.
+	# the preview is a full-height rounded square seated inside the cut edge on the card's LEFT; the
+	# cream border frames it on every side.
 	var thumb_px := rect.size.y - inset * 2.0
 	var thumb := _maps_page_thumb(z, Vector2(thumb_px, thumb_px), CARD_CORNER * 0.6)
 	thumb.position = Vector2(inset, inset)
@@ -914,8 +918,8 @@ func _maps_featured_card(z: int, rect: Rect2, title_font: int) -> Control:
 # medallion + a LOCKED pill; open (any build progress) → lit thumb + a built/total line.
 func _maps_grid_card(z: int, rect: Rect2, locked: bool, title_font: int) -> Control:
 	var card := _maps_card_shell(rect)
-	var edge := _card_inset(card)                 # seat the thumb inside the rugged tear
-	# the preview fills the card inside the torn edge, rounded so it nests in the rugged cream frame.
+	var edge := _card_inset(card)                 # seat the thumb inside the cut edge
+	# the preview fills the card inside the cut edge, rounded so it nests in the cream frame.
 	var thumb_size := rect.size - Vector2(edge, edge) * 2.0
 	var thumb := _maps_page_thumb(z, thumb_size, CARD_CORNER * 0.6)
 	thumb.position = Vector2(edge, edge)

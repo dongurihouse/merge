@@ -1602,19 +1602,18 @@ func _check_tab_paper(hx: Node, names: Array) -> void:
 		"an ordinary action button keeps the flat sheet — flare/halo/bevel default off")
 	ok(plain_panel != null and String(plain_panel.get("shape")) == "rect",
 		"…and the plain rounded-rect base shape")
-	# …and the two things the NAV ROW takes away are still there off the row: the torn deckle and the warm
-	# cut-edge rim. Both are shared by dialogs, pills and buttons across the game; the row zeroes them in
-	# its OWN cut-paper patch (NavBar.tab_cp), never in the shared defaults.
-	ok(plain_panel != null and float(plain_panel.get("deckle_amp")) > 0.0,
-		"…the shared torn deckle survives off the nav row (%.2f)" % [0.0 if plain_panel == null else plain_panel.get("deckle_amp")])
-	ok(plain_panel != null and float(plain_panel.get("rim_width")) > 0.0,
-		"…and so does the shared warm cut-edge rim (%.2f)" % [0.0 if plain_panel == null else plain_panel.get("rim_width")])
-	# the FEATHER is the row's own too. A torn sheet has no visible staircase (the tear is louder than it),
-	# and a three-pass face on every dialog, pill and board cell would repaint the whole game, so the knob
-	# defaults OFF and only the one smooth row asks for it.
-	ok(plain_panel != null and is_equal_approx(float(plain_panel.get("edge_feather")), 0.0),
-		"…and an ordinary torn sheet still draws ONE flat polygon, unfeathered (%.2f)"
+	# …and of the things the NAV ROW used to take away, exactly one is still there off the row: the warm
+	# cut-edge rim. The SMOOTH EDGE is no longer the row's own — the whole UI wears it now, so an ordinary
+	# action button is smooth and feathered too, and a shared default that zeroed the tear without asking
+	# for the coverage band would ship a staircase on every surface in the game. Both halves, together.
+	ok(plain_panel != null and is_equal_approx(float(plain_panel.get("deckle_amp")), 0.0),
+		"…the shared edge is a SMOOTH cut off the nav row as well (%.2f)" % [1.0 if plain_panel == null else plain_panel.get("deckle_amp")])
+	ok(plain_panel != null and float(plain_panel.get("edge_feather")) > 0.0,
+		"…and it is antialiased there too, which a smooth arc has no tear left to fake (%.2f)"
 			% [0.0 if plain_panel == null else plain_panel.get("edge_feather")])
+	ok(plain_panel != null and float(plain_panel.get("rim_width")) > 0.0,
+		"…while the shared warm cut-edge rim survives — the row drops that in its OWN patch (%.2f)"
+			% [0.0 if plain_panel == null else plain_panel.get("rim_width")])
 	# the GLYPH SHADOW is the row's own too. `glyph_shadow` defaults to the shared Kit.GLYPH_SHADOW, so the
 	# board's Home/Bag wells and the workbench preview keep the three straight-down copies they always had —
 	# no `grow` on any of them, which is what would have leaked a pool onto every action button in the game.

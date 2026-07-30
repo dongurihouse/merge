@@ -231,13 +231,13 @@ func _default_params() -> Dictionary:
 		"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "art": true, "shadow": false, "badge": "auto",
 			"paper": "none", "border": true, "pad_scale": 100, "static": false,
 			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — the SAME keys the frame + toggle bar use.
-			"deckle": true, "corner": 16, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55},
+			"deckle": true, "corner": 16, "deckle_amp": 0, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55},
 		# the ACTION BUTTON — the shared rugged-edge nav tile. px / icon_scale / shadow + the shared
 		# cut-paper edge knobs (CUT_PAPER_KNOBS) are the saved style; tint_<role> is the per-button paper
 		# role (flattened to calm roles by default). map.gd + board.gd read this via action_button_opts_from_config.
 		"action_button": {"px": 158, "icon_scale": 90, "icon_shadow": true,
 			# the SHARED cut-paper edge knob set — same keys as button + frame.
-			"deckle": true, "corner": 20, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
+			"deckle": true, "corner": 20, "deckle_amp": 0, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
 			# per-button paper-role tint palette (calm/flattened defaults)
 			"tint_map": "cream", "tint_residents": "cream", "tint_daily": "cream", "tint_vault": "cream",
 			"tint_mail": "cream", "tint_play": "cream", "tint_home": "cream", "tint_bag": "cream",
@@ -255,7 +255,7 @@ func _default_params() -> Dictionary:
 		"gold_currency_pill": {"icon": "water", "count": 2450, "overall_scale": 100, "pill_w": 292, "pill_h": 100,
 			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — the SAME keys the button + frame use.
 			# `corner` seeds the capsule roundness to the old pill_h * 0.35 look (see Kit.PILL_CP_DEFAULTS).
-			"deckle": true, "corner": 35, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
+			"deckle": true, "corner": 35, "deckle_amp": 0, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
 			# the stacked-paper backer: a slightly larger tinted under-sheet behind the face (also worn
 			# by the NEXT UNLOCK strip — one knob set for the whole top chrome).
 			"backer": false, "backer_grow": 8, "backer_tint": "E3D2B4",
@@ -282,7 +282,7 @@ func _default_params() -> Dictionary:
 			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — the SAME keys the button + toggle bar use.
 			# `deckle` on replaces the flat card with a live deckled paper sheet; `corner` is the shared corner
 			# (drives the flat card too). Migrated from the old cut_paper / card_corner / frame_shadow keys.
-			"deckle": true, "corner": 22, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
+			"deckle": true, "corner": 22, "deckle_amp": 0, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
 			"border": "parchment", "card_art": true,
 			"card_slice_l": 40, "card_slice_t": 40, "card_slice_r": 40, "card_slice_b": 40,
 			"card_h_stretch": "stretch", "card_v_stretch": "stretch",
@@ -313,7 +313,7 @@ func _default_params() -> Dictionary:
 		"toggle_card": {"label_font": 28, "switch_h": 44, "card_art": true,
 			# the SHARED cut-paper edge knob set (CUT_PAPER_KNOBS) — same keys as button + frame; a finer tear
 			# for the thin row strip. Drives BOTH the row surface AND the switch track/knob.
-			"deckle": true, "corner": 20, "deckle_amp": 3, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
+			"deckle": true, "corner": 20, "deckle_amp": 0, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
 			# the row's OWN tint (paper fill; rim derives a shade darker), sage by default. `label`/`value` are
 			# DEMO content (test-only) to preview one row — the game supplies each real setting's name + state.
 			"tint": "DCE7C8", "label": "Sound effects", "value": true},
@@ -336,7 +336,7 @@ func _default_params() -> Dictionary:
 		# edge_shadow) in its OWN tint (the paper fill; rim is derived a shade darker). Read by mail_card +
 		# every mail_dialog row via Kit.mail_card_opts_from_config. icon/title/body/chip_text are DEMO content
 		# (test-only) so the preview shows a real reward row; the game supplies each entry's own content.
-		"mail_card": {"deckle": true, "corner": 18, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
+		"mail_card": {"deckle": true, "corner": 18, "deckle_amp": 0, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
 			"tint": Pal.CREAM.to_html(false), "icon": "gem", "title": "Acorns", "body": "premium currency for shortcuts", "chip_text": "400"},
 		# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 		# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
@@ -404,10 +404,10 @@ func _default_params() -> Dictionary:
 		"dialog_cell": {"item_shadow_offset_x": 5, "item_shadow_offset_y": 8,
 			"item_shadow_blur": 20, "item_shadow_spread": -4, "item_shadow_alpha": 30},
 		"torn_cell": {"cell_w": 132, "cell_h": 132,
-			"deckle": true, "corner": 18, "deckle_amp": 5, "deckle_freq": 6, "rim_width": 2, "rim_color": "E7D6BC",
+			"deckle": true, "corner": 18, "deckle_amp": 0, "deckle_freq": 6, "rim_width": 2, "rim_color": "E7D6BC",
 			"edge_shadow": true, "shadow_reach": 10, "shadow_strength": 5, "shadow_blur": 55,
 			"cream_fill": "F1E6D2", "well": true, "well_fill": "A6C486", "inner_inset": 14, "inner_corner": 16,
-			"inner_amp": 4, "inner_freq": 6, "inner_rim": 2, "inner_edge": true,
+			"inner_amp": 0, "inner_freq": 6, "inner_rim": 2, "inner_edge": true,
 			"inner_shadow_h": 26, "inner_shadow_strength": 30, "inner_shadow_falloff": 16, "inner_shadow_tint": "294654",
 			"lock_icon": "card", "lock_frac": 52, "lock_shadow_dy": 6, "lock_shadow_strength": 32,
 			"sprites": true},
@@ -1995,6 +1995,12 @@ func _cut_paper_section(target: String) -> void:
 					_params[target][key] = String(knob.get("default", "FFFFFF"))   # seed the schema rim colour so the picker opens on it
 				_sidebar_body.add_child(_color_row(String(knob["label"]), key, target))
 			_:
+				# SEED FROM THE SCHEMA, not from the slider's floor. `_slider_row` falls back to `min` for a
+				# key a block has never saved, which for `edge_feather` is 0 — so opening this inspector on
+				# an unsaved block would show an unfeathered edge (a staircase) and a Save would then write
+				# that 0 into the config. The schema default is what the game actually renders; open on it.
+				if not (_params[target] as Dictionary).has(key):
+					_params[target][key] = float(knob.get("default", knob["min"]))
 				_sidebar_body.add_child(_slider_row([key, knob["min"], knob["max"]], target))
 
 ## The SHARED text drop-shadow section (Kit.TEXT_SHADOW_KNOBS) — one control group appliable to any text

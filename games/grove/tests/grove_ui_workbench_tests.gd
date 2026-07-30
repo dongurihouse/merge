@@ -13,6 +13,7 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")
+const CutPaperEdge = preload("res://engine/scripts/ui/cut_paper.gd")   # for SMOOTH_FEATHER_PX, the one band width
 
 func _initialize() -> void:
 	begin("grove · ui workbench")
@@ -21,6 +22,7 @@ func _initialize() -> void:
 	_live_rim_color_edit_reaches_shared_buttons()
 	_white_role_builds_with_white_tile()
 	_shared_frame_uses_soft_cream_tile()
+	_cutpaper_inspector_opens_on_the_schema_default()
 	_daily_card_face_tones()
 	_daily_card_uses_face_only_for_daily()
 	_mail_claim_all_footer_is_transparent()
@@ -809,7 +811,7 @@ func _deckle_amp_of(btn: Button) -> float:
 	return float(d.deckle_amp) if d != null else -1.0
 
 func _live_cutpaper_edit_reaches_shared_buttons() -> void:
-	Kit.clear_config_cache()   # start from the saved-on-disk config (button deckle_amp == 5)
+	Kit.clear_config_cache()   # start from the saved-on-disk config (button deckle_amp == 0 — a smooth cut)
 	var view := UIWorkbenchView.new()   # _init() populates _params from the built-in defaults
 	view._selected = "button"
 	# a distinctive amplitude that can't be mistaken for the saved default (5) or the schema fallback
@@ -832,6 +834,32 @@ func _live_cutpaper_edit_reaches_shared_buttons() -> void:
 	b.free()
 	view.free()
 	Kit.clear_config_cache()   # don't leak the preview config into sibling suites
+
+## THE INSPECTOR OPENS ON WHAT THE GAME RENDERS. A shared-edge slider whose key a block has never saved
+## used to seed itself from the slider's FLOOR, which for `edge_feather` is 0 — so opening the inspector on
+## such a block showed an unfeathered (stair-stepped) edge under the block's own name, and a Save wrote
+## that 0 into the shipped config. `_cut_paper_section` seeds from the SCHEMA default instead. Checked on a
+## block that genuinely lacks the key, and on the two values that matter: the feather is present and the
+## tear is not.
+func _cutpaper_inspector_opens_on_the_schema_default() -> void:
+	var view := UIWorkbenchView.new()
+	var target := "toggle_card"
+	(view._params[target] as Dictionary).erase("edge_feather")   # a block that has never saved it
+	(view._params[target] as Dictionary).erase("deckle_amp")
+	view._selected = "settings"
+	view._sidebar_body = VBoxContainer.new()                     # the section appends its rows here
+	view._cut_paper_section(target)
+	var seeded: Dictionary = view._params[target]
+	ok(seeded.has("edge_feather") and float(seeded["edge_feather"]) > 0.0,
+		"an unsaved edge_feather seeds from the schema, not the slider floor (%.2f)"
+			% float(seeded.get("edge_feather", -1.0)))
+	ok(is_equal_approx(float(seeded["edge_feather"]), CutPaperEdge.SMOOTH_FEATHER_PX),
+		"…at the panel's own measured band width (%.2f)" % float(seeded.get("edge_feather", -1.0)))
+	ok(seeded.has("deckle_amp") and is_equal_approx(float(seeded["deckle_amp"]), 0.0),
+		"…and the tear seeds at nothing, so a Save cannot re-tear a block by opening it (%.2f)"
+			% float(seeded.get("deckle_amp", -1.0)))
+	view._sidebar_body.free()
+	view.free()
 
 ## Corner is part of the SHARED edge set now: a live Corner edit must reach a no-`cp` shared button, not
 ## only the live green tile (before the fix `corner` was test-only and defaulted to a hardcoded 16).
