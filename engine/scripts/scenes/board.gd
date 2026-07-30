@@ -1333,11 +1333,14 @@ func _hint_pair() -> Array:
 # then place-the-Soil-seed. Specs: docs/superpowers/specs/2026-07-23-ftue-hand-hint-design.md,
 # §5 of 2026-07-26-cell-improvements-design.md, and the feature-level gating design.
 #
-# The soil teach runs as TWO beats behind ONE persisted key (`soil_seed`): id "soil_seed"
-# points at the seed on the board, and once the seed is selected id "soil_place" moves the
-# hand onto the info bar's Place chip. "soil_place" is transient — only "soil_seed" is ever
-# written to the ledger, by Place (taught) or Sell (the seed is gone). Bagging DISMISSES
-# without writing, so pulling the seed back out teaches again.
+# EVERY improvement seed teach (soil, magnet, and whatever comes next) runs as TWO beats behind ONE
+# persisted key: id "<kind>_seed" points at the seed on the board, and once the seed is selected id
+# "<kind>_place" moves the hand onto the info bar's Place chip. The "_place" beat is transient — only
+# the shared key is ever written to the ledger, by Place (taught) and — for a kind that opts in with
+# bank_on_sell — by Sell (the seed is gone). Bagging DISMISSES without writing, so pulling the seed
+# back out teaches again. The four sites that drive it (select / place / bag / sell) read the
+# kind→ledger mapping back out of _teach_specs() via _seed_teach_ledger(), so none of them names a
+# kind: a soil-only hardcode at each is exactly what stranded the magnet teach on a tapped seed.
 #
 # Re-evaluated from BOTH _rebuild_all and _after_board_change: the latter is the real
 # post-mutation fan-out, and a plain move/swap/stash does not rebuild, so hooking only the
@@ -1414,7 +1417,7 @@ func _teach_specs() -> Array:
 			"gesture": HandHint.GESTURE_TAP,
 		},
 		{
-			"id": "soil_seed", "ledger": "soil_seed",
+			"id": "soil_seed", "ledger": "soil_seed", "bank_on_sell": true,
 			"gate": func() -> bool: return Save.ftue_seen("soil"),
 			"ready": func() -> bool: return not _soil_seed_hint_cell().is_empty(),
 			"rects": func() -> Array:
@@ -1589,8 +1592,42 @@ func _local_rect(n: Control) -> Rect2:
 	var gr := n.get_global_rect()
 	return Rect2(gr.position - get_global_rect().position, gr.size)
 
-func _dismiss_soil_seed_teach() -> void:
-	if _hand_hint_id == "soil_seed" or _hand_hint_id == "soil_place":
+# THE SEED→TEACH SEAM. An improvement seed's teach is named after its kind ("<kind>_seed" points at
+# the seed, "<kind>_place" at the info bar's Place chip) and both beats share ONE ledger key. That
+# mapping lives in _teach_specs() and is read back out of it here, so the specs stay the single
+# source of truth and the four call sites (select / place / bag / sell) carry no per-kind branch: a
+# third improvement kind gets the whole seam for free the day it grows a spec.
+# This replaced a soil-only hardcode at each of those sites, which is why the magnet teach shipped
+# stuck on a seed the player had already tapped.
+# "" when `kind` is not a seed kind, or has no seed teach.
+func _seed_teach_ledger(kind: String) -> String:
+	if kind == "":
+		return ""
+	return String(TeachRegistry.spec_for(_teach_specs(), kind + "_seed").get("ledger", ""))
+
+# Does SELLING an unplaced seed of `kind` bank its lesson for good? Declared per kind in
+# _teach_specs(), because the two kinds' ledger keys do not mean the same thing. Soil's "soil_seed"
+# is a pure teach record — the soil grant itself keys off "soil" — so a sale genuinely ends the
+# lesson: the seed is gone. Magnet's "unlock_magnet" DOUBLES as the feature-unlock record that
+# _maybe_magnet_stage reads, so banking it on a sale would retire the staging grant for a player who
+# never placed a magnet, and no magnet teach could ever run again (pinned by grove_gating_tests'
+# "selling the fallback keeps bank-on-placement semantics"). Opt-in, so a new kind gets the safe
+# default and has to say otherwise on its own spec.
+func _seed_teach_banks_on_sell(kind: String) -> bool:
+	if kind == "":
+		return false
+	return bool(TeachRegistry.spec_for(_teach_specs(), kind + "_seed").get("bank_on_sell", false))
+
+# The taught seed went away WITHOUT teaching (bagged): bring the hand down NOW rather than let it
+# hover over the vacated cell until the next _maybe_hand_hint frame await catches up — and write
+# nothing, so pulling the seed back out teaches again. Matched by LEDGER, exactly as _end_hand_hint
+# does, so it covers both beats of that kind's teach and only that kind's.
+func _dismiss_seed_teach(kind: String) -> void:
+	var ledger := _seed_teach_ledger(kind)
+	if ledger == "" or _hand_hint_id == "":
+		return
+	var live := TeachRegistry.spec_for(_teach_specs(), _hand_hint_id)
+	if String(live.get("ledger", "")) == ledger:
 		_dismiss_hand_hint()
 
 func _dismiss_hand_hint() -> void:
@@ -3276,10 +3313,9 @@ func _place_seed(cell: Vector2i) -> bool:
 		if _info_seed_place != null and is_instance_valid(_info_seed_place):
 			FX.wobble(_info_seed_place)
 		return false
-	if seed_kind == Improvements.KIND_SOIL:
-		_end_hand_hint("soil_seed")
-	elif seed_kind == Improvements.KIND_MAGNET:
-		_end_hand_hint("unlock_magnet")
+	var place_ledger := _seed_teach_ledger(seed_kind)   # the taught action HAPPENED — bank that kind's lesson
+	if place_ledger != "":
+		_end_hand_hint(place_ledger)
 	Audio.play("button_tap", -2.0)
 	_rebuild_all()
 	_after_board_change()
@@ -4363,7 +4399,9 @@ func _select_item(cell: Vector2i) -> void:
 			if _info_buy != null and is_instance_valid(_info_buy):
 				_info_buy.visible = false
 			_refresh_seed_chips(cell)
-			if seed_kind == Improvements.KIND_SOIL:
+			# Selection is not a board mutation, so neither _rebuild_all nor _after_board_change runs:
+			# this is the ONLY re-evaluation that hands a seed teach off to its Place beat.
+			if _seed_teach_ledger(seed_kind) != "":
 				_maybe_hand_hint()
 		else:
 			_refresh_buy_chip(code)               # T55: a sellable item is also BUYABLE (a copy → the board)
@@ -6571,8 +6609,7 @@ func _stash(from: Vector2i, node: Control) -> void:
 func _stash_confirmed(from: Vector2i, node: Control) -> void:
 	var rank := board.seed_rank_at(from)
 	var code := board.take(from)
-	if Improvements.kind_for_seed(code) == Improvements.KIND_SOIL:
-		_dismiss_soil_seed_teach()
+	_dismiss_seed_teach(Improvements.kind_for_seed(code))
 	_bag_append(code, rank)
 	piece_nodes.erase(from)
 	var at := board_area.get_global_transform() * _cell_pos(from) + Vector2(csz, csz) / 2.0
@@ -7136,8 +7173,11 @@ func _sell_item(from: Vector2i, node: Control) -> void:
 	if G.is_coin(code):
 		_collect_coin(from, node)          # coins are money already — pocket them
 		return
-	if Improvements.kind_for_seed(code) == Improvements.KIND_SOIL:
-		_end_hand_hint("soil_seed")
+	var sold_kind := Improvements.kind_for_seed(code)
+	if _seed_teach_banks_on_sell(sold_kind):
+		_end_hand_hint(_seed_teach_ledger(sold_kind))   # the seed is gone for good: end the lesson
+	else:
+		_dismiss_seed_teach(sold_kind)                   # …or just take the hand off the vacated cell
 	board.take(from)
 	piece_nodes.erase(from)
 	_grant_sale(code, node)
