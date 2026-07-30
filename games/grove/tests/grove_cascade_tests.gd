@@ -28,6 +28,7 @@ func _initialize() -> void:
 	await _test_drag_focuses_the_held_cascade_path()
 	await _test_drag_stage_starts_from_single_tier_neighbors()
 	await _test_runway_resting_outline_without_needed_tier_tag()
+	await _test_runway_threshold_is_independent_of_chain_min_n()
 	await _test_drag_cascade_tag_sits_on_drop_target()
 	await _test_ready_ladder_glow_excludes_duplicate_tip_source()
 	await _test_runway_drag_guide_strengths_use_real_input()
@@ -750,6 +751,31 @@ func _test_runway_resting_outline_without_needed_tier_tag() -> void:
 	})
 	ok(_outline_ladder_count(b) == 1 and _outline_runway_count(b) == 0 and _outline_has_tag(b, "×3") and not _outline_has_tag(b, "t2"),
 		"an armed ladder keeps the stronger xN mark instead of the runway tag")
+	b.queue_free()
+
+# The runway threshold is RUNWAY_MIN_N (3), NOT CHAIN_MIN_N (2). A chain ARMS at x2, but a runway is
+# the quiet "one piece away" telegraph and at 2 it fires on nearly every board (mean 3.2-7.4 marks
+# against 0.2-0.7; spec §11). The fixture holds one component of each kind, so re-coupling the two
+# constants changes the drawn count and fails here.
+func _test_runway_threshold_is_independent_of_chain_min_n() -> void:
+	var b := _open_board("cascade_runway_threshold")
+	await process_frame
+	_blank_fixture(b, {
+		Vector2i(3, 1): 102,   # t2·t3·t4 — one t2 away from a x3 run
+		Vector2i(3, 2): 103,
+		Vector2i(3, 3): 104,
+		Vector2i(6, 1): 202,   # t2·t3 on another line — one t2 away from a x2 run, and no further
+		Vector2i(6, 2): 203,
+	})
+	await process_frame
+	var at_chain_min: int = BoardLogic.runways(b.board, BoardScriptRef.CHAIN_MIN_N).size()
+	var at_runway_min: int = BoardLogic.runways(b.board, BoardScriptRef.RUNWAY_MIN_N).size()
+	ok(at_chain_min == 2 and at_runway_min == 1,
+		"the fixture separates the two thresholds: %d runways at CHAIN_MIN_N, %d at RUNWAY_MIN_N" % [at_chain_min, at_runway_min])
+	ok(_outline_runway_count(b) == at_runway_min and _outline_runway_count(b) != at_chain_min,
+		"the board draws the RUNWAY_MIN_N set, not the CHAIN_MIN_N set (drew %d)" % _outline_runway_count(b))
+	ok(BoardScriptRef.RUNWAY_MIN_N > BoardScriptRef.CHAIN_MIN_N,
+		"a runway needs a longer would-be run than the arming floor (%d vs %d)" % [BoardScriptRef.RUNWAY_MIN_N, BoardScriptRef.CHAIN_MIN_N])
 	b.queue_free()
 
 func _test_drag_cascade_tag_sits_on_drop_target() -> void:

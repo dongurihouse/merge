@@ -117,9 +117,15 @@ const MERGE_TARGET_GROW := 0.30  # merge-only hit area added around each cell; m
 const ANIM_WATCHDOG_SECS := 0.6
 const CHAIN_STEP_WATCHDOG_SECS := 2.0
 const CHAIN_MIN_N := 2           # owner call 2026-07-29: a chain starts at ×2 (was 3). Resolves the
-                                 # spec's §11 open question. One knob drives five sites — the resting
-                                 # marks, the runway threshold, the drag-guide filter, the
-                                 # cascade-vs-merge pad kind, and the arming gate in _prepare_chain.
+                                 # spec's §11 open question. Drives the resting marks, the drag-guide
+                                 # filter, the cascade-vs-merge pad kind, and the arming gate in
+                                 # _prepare_chain. NOT the runway threshold — see RUNWAY_MIN_N.
+const RUNWAY_MIN_N := 3          # owner call 2026-07-29: the runway threshold is its OWN knob and stays
+                                 # at 3 while CHAIN_MIN_N went to 2. A chain ARMS at ×2, but a runway is
+                                 # the quiet "one piece away" telegraph, and at 2 it fires on nearly
+                                 # every board (measured over 200 randomised boards × 3 fill levels:
+                                 # mean 3.2–7.4 marks, peak 13, on 95–100 % of boards, against mean
+                                 # 0.2–0.7 on 13–44 % at 3).
 const CHAIN_PREROLL_MS := 300
 const CHAIN_STEP_MS := 250
 const CHAIN_STEP_RAMP_ENABLED := true
@@ -2562,7 +2568,7 @@ func _refresh_cascade_outline() -> void:
 	if outline == null:
 		return
 	outline.set_ladders(_armed_cascade_marks(BoardLogic.ready_ladders(board)))
-	outline.set_runways(BoardLogic.runways(board, CHAIN_MIN_N))
+	outline.set_runways(BoardLogic.runways(board, RUNWAY_MIN_N))
 
 func _show_cascade_drag_guides(from: Vector2i) -> void:
 	if not Features.on("cascade") or board == null or board.is_gen(from):
@@ -2652,7 +2658,7 @@ func _cascade_extension_pads(from: Vector2i, code: int, occupied: Dictionary) ->
 	for raw in _armed_cascade_marks(BoardLogic.ready_ladders(board)):
 		if raw is Dictionary and int((raw as Dictionary).get("line", 0)) == line:
 			components.append({"cells": _guide_run_cells(raw as Dictionary), "line": line})
-	for raw in BoardLogic.runways(board, CHAIN_MIN_N):
+	for raw in BoardLogic.runways(board, RUNWAY_MIN_N):
 		if raw is Dictionary and int((raw as Dictionary).get("line", 0)) == line:
 			components.append({"cells": _guide_run_cells(raw as Dictionary), "line": line})
 	var seen := {}

@@ -146,9 +146,9 @@ vacated — always free, synchronously, before the lucky rolls.
 
 - Node `engine/scripts/ui/cascade_outline.gd`, one `board_area` child. The scene passes armed
   `ready_ladders` entries with `n >= CHAIN_MIN_N`; at `2` that includes ×2 ladders. It also passes
-  `runways(board, CHAIN_MIN_N)` entries for weaker resting marks — at `2` a runway means "one
-  duplicate away from ×2", which is far more common (measured: mean 3.2-7.4 runway marks a board
-  against 0.2-0.7 at `3`; §11).
+  `runways(board, RUNWAY_MIN_N)` entries for weaker resting marks. **`RUNWAY_MIN_N` (`3`) is its own
+  constant, deliberately unequal to `CHAIN_MIN_N` (`2`)** — a chain arms at ×2, but a runway is the
+  quiet "one piece away" telegraph, and at `2` it draws on nearly every board (§11).
 - **Every armed chain is drawn, not the best one.** `ready_ladders` appends every same-line
   component that scores, `_armed_cascade_marks` keeps them all, `_draw` loops every entry, and
   `_rebuild_tags` dedups per CELL — so two chains at once are two contours with a ×n each. Only
@@ -211,7 +211,7 @@ and arms nothing. The marks say which of the two a drop is:
 |---|---|---|---|
 | `cascade` | an occupied same-code target whose merge reaches `CHAIN_MIN_N` | strongest | **yes** |
 | `merge` | any other occupied same-code target | mid | no |
-| `stage` | an empty cell that would grow the held line beside a single lower/higher tier, finish `chain_placements` at `n >= CHAIN_MIN_N`, or extend a runway/ladder | weakest | no |
+| `stage` | an empty cell that would grow the held line beside a single lower/higher tier, finish `chain_placements` at `n >= CHAIN_MIN_N`, or extend an armed ladder / a `RUNWAY_MIN_N` runway | weakest | no |
 
 At `CHAIN_MIN_N = 2` a held tier whose merge lands on the next tier already on the board is a
 `cascade` target, not a `merge` one — so it also suppresses its own staging cells (`fires`).
@@ -268,6 +268,8 @@ margins, so a saturated line colour tints the art itself rather than reading as 
     below cascade strength.
   - Resting runways draw no `tN` label, drag cascade tags sit on the occupied drop target, and
     ready ribbons exclude the duplicate source cell.
+  - The runway threshold is `RUNWAY_MIN_N`, never `CHAIN_MIN_N`: a fixture carrying one ×3-capable
+    and one ×2-capable component draws only the first.
   - A mixed component with a lower-tier `×5` at rest focuses to the held item's `×3` run while
     dragging; ordered ribbon links do not connect touching non-consecutive path cells.
   - Outline present iff an armed ladder exists; tag text ×n; stack index above mat/slots and below
@@ -285,8 +287,9 @@ margins, so a saturated line colour tints the art itself rather than reading as 
 
 1. Auto-steps also roll the 10 %/2 % lucky drops (uniform-merge stance) — confirm, or should
    auto-steps skip them? The sim pass will quantify either way.
-2. ~~Arming floor at ×2 or ×3?~~ **RESOLVED 2026-07-29: `CHAIN_MIN_N = 2`** (owner). Consequence
-   parked for the owner: `runways(board, CHAIN_MIN_N)` inherits the same `2` and carpets a settled
-   board with weak marks (measured mean 3.2-7.4, peak 13, present on 95-100 % of boards, against
-   mean 0.2-0.7 on 13-44 % at `3`). Decoupling it — `runways(board, 3)` at `board.gd:2562` and
-   `:2652` — is a one-line change and is the owner's call, not a silent re-tune.
+2. ~~Arming floor at ×2 or ×3?~~ **RESOLVED 2026-07-29: `CHAIN_MIN_N = 2`** (owner).
+3. ~~Does the runway threshold follow the arming floor down to ×2?~~ **RESOLVED 2026-07-29: no —
+   `RUNWAY_MIN_N = 3`, its own constant** (owner). At `2` a runway carpeted the board (mean 3.2-7.4
+   marks, peak 13, on 95-100 % of boards); at `3` it is back to mean 0.18-0.69, peak 4, on 13-44 %
+   — measured over 200 randomised boards × 3 fill levels, raw and settled. Pinned by
+   `_test_runway_threshold_is_independent_of_chain_min_n`.
