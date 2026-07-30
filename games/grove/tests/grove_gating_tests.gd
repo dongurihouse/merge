@@ -35,6 +35,8 @@ func _initialize() -> void:
 	_test_registry_complete_does_not_call_ready()
 	_test_rush_teach_needs_level_and_a_bucket_cell()
 	await _test_rush_teach_uses_the_player_reachable_residents_surface()
+	await _test_rush_modal_hint_rejects_hidden_and_queued_targets()
+	await _test_rush_modal_hint_tears_down_with_the_map_host()
 	await _test_rush_map_teach_points_at_the_visible_expedition_button()
 	await _test_rush_map_teach_banks_on_the_real_open_and_does_not_replay()
 	await _test_rush_map_teach_leaves_with_its_visible_surface()
@@ -53,14 +55,30 @@ func _set_level(lvl: int) -> void:
 	Save.earn_coins(G.coins_at_level(lvl) - Save.coins_earned_lifetime())
 
 func _live_map_hand_hint(map: Node) -> Control:
+	var hints := _live_map_hand_hints(map)
+	return hints[0] as Control if not hints.is_empty() else null
+
+func _live_map_hand_hints(map: Node) -> Array:
+	var hints: Array = []
 	for c in map.find_children("*", "Control", true, false):
 		if c is Control and (c as Control).get_script() == HandHint and not bool(c.get("dismissed")):
-			return c as Control
-	return null
+			hints.append(c)
+	return hints
 
 func _settle_map_teach() -> void:
 	await process_frame
 	await process_frame
+
+func _push_gui_tap(gpos: Vector2) -> void:
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	down.position = gpos
+	down.global_position = gpos
+	get_root().push_input(down, true)
+	var up := down.duplicate()
+	up.pressed = false
+	get_root().push_input(up, true)
 
 func _test_rush_teach_needs_level_and_a_bucket_cell() -> void:
 	fresh("teach_rush")
@@ -76,6 +94,7 @@ func _test_rush_teach_uses_the_player_reachable_residents_surface() -> void:
 	complete_scene(0)
 	_set_level(G.FEATURE_LEVEL["rush"])
 	var map := map_host()
+	map._login_shown_launch = true
 	var residents_tile := map.get_node_or_null("ResidentsTile") as Button
 	ok(residents_tile != null, "the real map chrome exposes the Residents player entry")
 	if residents_tile != null:
@@ -86,22 +105,60 @@ func _test_rush_teach_uses_the_player_reachable_residents_surface() -> void:
 	var hint := _live_map_hand_hint(map)
 	ok(overlay != null and exped != null and exped.is_visible_in_tree(),
 		"the player-reachable Residents modal exposes its Expedition footer button")
+	ok(exped != null and exped.get_global_rect().size.x >= 100.0
+			and exped.get_global_rect().size.y >= 40.0,
+		"the real Expedition footer button keeps a player-sized pointer target when no OS window is reported")
 	ok(hint != null and hint.get_parent() == overlay,
 		"the Rush hand hint mounts inside the active modal so it renders over the visible footer")
 	if overlay != null and exped != null and hint != null:
+		ok(hint.gesture == HandHint.GESTURE_TAP,
+			"the modal-hosted Rush teach uses the tap gesture")
+		ok(hint.mouse_filter == Control.MOUSE_FILTER_IGNORE and _all_ignore(hint),
+			"the hand, veil, and every overlay child are input-transparent")
 		var cutouts: Array = hint.cutouts()
 		var button_center: Vector2 = exped.get_global_rect().get_center() - overlay.get_global_rect().position
 		ok(cutouts.size() == 1 and (cutouts[0] as Rect2).has_point(button_center),
 			"the modal hint's bright cutout contains the reachable Residents Expedition button")
 		ok(exped.has_meta("_fx_breathing") == FX.breathe_active(),
 			"the reachable Residents Expedition CTA follows the existing breathe_cta treatment")
+		var hint_instance_id := hint.get_instance_id()
+		var original_cutout := (cutouts[0] as Rect2) if not cutouts.is_empty() else Rect2()
+		var original_center := exped.get_global_rect().get_center()
+		var row_spacer := Control.new()
+		row_spacer.custom_minimum_size = Vector2(96.0, 0.0)
+		exped.get_parent().add_child(row_spacer)
+		exped.get_parent().move_child(row_spacer, 0)
+		await process_frame
+		var moved_center := exped.get_global_rect().get_center()
+		ok(not moved_center.is_equal_approx(original_center),
+			"setup: a settled modal row change moves the live Expedition target")
+		map._maybe_map_hand_hint()
+		map._maybe_map_hand_hint()
+		await _settle_map_teach()
+		var retargeted := _live_map_hand_hints(map)
+		var moved_local_center := moved_center - overlay.get_global_rect().position
+		var moved_cutouts: Array = (retargeted[0] as Control).cutouts() if not retargeted.is_empty() else []
+		ok(retargeted.size() == 1 and (retargeted[0] as Control).get_instance_id() == hint_instance_id,
+			"repeated modal layout refreshes retarget one live hint without duplication")
+		ok(moved_cutouts.size() == 1
+				and not (moved_cutouts[0] as Rect2).is_equal_approx(original_cutout)
+				and (moved_cutouts[0] as Rect2).has_point(moved_local_center),
+			"the reused modal hint retargets its cutout to the Expedition button's settled position")
 	var close := overlay.find_child("DialogClose", true, false) as Button if overlay != null else null
 	ok(close != null, "the Residents modal exposes its real close button")
+	var close_state := {"exited": false, "breathing": true}
+	if overlay != null and exped != null:
+		overlay.tree_exiting.connect(func() -> void:
+			close_state.exited = true
+			close_state.breathing = exped.has_meta("_fx_breathing"))
 	if close != null:
-		close.pressed.emit()
+		_push_gui_tap(close.get_global_rect().get_center())
 	await _settle_map_teach()
 	ok(_live_map_hand_hint(map) == null and map._map_hand_hint == null,
 		"closing Residents tears down the map hint instead of stranding it over Home")
+	ok(bool(close_state.exited) and not bool(close_state.breathing)
+			and map._map_hand_hint_target == null,
+		"DialogClose clears the CTA breathe loop and every map-owned hint reference")
 	ok(not Save.ftue_seen("unlock_rush"),
 		"closing Residents without opening Expedition does not bank the Rush teach")
 	if residents_tile != null:
@@ -112,10 +169,86 @@ func _test_rush_teach_uses_the_player_reachable_residents_surface() -> void:
 	ok(real_exped != null and _live_map_hand_hint(map) != null,
 		"reopening Residents re-presents the unbanked teach on its real Expedition button")
 	if real_exped != null:
-		real_exped.pressed.emit()
-	ok(Save.ftue_seen("unlock_rush") and _live_map_hand_hint(map) == null,
-		"pressing Residents Expedition banks and dismisses through the real player path")
+		_push_gui_tap(real_exped.get_global_rect().get_center())
+	await process_frame
+	ok(Save.ftue_seen("unlock_rush") and _live_map_hand_hint(map) == null
+			and map.get_node_or_null("ExpeditionOverlay") != null,
+		"a real pointer tap passes through the hint, banks Rush, and opens Expedition normally")
 	await drop(map)
+
+func _test_rush_modal_hint_rejects_hidden_and_queued_targets() -> void:
+	fresh("teach_rush_modal_target_lifecycle")
+	complete_scene(0)
+	_set_level(G.FEATURE_LEVEL["rush"])
+	var map := map_host()
+	map._login_shown_launch = true
+	var residents_tile := map.get_node_or_null("ResidentsTile") as Button
+	if residents_tile != null:
+		residents_tile.pressed.emit()
+	await _settle_map_teach()
+	var overlay := map.get_node_or_null("ResidentsOverlay") as Control
+	var exped := overlay.find_child("ResidentsExpeditionButton", true, false) as Control if overlay != null else null
+	var live := _live_map_hand_hint(map)
+	ok(overlay != null and exped != null and live != null,
+		"setup: the visible Residents target owns a live modal hint")
+	if overlay != null:
+		overlay.visible = false
+	map._maybe_map_hand_hint()
+	await _settle_map_teach()
+	ok(map._expedition_button() == null and _live_map_hand_hint(map) == null
+			and map._map_hand_hint_target == null,
+		"an ancestor-hidden Expedition target is rejected and its hint is dismissed")
+	if exped != null:
+		ok(not exped.has_meta("_fx_breathing"),
+			"hiding the target's ancestor also clears its breathe loop")
+	if overlay != null:
+		overlay.visible = true
+	map._maybe_map_hand_hint()
+	await _settle_map_teach()
+	var replay := _live_map_hand_hint(map)
+	ok(replay != null and map._expedition_button() == exped,
+		"restoring the visible modal re-presents the still-unbanked teach")
+	if exped != null:
+		exped.queue_free()
+		ok(map._expedition_button() == null,
+			"a queued Expedition control is rejected immediately instead of becoming a stale target")
+	map._maybe_map_hand_hint()
+	await _settle_map_teach()
+	ok(_live_map_hand_hint(map) == null and map._map_hand_hint == null
+			and map._map_hand_hint_target == null,
+		"removing the queued target tears down the modal hint without replay")
+	ok(not Save.ftue_seen("unlock_rush"),
+		"target lifecycle changes never bank the Rush teach")
+	await drop(map)
+
+func _test_rush_modal_hint_tears_down_with_the_map_host() -> void:
+	fresh("teach_rush_modal_host_exit")
+	complete_scene(0)
+	_set_level(G.FEATURE_LEVEL["rush"])
+	var map := map_host()
+	map._login_shown_launch = true
+	var residents_tile := map.get_node_or_null("ResidentsTile") as Button
+	if residents_tile != null:
+		residents_tile.pressed.emit()
+	await _settle_map_teach()
+	var overlay := map.get_node_or_null("ResidentsOverlay") as Control
+	var exped := overlay.find_child("ResidentsExpeditionButton", true, false) as Control if overlay != null else null
+	ok(overlay != null and exped != null and _live_map_hand_hint(map) != null,
+		"setup: the map exits with a live Residents hint and breathing CTA")
+	var exit_state := {"exited": false, "breathing": true, "hint_ref": true, "target_ref": true}
+	if overlay != null and exped != null:
+		overlay.tree_exiting.connect(func() -> void:
+			exit_state.exited = true
+			exit_state.breathing = exped.has_meta("_fx_breathing")
+			exit_state.hint_ref = map._map_hand_hint != null
+			exit_state.target_ref = map._map_hand_hint_target != null)
+	map.queue_free()
+	await process_frame
+	ok(bool(exit_state.exited) and not bool(exit_state.breathing)
+			and not bool(exit_state.hint_ref) and not bool(exit_state.target_ref),
+		"host exit clears the live hint, CTA breathe loop, and map-owned references")
+	ok(not Save.ftue_seen("unlock_rush"),
+		"leaving the map host without opening Expedition does not bank Rush")
 
 func _test_rush_map_teach_points_at_the_visible_expedition_button() -> void:
 	fresh("teach_rush_map_surface")

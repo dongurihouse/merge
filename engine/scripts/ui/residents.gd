@@ -268,6 +268,10 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	# so viewport_size.y alone cannot detect a physically short screen. Normalize the real window's
 	# aspect to a 1080-wide phone, then cap the content scale only when that equivalent height is short.
 	var window_size := Vector2(DisplayServer.window_get_size())
+	# Headless and an initializing display server can report no physical window yet. Falling through
+	# with (0, 0) collapses every pinned action to the 0.01 floor, so use the live viewport aspect.
+	if window_size.x <= 0.0 or window_size.y <= 0.0:
+		window_size = viewport_size
 	var aspect_height := window_size.y * HEIGHT_SCALE_REFERENCE_W / maxf(1.0, window_size.x)
 	var scale: float = minf(width_scale, maxf(0.01, aspect_height / HEIGHT_SCALE_REFERENCE))
 	var inner: float = width \
