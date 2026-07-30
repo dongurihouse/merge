@@ -80,7 +80,8 @@ const RAILS := [
 ##                toward cream, so the mark separates from the tray by hue and value and not by
 ##                opacity alone. The hot line AT the tile edge (offset -1.000) is already near-cream
 ##                and it is the tile's own cut edge, so its colour is left exactly as solved; the two
-##                rails inside it sit on the lit tile face, not on the tray, and are left too.
+##                rails inside it sit on the lit tile face, not on the tray, and are left too. The
+##                interior gutters take the same pull (see CRACK_COLOR) — they ride tray as well.
 const ALPHA_LIFT := 1.6
 const CREAM_PULL := 0.35
 
@@ -108,7 +109,9 @@ const FACE_MID_A := 0.50
 const FACE_CORE_A := 0.19
 # The tray gutters BETWEEN two chain cells, which read as light coming up from under the blob. Held
 # steady on purpose: arc length along the contour is discontinuous across the shape's medial axis,
-# so driving the interior with it stamps a hard seam down the middle.
+# so driving the interior with it stamps a hard seam down the middle. Solved on the same tray as the
+# band and drawn with the same CREAM_PULL — an unpulled interior reads as amber bars crossing a cream
+# ring (measured on the top gutter: 149.0 against the band's 104.3).
 const CRACK_COLOR := Color(1.000, 0.757, 0.337)
 const CRACK_A := 0.88
 ## The hue every rail colour above is written against; `_tint` carries the profile's colour across
@@ -277,7 +280,7 @@ func _draw_chain_glow(raw_cells: Array, base: Color, strength: float, reach: flo
 		_draw_contour_strip(raw_loop as Dictionary, offs, glow, strength, phase)
 	for raw_face in geom["faces"]:
 		_draw_tile_lift(raw_face as Dictionary, glow, strength)
-	var crack := _tint(glow, CRACK_COLOR, CRACK_A * strength)
+	var crack := _tint(glow, CRACK_COLOR.lerp(Pal.CREAM, CREAM_PULL), CRACK_A * strength)
 	for raw_quad in geom["gutters"]:
 		_poly(raw_quad as Array, crack, null)
 
