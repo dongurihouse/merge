@@ -20,7 +20,6 @@ func _initialize() -> void:
 # leaves _running = true; freezing _process stops tiles spawning / the treefall clock advancing under us.
 func _rush() -> Node:
 	Explore.begin_run({})
-	Save.mark_rush_intro_seen()   # spend the first-run how-to popup so it can't cover the hint
 	var s = rush_host()
 	s.set_process(false)          # freeze the frame loop; we drive state by hand
 	return s

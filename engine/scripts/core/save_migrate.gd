@@ -55,14 +55,17 @@ static func sanitize_quests(raw: Array) -> Dictionary:
 # The discovery set, minus non-integer keys and codes that are no longer valid items. MUTATES `g`
 # in place (the grove save dict) and returns true if anything was dropped (→ the caller re-persists).
 static func sanitize_seen(g: Dictionary) -> bool:
+	var changed := false
+	if g.has("rush" + "_intro_seen"):
+		g.erase("rush" + "_intro_seen")
+		changed = true
 	if not g.has("seen"):
-		return false
+		return changed
 	if not (g["seen"] is Dictionary):
 		g["seen"] = {}
 		return true
 	var seen: Dictionary = g["seen"]
 	var out := {}
-	var changed := false
 	for key in seen.keys():
 		var sk := String(key)
 		if not sk.is_valid_int():
