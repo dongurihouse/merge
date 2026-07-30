@@ -8,6 +8,7 @@ const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const Mastery = preload("res://engine/scripts/core/mastery.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
+const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Design = preload("res://engine/scripts/core/design.gd")   # the shipped canvas — read it, never re-type it
@@ -351,6 +352,7 @@ func _initialize() -> void:
 	# "· Tier N" badge in the title, shows the meter/next mastery row in the subtitle, and rank-up
 	# cards mark mastery_seen once opened.
 	fresh("scene_mastery_chrome")
+	FeatureGate.mark_revealed("mastery")
 	Save.mark_board_tutorial_seen()
 	Save.grove()["mastery"] = {"1": 60}
 	Save.grove()["mastery_seen"] = {}
@@ -431,6 +433,7 @@ func _initialize() -> void:
 	# progress bar at design size. Mounted in a Design-sized SubViewport because the headless root
 	# viewport is wider than the shipped canvas, which would make the assert vacuous.
 	fresh("scene_mastery_row_fits")
+	FeatureGate.mark_revealed("mastery")
 	Save.mark_board_tutorial_seen()
 	Save.grove()["mastery"] = {"1": 1150}
 	Save.grove()["mastery_seen"] = {}

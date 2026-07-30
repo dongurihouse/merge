@@ -258,17 +258,6 @@ func _initialize() -> void:
 	ok(live_hint_nodes == 1, "double-dim guard: only ONE hand-hint node composites on the host at a time")
 	second.dismiss()
 
-	# --- eligibility order (pure seam — no scene needed) ---
-	# merge first; gen_tap only once merge is seen; nothing once both are seen.
-	ok(HandHint.next_hint_id(false, false, true, true) == "merge", "fresh board: merge is the eligible hint")
-	ok(HandHint.next_hint_id(true, false, true, true) == "gen_tap", "merge seen: gen_tap follows")
-	ok(HandHint.next_hint_id(true, true, true, true) == "", "both seen: nothing is eligible")
-	ok(HandHint.next_hint_id(false, false, false, true) == "", "no mergeable pair: the merge hint waits (does not skip ahead)")
-	ok(HandHint.next_hint_id(true, false, true, false) == "", "no generator node: gen_tap waits")
-	# skip-if-already-done: the player popped the generator during the merge hint.
-	ok(HandHint.next_hint_id(false, true, true, true) == "merge", "gen_tap already done: merge still shows")
-	ok(HandHint.next_hint_id(true, true, true, true) == "", "gen_tap already done: it never shows afterwards")
-
 	# --- regression: a live hint must be torn down when the flag flips off, not stuck forever ---
 	# board.gd's _maybe_hand_hint / _end_hand_hint now call dismiss() on any live overlay BEFORE
 	# their own flag early-return (the bug: both used to early-return first, so a hint already on

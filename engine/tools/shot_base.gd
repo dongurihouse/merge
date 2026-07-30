@@ -165,7 +165,14 @@ static func begin(tree: SceneTree, cfg: Dictionary) -> Dictionary:
 	# which positional carries the output path (a tool with extra positionals passes its own index)
 	var out_at := int(cfg.get("out_arg", 1 if has_mode else 0))
 	var default_out := String(cfg.get("default_out", "/tmp/%s.png" % tool_name))
-	var out: String = String(args[out_at]) if args.size() > out_at else _fill(default_out, mode)
+	var supplied_out := String(args[out_at]) if args.size() > out_at else ""
+	if supplied_out != "" and _looks_like_option(supplied_out):
+		print("REFUSED: screenshot output slot %d contains option '%s'." % [out_at, supplied_out])
+		print("  Put the output path before key=value options: %s" % \
+			("<mode> <out.png> [key=value ...]" if has_mode else "<out.png> [key=value ...]"))
+		finish(tree, 2)
+		return {}
+	var out: String = supplied_out if supplied_out != "" else _fill(default_out, mode)
 	if String(cfg.get("out_kind", "file")) == "dir":
 		out = out.trim_suffix("/") + "/"
 		DirAccess.make_dir_recursive_absolute(out)
@@ -239,6 +246,12 @@ static func flag(args: Array, key: String) -> bool:
 
 static func _fill(template: String, mode: String) -> String:
 	return (template % mode) if "%s" in template else template
+
+## A key=value option in the positional output slot is almost always an argument-order typo.
+## Without this guard Image.save_png writes a successful PNG literally named `phase=reveal`.
+static func _looks_like_option(arg: String) -> bool:
+	var eq := arg.find("=")
+	return eq > 0 and arg.left(eq).is_valid_identifier()
 
 # A `WxH` user arg (e.g. `393x852`) overrides the configured capture size.
 static func _size_from(args: Array, base) -> Vector2i:

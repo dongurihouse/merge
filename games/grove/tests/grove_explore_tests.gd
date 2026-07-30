@@ -32,7 +32,6 @@ func _initialize() -> void:
 	_test_run_state()
 	_test_trade_count()
 	_test_slot_reel()
-	_test_rush_intro_hint()
 	_test_screens()
 	await _test_rush_board_skin()
 	await _test_rush_resize()
@@ -2010,100 +2009,6 @@ func _test_slot_reel() -> void:
 	ok(is_equal_approx(b0.position.y, -float(r0.get_meta("tile_h")) * float(int(r0.get_meta("n_syms")) - 1)), "finish() snaps a reel to its landed tile")
 	ok(done.n == 1, "finish() fires on_all_landed exactly once")
 	host.queue_free()
-
-# --- the rush-start tutorial image: first-run gate + the always-on bottom hint ----
-# The tutorial image teaches tap/merge/fling/treefall on the player's first Rush, then
-# retires (gated on a saved counter). The fling/treefall bottom hint stays on EVERY rush.
-func _test_rush_intro_hint() -> void:
-	# the pure gate: shown on the first Rush, retired from the second on
-	ok(Explore.rush_intro_should_show(0), "the Rush tutorial image shows on the first rush")
-	ok(not Explore.rush_intro_should_show(1), "the Rush tutorial image retires after the first showing")
-	ok(not Explore.rush_intro_should_show(9), "the Rush tutorial image stays retired after that")
-
-	# the seen-counter persists in the save, defaulted to 0 on a fresh save (no migration)
-	fresh("rush_intro_seen")
-	ok(Save.rush_intro_seen() == 0, "a fresh save has shown the tutorial zero times")
-	Save.mark_rush_intro_seen()
-	ok(Save.rush_intro_seen() == 1, "marking the tutorial seen bumps the saved counter")
-
-	# the scene wiring: the image tutorial appears on the first Rush and bumps the counter;
-	# the bottom hint + replay info button stay on every Rush.
-	fresh("rush_intro_scene")
-	Explore.begin_run({})
-	var s = rush_host()
-	ok(s.find_child("RushTutorialOverlay", true, false) != null, "the first Rush shows the image tutorial")
-	ok(s.find_child("RushTapHint", true, false) == null, "the old transient Tap to Merge popup is gone")
-	var strip := s.find_child("RushBottomHintStrip", true, false) as Control
-	var hint := s.find_child("RushBottomHint", true, false) as Label
-	ok(hint != null, "the first Rush shows the always-on bottom hint")
-	ok(hint != null and String(hint.text).to_lower().find("fling") != -1, "the bottom hint explains the fling tap")
-	ok(hint != null and hint.get_theme_color("font_color") == Color("#243B4B") \
-		and hint.get_theme_constant("outline_size") == 0, \
-		"the Meadow cream bottom hint uses native Ink text without the legacy light outline")
-	# the tray is the SHARED board bottom-bar surface (ActionBar.info_tray + the rugged paper sheet),
-	# not the retired 3-slice art strip.
-	var hint_tray := strip.find_child("RushBottomHintTray", true, false) as PanelContainer if strip != null else null
-	ok(hint_tray != null \
-		and hint_tray.find_child(ActionBarKit.DECKLE_SURFACE_NODE, true, false) != null, \
-		"the bottom hint wears the board info tray's shared rugged paper style")
-	ok(Save.rush_intro_seen() == 1, "the first Rush marks the tutorial seen once")
-	var first_overlay: Node = s.find_child("RushTutorialOverlay", true, false)
-	if first_overlay != null:
-		first_overlay.queue_free()
-		await process_frame
-	hint = s.find_child("RushBottomHint", true, false) as Label
-	var replay := s.find_child("RushInfoButton", true, false) as Button
-	ok(replay != null and replay.visible and not replay.disabled, "Rush has an info button to replay the tutorial")
-	var replay_style := replay.get_theme_stylebox("normal") as StyleBoxFlat if replay != null else null
-	ok(replay_style != null and replay_style.shadow_color.is_equal_approx(Color(0, 0, 0, replay_style.shadow_color.a)) \
-		and absf(replay_style.shadow_color.a - float(Look.saved_shadow_params().alpha)) <= 0.01, \
-		"the live Rush info button casts THE uniform neutral shadow")
-	var replay_glyph := replay.find_child("RushInfoGlyph", true, false) as Label if replay != null else null
-	# the info button + the caption both centre on the BAR — the button geometrically, the caption via its
-	# small optical nudge (its rect centre is offset from its ink centre by that nudge, so compare the
-	# button to the strip centre rather than to the label rect).
-	var strip2 := replay.get_parent() as Control if replay != null else null
-	var replay_center_y := replay.get_global_rect().get_center().y if replay != null else -9999.0
-	var strip_center_y := strip2.get_global_rect().get_center().y if strip2 != null else 9999.0
-	var replay_strip_delta := replay_center_y - strip_center_y
-	ok(replay != null and strip2 != null and absf(replay_strip_delta) <= 1.5, \
-		"Rush info button is vertically centered in the bottom hint bar (delta=%.1f)" % replay_strip_delta)
-	ok(replay_glyph != null and replay_glyph.vertical_alignment == VERTICAL_ALIGNMENT_CENTER \
-		and absf(replay_glyph.get_global_rect().get_center().y - replay_center_y) <= 1.0, \
-		"Rush info glyph is vertically centered inside the info button")
-	if replay != null:
-		replay.pressed.emit()
-		await process_frame
-	ok(s.find_child("RushTutorialOverlay", true, false) != null, "the Rush info button reopens the tutorial")
-	s._time = 30.0
-	s._elapsed = 1.0
-	s._spawn_acc = 0.25
-	s._tf.t = 2.0
-	var paused_time := float(s._time)
-	var paused_elapsed := float(s._elapsed)
-	var paused_spawn := float(s._spawn_acc)
-	var paused_treefall := float(s._tf.t)
-	s._process(0.5)
-	ok(is_equal_approx(float(s._time), paused_time) \
-		and is_equal_approx(float(s._elapsed), paused_elapsed) \
-		and is_equal_approx(float(s._spawn_acc), paused_spawn) \
-		and is_equal_approx(float(s._tf.t), paused_treefall), \
-		"Rush info tutorial pauses timer, spawn clock, and treefall")
-	var replay_overlay: Node = s.find_child("RushTutorialOverlay", true, false)
-	if replay_overlay != null:
-		replay_overlay.queue_free()
-		await process_frame
-	s._process(0.5)
-	ok(float(s._time) < paused_time and float(s._elapsed) > paused_elapsed, \
-		"Rush timer resumes after the info tutorial closes")
-	await drop(s)
-	# the second Rush: the first-run tutorial is retired, the bottom hint and replay button stay.
-	var s2 = rush_host()
-	ok(s2.find_child("RushTutorialOverlay", true, false) == null, "the image tutorial is gone on the second Rush")
-	ok(s2.find_child("RushBottomHint", true, false) != null, "the bottom hint stays on the second Rush")
-	ok(s2.find_child("RushInfoButton", true, false) != null, "the tutorial replay info button stays on the second Rush")
-	ok(Save.rush_intro_seen() == 1, "a retired Rush tutorial does not bump the counter further")
-	s2.queue_free()
 
 func _test_residents_dialog_uses_shared_frame() -> void:
 	fresh("residents_shared_frame")

@@ -6,6 +6,7 @@ extends RefCounted
 const G = preload("res://engine/scripts/core/content.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
+const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
 
 static func _enabled() -> bool:
 	return Features.on("mastery")
@@ -30,8 +31,20 @@ static func meter(line: int) -> int:
 		return 0
 	return maxi(0, int(_store().get(str(int(line)), 0)))
 
-static func rank(line: int) -> int:
+## The rank the meter has actually earned. Pure read — no reveal clamp. The mastery reveal
+## beat (board.gd) and the rank-up queue use this; everything else uses rank().
+static func true_rank(line: int) -> int:
 	return rank_for_meter(meter(line))
+
+## The DISPLAYED rank. Clamped to 1 until the mastery feature has been revealed, so a player
+## arriving at the L10 gate with a deep meter does not also unlock scissors
+## (ui/shop.gd::scissors_available reads any_rank_at_least(2)) in the same moment. The banked
+## overflow is not lost — it carries, and rank 2 arrives shortly after on its own.
+static func rank(line: int) -> int:
+	var r := true_rank(line)
+	if not FeatureGate.revealed("mastery"):
+		return mini(r, 1)
+	return r
 
 static func rank_for_meter(amount: int) -> int:
 	var r := 0

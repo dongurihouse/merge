@@ -26,6 +26,7 @@ extends RefCounted
 ## inherit. They are also the tools agents call least. Use `make shot-workbench` for those.
 
 const Base = preload("res://engine/tools/shot_base.gd")
+const Audio = preload("res://engine/scripts/core/audio.gd")
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")
 const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
@@ -37,9 +38,11 @@ const BATCHABLE := {
 	"grove": "res://games/grove/tools/grove_shot.gd",
 	"map": "res://games/grove/tools/map_shot.gd",
 	"widget": "res://games/grove/tools/widget_shot.gd",
+	"medal": "res://games/grove/tools/medal_badge_shot.gd",
 	"games/grove/tools/grove_shot": "res://games/grove/tools/grove_shot.gd",
 	"games/grove/tools/map_shot": "res://games/grove/tools/map_shot.gd",
 	"games/grove/tools/widget_shot": "res://games/grove/tools/widget_shot.gd",
+	"games/grove/tools/medal_badge_shot": "res://games/grove/tools/medal_badge_shot.gd",
 }
 
 ## Keeps the runner alive: the driver's `_initialize()` frame is discarded by the first `set_script`,
@@ -100,6 +103,7 @@ func _reset(tree: SceneTree) -> void:
 		child.queue_free()
 	await tree.process_frame
 	await tree.process_frame
+	Audio.reset_for_batch()
 	BoardScript.forced_rng_seed = -1
 	Debug.force = false
 	Ambient.forced_weather = ""

@@ -18,6 +18,7 @@ const Design = preload("res://engine/scripts/core/design.gd")   # THE design-vie
 const Game = preload("res://engine/scripts/core/game.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Bucket = preload("res://engine/scripts/core/bucket.gd")
+const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
 const RB = preload("res://engine/scripts/core/resident_bucket.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
@@ -267,6 +268,10 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	# so viewport_size.y alone cannot detect a physically short screen. Normalize the real window's
 	# aspect to a 1080-wide phone, then cap the content scale only when that equivalent height is short.
 	var window_size := Vector2(DisplayServer.window_get_size())
+	# Headless and an initializing display server can report no physical window yet. Falling through
+	# with (0, 0) collapses every pinned action to the 0.01 floor, so use the live viewport aspect.
+	if window_size.x <= 0.0 or window_size.y <= 0.0:
+		window_size = viewport_size
 	var aspect_height := window_size.y * HEIGHT_SCALE_REFERENCE_W / maxf(1.0, window_size.x)
 	var scale: float = minf(width_scale, maxf(0.01, aspect_height / HEIGHT_SCALE_REFERENCE))
 	var inner: float = width \
@@ -304,7 +309,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	footer.add_theme_constant_override("separation", int(8.0 * scale))
 	footer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var on_expedition: Callable = (opts as Dictionary).get("on_expedition", Callable())
-	if on_expedition.is_valid() and Bucket.cells_total() > 0:
+	if on_expedition.is_valid() and FeatureGate.armed("rush"):
 		var exped := _action_pill(Kit, "EXPEDITION", true, false, scale)
 		exped.name = "ResidentsExpeditionButton"
 		exped.pressed.connect(func() -> void:

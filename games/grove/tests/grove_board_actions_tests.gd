@@ -11,6 +11,7 @@ const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const Mastery = preload("res://engine/scripts/core/mastery.gd")
 const Improvements = preload("res://engine/scripts/core/improvements.gd")
+const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 
 func _initialize() -> void:
@@ -571,6 +572,7 @@ func _test_info_bar_max_tier_subtitle() -> void:
 # (The mastery ROW's own "maxed" progress text is a different payload and is left alone.)
 func _test_gen_info_max_mastery_badge() -> void:
 	fresh("info_bar_max_mastery")
+	FeatureGate.mark_revealed("mastery")
 	Save.mark_board_tutorial_seen()
 	var maxed: int = int(G.MASTERY_THRESHOLDS[G.MASTERY_THRESHOLDS.size() - 1])
 	Save.grove()["mastery"] = {"1": maxed}

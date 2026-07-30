@@ -283,6 +283,7 @@ func _initialize() -> void:
 	Save.mark_ftue_seen("merge")
 	ok(not Sky.gate_open(), "weather-hours gate is still shut after only merge FTUE")
 	Save.mark_ftue_seen("gen_tap")
+	Save.earn_coins(G.coins_at_level(G.FEATURE_LEVEL["weather"]))
 	ok(Sky.gate_open(), "weather-hours gate opens after merge and gen_tap FTUE with the feature flag on")
 	Features.FLAGS["weather_hours"] = false
 	ok(not Sky.gate_open(), "weather-hours feature flag can shut the gift gate")

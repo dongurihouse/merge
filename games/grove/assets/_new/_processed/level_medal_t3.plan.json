@@ -1,0 +1,15 @@
+{
+  "_note": "Paper-medal HUD level badge, tier 3. Approved by the owner (option B, pass 1). The drop is already a cut, alpha-clean, shadow-free square PNG with a transparent field on all four sides and no key colour anywhere, so it classifies as 'icon' (clean square) and needs no matte/chroma pass: process_icon's border flood is a no-op on the transparent field (measured: 0 opaque px reachable), it only trims, pads and fits the painted art into a 512 master. The runtime adds the shape-true shadow (Look._lay_silhouette_shadow), so the art must stay shadow-free. The 512 fit is a Lanczos resize with an un-premultiply after it, which re-amplifies ring into a magenta-excess cast on the anti-aliased cut edge: measured 37/22/110 px over the guide's \u00a78 fringe rule on a first pass with no despill, all at alpha 17-131. `despill` re-applies the \u00a78 step-2 clamp AFTER the resize. It is safe on this art: the clamp only touches pixels within 3px of transparency whose min(R,B)-G exceeds 20, and this family carries no legitimate magenta/pink -- measured, 0 fully-opaque px are touched, so the gold ring, coral ring and coral tails keep every pixel.",
+  "source": "_new/level_medal_t3.png",
+  "category": "icon",
+  "params": {
+    "size": 512,
+    "despill": true
+  },
+  "outputs": [
+    {
+      "path": "ui/kit/level_medal_t3.png"
+    }
+  ],
+  "archive": "_originals/ui/level_medal_t3.png"
+}

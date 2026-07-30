@@ -4,7 +4,7 @@ extends RefCounted
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
-const Features = preload("res://engine/scripts/core/features.gd")
+const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").Ambient
 
 const SKY_CALM := "calm"
@@ -84,7 +84,7 @@ static func in_patch(sky_state: Dictionary, cell: Vector2i) -> bool:
 	return cell.y == lane
 
 static func gate_open() -> bool:
-	return Features.on("weather_hours") and Save.ftue_seen("merge") and Save.ftue_seen("gen_tap")
+	return FeatureGate.armed("weather")
 
 static func grove_sky_state() -> Dictionary:
 	var g := Save.grove()

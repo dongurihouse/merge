@@ -48,10 +48,13 @@ static func build_all(cfg: Dictionary) -> Array:
 	# same live-polish trap. LevelPopup.bake_sprites declares [rel, cap] pairs (caps differ per sprite).
 	for spec in LevelPopup.bake_sprites():
 		Kit.clean_tex_path(Look.kit(String(spec[0])), int(spec[1]))
-	# The HUD's top-left star level badge (Look.make_star_level_badge) polishes its sprite on first draw
-	# like the dialogs; bake it so the board/map open freeze-free (kit_bake_freshness_tests holds it baked). @256
-	# matches the make_star_level_badge clean_tex_path cap.
-	Kit.clean_tex_path(Look.kit(Look.STAR_BADGE_ART), 256)
+	# The HUD's top-left paper MEDAL level badge (Look.make_star_level_badge) polishes its sprite on first
+	# draw like the dialogs; bake it so the board/map open freeze-free (kit_bake_freshness_tests holds it
+	# baked). @256 matches the make_star_level_badge clean_tex_path cap. EVERY tier is baked, not just the
+	# one the current save wears — the badge rebuilds on a tier flip mid-session, and an unbaked tier would
+	# polish live exactly then (the level-up moment).
+	for spec in Look.medal_specs():
+		Kit.clean_tex_path(Look.kit(Look.MEDAL_ART_DIR + String((spec as Dictionary).get("art", ""))), 256)
 	# The board/bag CELL FACES — every slot_cell draws one, so an un-baked set polishes live on the
 	# first board open. Driving clean_tex_path over the declared paths lands them in _clean_cache the
 	# same way the dialogs do, so the bake writes their mirrors and kit_bake_freshness_tests holds them baked.

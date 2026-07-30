@@ -2,22 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cdf66o8aaauqo"
-path="res://.godot/imported/how_to_play_rush.png-116c82dbf57408bab6073645d63f7020.ctex"
+uid="uid://drfssyhirwvbi"
+path="res://.godot/imported/level_medal_t2.png-6fb40801a05d2074510e295f4bef8904.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/tutorial/how_to_play_rush.png"
-dest_files=["res://.godot/imported/how_to_play_rush.png-116c82dbf57408bab6073645d63f7020.ctex"]
+source_file="res://games/grove/assets/ui/kit/level_medal_t2.png"
+dest_files=["res://.godot/imported/level_medal_t2.png-6fb40801a05d2074510e295f4bef8904.ctex"]
 
 [params]
 
 compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.88
+compress/lossy_quality=0.9
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

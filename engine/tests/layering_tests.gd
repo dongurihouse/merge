@@ -22,6 +22,7 @@ const Overlay := preload("res://engine/scripts/ui/overlay.gd")
 const Hud := preload("res://engine/scripts/ui/hud.gd")
 const TuneFX := preload("res://engine/scripts/core/tuning.gd").FX   # the FX juice dials (FLY_Z / FLOAT_Z)
 const HandHint := preload("res://engine/scripts/ui/hand_hint.gd")   # the FTUE teach overlay — must sit under every modal
+const Look := preload("res://engine/scripts/ui/skin.gd")            # the medal badge's own tier geometry
 
 # The walk is test_base.gd's gd_files(dir, deep) — one coverage function for every guard.
 
@@ -175,7 +176,23 @@ func _check_level_badge_layout() -> void:
 		"level badge is about a third larger than the wallet pill (badge=%.1f pill=%.1f)" % [badge_h, water_h])
 	var badge_center := badge.get_global_rect().get_center() if badge != null else Vector2.ZERO
 	var num_center := num.get_global_rect().get_center() if num != null else Vector2(INF, INF)
-	ok(num != null and badge_center.distance_to(num_center) <= 1.0,
-		"level badge number rect is dead-centered (delta=%.1f, %.1f)" % [num_center.x - badge_center.x, num_center.y - badge_center.y])
+	# The number rides the medal's DISC, which is NOT the badge box's centre — the tails hang below
+	# it. Read the disc off the art rect actually on screen (position + circle_cy of the tier the
+	# level wears), so this pins the rendered geometry instead of re-running the placement formula.
+	var art := badge.get_node_or_null("lv_badge_art") as Control if badge != null else null
+	var spec: Dictionary = Look.medal_spec(int(num.text)) if num != null else {}
+	var disc_y := art.get_global_rect().position.y \
+		+ float(spec.get("circle_cy", 0.5)) * art.get_global_rect().size.y if art != null else INF
+	# the Label centres its LINE BOX, which is pushed one px past the disc to land the visible INK on
+	# it (Look.MEDAL_NUM_INK_BIAS_PX) — so that px is expected here, not slack in the tolerance.
+	var want_y := disc_y + Look.MEDAL_NUM_INK_BIAS_PX
+	# Horizontally the Label is deliberately NOT centred on the badge: it is offset so the digits'
+	# INK is (this face is tabular, so `1` sits left inside its own advance). The rect therefore
+	# carries that offset, and the badge's own centre is the wrong thing to compare it to.
+	var want_x := badge_center.x + Look.medal_num_ink_dx(num.text, num.get_theme_font("font"),
+		num.get_theme_font_size("font_size")) if num != null else INF
+	ok(num != null and absf(num_center.x - want_x) <= 0.5 and absf(num_center.y - want_y) <= 0.5,
+		"level badge number rect sits on the medal's DISC (dx from ink centre=%.2f, dy from disc+bias=%.2f, disc is %.1f px off the badge centre)" \
+		% [num_center.x - want_x, num_center.y - want_y, disc_y - badge_center.y])
 	host.queue_free()
 	await process_frame
