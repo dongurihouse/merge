@@ -1,0 +1,145 @@
+Use case: ui-mockup.
+Asset type: polished high-fidelity vertical mobile game SHOP screen concept, exact 1080 x 1920 portrait composition.
+
+Input images and their separate roles (do not treat these as one undifferentiated mood board):
+- Image 1 is the mandatory PALETTE AND MATERIAL authority. It governs palette relationships, the matte
+  cut-paper treatment, warm cut edges, cream card and pill surfaces, ink typography weight, soft-tinted
+  card fills, restrained saturation, and shallow tinted shadows. It does NOT govern this screen's layout:
+  do not copy its merge board, its 7x7 grid of tiles, its resident cards, its info bar, or its bottom
+  navigation bar. This screen has no board and no bottom navigation.
+- Image 2 is the mandatory SCALE AND DETAIL-BUDGET authority. It governs how large a single paper object
+  reads, how simple its silhouette must stay, and the ceiling on ornament per object. It does NOT
+  authorize copying its farm world, its buildings, its paths, its sky, or its UI. This screen is a
+  storefront interface, not a world scene.
+- Image 3 is the CURRENT SHIPPED SHOP SCREEN. It is the exact content contract and simultaneously the
+  problem statement. Take every offer, every icon subject, and every number from it verbatim. Do NOT copy
+  its layout — that layout is the thing being redesigned. Name its fault precisely so you avoid it: it is
+  a single flat cream sheet holding seven near-identical soft-sage rounded rectangles of nearly equal
+  weight, with no focal hierarchy, no sense of the six paid tiers escalating, no depth layering, no
+  ornament, and section headings that are only small centered words. Every rectangle has the same smooth
+  antialiased corner radius, so the whole screen reads as machine-drawn rather than hand-cut.
+- Image 4 is PRIOR CONCEPT ART for the same screen. Use it only as confirmation of the already-approved
+  offer wording, icon vocabulary, and container series. Its layout is the same one being replaced; depart
+  from it deliberately.
+
+Primary request: redesign this storefront so it feels like a place a player wants to browse, while keeping
+every offer instantly legible. Reorganize the hierarchy, restyle the surfaces, and add structure and
+ornament. The design direction below is binding and is what makes this mock different from its siblings.
+
+Content contract. Every element below must be present, and every quoted string must be rendered
+EXACTLY as written, with no invented extra labels, no descriptive marketing copy, and no additional
+currencies or offers:
+
+- Screen title: exactly "SHOP" in ink, large and clearly the top of the screen. One small coral circular
+  close button with a cream X at the upper right.
+- Free refill offer. Section heading exactly "FREE REFILL". One offer showing a blue tin watering can, the
+  exact amount "100", and a claim control reading exactly "FREE" in cream on action green. This is a gift,
+  not a purchase, and should read as the warmest and most inviting single item on the screen without
+  taking more than about a fifth of its height.
+- Quick help offer. Section heading exactly "QUICK HELP". One offer showing a green cloth coin pouch
+  spilling gold coins, the exact amount "150", and a soft-currency price control showing one small
+  golden-brown acorn icon beside the exact number "5".
+- Acorn pouches. Section heading exactly "ACORN POUCHES". Exactly six real-money tiers, in this order,
+  each with its own hero container and its own price control:
+    tier 1  loose acorns on a leaf   amount "80"      price "$0.99"
+    tier 2  small cloth pouch        amount "450"     price "$4.99"
+    tier 3  full tied sack           amount "1,000"   price "$9.99"
+    tier 4  woven carry basket       amount "2,200"   price "$19.99"
+    tier 5  slatted wooden crate     amount "6,000"   price "$49.99"
+    tier 6  banded treasure chest    amount "13,000"  price "$99.99"
+  The six containers must read as a visibly ESCALATING series: each later vessel is larger, heavier, and
+  more valuable-looking than the one before it, and its heap of acorns is fuller. Plump golden-brown
+  acorns only — never blue gems, diamonds, crystals, or coins inside the acorn tiers.
+- Exactly one small coral ribbon reading exactly "POPULAR", on the "1,000" / "$9.99" tier and nowhere else.
+- Exactly one small reward-gold seal or ribbon reading exactly "BEST VALUE", on the "13,000" / "$99.99"
+  tier and nowhere else.
+
+Legibility gate: every amount and every price must be large, high-contrast ink-on-cream or cream-on-green,
+and unmistakably readable at phone size. A beautiful screen with a cramped or garbled price is a failure.
+Do not let ornament, ribbons, twine, shelf lips, or overlapping paper cross a numeral.
+
+Design direction D — PINNED TAGS ON A SLATE BOARD. Invert the screen's value structure. Today the
+background is cream and the cards are pale, so nothing separates. Here the whole screen is a DEEP muted
+slate-blue paper board and every offer is a light warm-cream paper tag pinned onto it, so the cream tags
+and golden acorns pop off a quiet dark field.
+
+- The board fills the canvas: deep slate-blue paper mixed toward receding blue #8296AF so it stays a quiet
+  background of roughly 32-40% saturation, never a saturated teal. Its surface shows clear paper tooth and
+  one broad, very soft upper-left lightening. A slender darker slate frame runs around the board's edge.
+- "SHOP" is cut from warm-cream paper straight onto the board at the top, with a short tinted shadow so the
+  letters read as paper lifted off the board. The coral close button is a round paper disc pinned at the
+  upper right.
+- Every offer is a warm-cream paper TAG with a punched round hole at its top, a short length of pale twine
+  through the hole, and a small round coral pin head holding the twine to the board. Each tag is rotated
+  only two to four degrees, alternating direction between neighbours, so nothing sits on a strict grid and
+  the wall reads as hand-pinned. Each tag casts a short soft tinted shadow onto the board, and the twine
+  casts a hairline shadow of its own.
+- Section headings are torn cream banner strips with frayed, uneven ends, laid flat across the board with
+  their words cut into them in ink: "FREE REFILL", "QUICK HELP", "ACORN POUCHES". They are wider than the
+  tags beneath them and are pinned at both ends.
+- The FREE REFILL tag is the widest single tag on the board, hung on a pale-meadow twine, carrying the
+  watering can, "100", and the action-green "FREE" button. The QUICK HELP tag is narrower, carrying the coin
+  pouch, "150", and the acorn "5" button.
+- The six acorn tags are laid out as three rows of two, and their SIZE grows with their tier: the "80" tag
+  is small, and each later tag is a little wider and taller, so the bottom-right "13,000" tag is the largest
+  paper on the board. That tag alone hangs on a reward-gold cord instead of twine and carries the gold
+  "BEST VALUE" seal pressed over its punched hole. Each tag holds its container, its amount in large ink,
+  and its price in an action-green paper button at the tag's foot.
+- The coral POPULAR ribbon is threaded through the tier-3 tag's punched hole and trails to one side.
+- Leave a little honest empty board visible between and around the tags. The dark negative space is a
+  feature of this direction, not wasted room — but keep every tag fully on-canvas and never let a tag
+  overlap another tag's numerals.
+
+Composition: title about 8%; FREE REFILL banner plus tag about 18%; QUICK HELP banner plus tag about 15%;
+ACORN POUCHES banner about 5%; the three rows of growing acorn tags about 46%; the rest is visible board.
+The dark board must stay quiet and matte — it is a pin board made of paper, never a chalkboard, never a
+gradient vignette, and never a glossy dark UI panel.
+
+Palette: the fixed Meadow Sky roles only — sky #6FA9C0, structural slate #3F6D7D, meadow #A8D3B9,
+receding blue #8296AF, warm cream #F6EBDD, ink #243B4B, action green #5F9B6D, coral #D87865, reward gold
+#D6A94C, rare purple #8677A3, tinted shadow #294654 at about 18-20% opacity. Keep 60-70% of the screen
+below about 45% saturation; the broad background surfaces stay between about 28% and 42% saturation.
+Reserve the strongest chroma for the purchase controls, the acorn heroes, and the two ribbons. Gold is
+meaningful: use it only for acorn value and the best-value marker. Coral is an accent only: the close
+button and the POPULAR ribbon. Green is the action color only. Purple is rare or absent here. No pure
+white, no pure black, no neon, no electric cyan, no muddy brown field.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Grounding and material discipline: this is one hand-cut paper interface, not a collage of stickers.
+Every surface is matte cardstock with a fine warm cut edge and a thin locally-darker inner edge. Shadows
+are short, soft, tinted, and fall down-right from a single upper-left light; they explain that one paper
+layer sits above another and never sculpt deep relief or ring an element like a glow.
+
+Explicit exception to the style block's no-text rule: include only the exact interface labels, amounts,
+prices, and ribbon words specified above, because this is a complete UI mockup.
+
+Avoid: any bottom navigation bar, the merge board, resident cards, habitat cells, maps, world scenes,
+buildings, cosmetic items, blue gems, diamond currency, advertisements, countdown timers, progress bars,
+star ratings, more than one purchase control per offer, extra invented currencies, extra invented offer
+rows, descriptive marketing sentences, tiny unreadable price text, numerals overlapped by ornament,
+scroll bars, drop-shadow glows, sticker halos, heavy black outlines, universal white outlines, glossy
+plastic, clay render, watercolor, gouache, visible brushwork, painterly gradients, photographic texture,
+dense micro-detail, and any watermark or signature.
+
+Canvas: output exactly 1080 x 1920 pixels, portrait. The composition fills the whole canvas as a finished
+screen; keep the top ~120 px and bottom ~120 px free of clipped content so the screen reads inside phone
+chrome.
+
+Generate an image (do not write code). Save the PNG into: /Users/xup/dh/wt-shop-mocks/games/grove/assets/_concepts/dialogs/shop_screen_variations_v1
+Name it: shop_screen_d_pinned_tags_slate.png
+Report the absolute path of the saved file.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is
+already approved. Do NOT offer a visual companion or read any skills. Generate the
+image NOW with your built-in image generation and save it to the path above. Then
+report the saved path. The background is a finished opaque screen composition, not a
+transparent cutout: do not key anything out.
