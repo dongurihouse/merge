@@ -1,0 +1,30 @@
+{
+  "_note": [
+    "The settings glyph, redrawn. The shipped ui/gear.png was a 1172x1163 / 2 MB source that never",
+    "went through the guide's icon path (512 master -> 256 runtime, art-style-guide.md 0 and 5): the",
+    "settings tile draws it at ~56px, a 21x minification with mipmaps OFF, so the GPU point-sampled it",
+    "into a hard aliased staircase and averaged its paper fibre away. It also baked a directional",
+    "shadow and a traced outline into the artwork, which the guide's shadow-boundary rule forbids and",
+    "which held the runtime glyph pool off the artwork's own edge.",
+    "Regenerated at 512 with the modelling that survives phone size: one flat cream top face, ONE",
+    "same-hue darker plane reading as the card's cut THICKNESS down the lower-right of every tooth and",
+    "inside the hole, a broad lit plane upper-left, a fine warm cut edge, 2-4% paper fibre, and no",
+    "baked shadow at all. Prompt: _originals/ui/settings_gear_v2_cutpaper.prompt.txt.",
+    "despill: the generator keyed its own background out and left 8 low-alpha magenta-tinted pixels on",
+    "the outer edge, which is a non-zero count on the guide's section-8 cut gate. The shared despill",
+    "pass clears them; measured back to 0."
+  ],
+  "source": "_new/settings_gear_v2_cutpaper.png",
+  "category": "icon",
+  "params": {
+    "size": 512,
+    "despill": true
+  },
+  "outputs": [
+    {
+      "name": "gear",
+      "path": "ui/gear.png"
+    }
+  ],
+  "archive": "_originals/ui/settings_gear_v2_cutpaper.png"
+}

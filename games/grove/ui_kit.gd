@@ -20,6 +20,13 @@ const Tune = preload("res://engine/scripts/core/tuning.gd").UiSkin   # button ra
 const ScaleContainer = preload("res://engine/scripts/ui/scale_container.gd")   # uniform content scaling inside the frame
 const FX = preload("res://engine/scripts/ui/fx.gd")   # shared wallet number formatting (K/M) + fit-to-cell
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
+# THE paper-furniture language (chalk transform + the scene's directional cut-paper edge), owned by the
+# nav row that was fitted against the concept mock. The wallet pill borrows it rather than re-deriving
+# a parallel set of edge knobs — see the "PAPER FURNITURE LANGUAGE" block at the foot of paper_button.gd.
+# The MATERIAL is Paper's (it is what every cut-paper button in the game is made of); the CHALK transform
+# is still the nav row's own call site, so the pill borrows that from there.
+const Paper = preload("res://engine/scripts/ui/paper_button.gd")
+const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")
 
 # Nine-patch margins for the shared mail kit (sourced from the real recipe in inbox.gd).
 const CARD_TEX := Vector2(30, 30)
@@ -77,6 +84,16 @@ const ACTION_TINT_DEFAULTS := {
 	"map": "cream", "residents": "cream", "daily": "cream", "vault": "cream",
 	"mail": "cream", "play": "cream", "home": "cream", "bag": "cream", "almanac": "cream",
 }
+# THE WALLET's per-currency paper role — the same PAPER_SURFACES roles the nav row's tabs wear, so the
+# pills join the tab family instead of forming a second palette. Read through `action_role_fill` (which
+# is just role -> paper role -> fill) and then chalked by NavBar.chalk, exactly as a tab's fill is.
+# Approved concept: _concepts/screens/home_screen_furniture_a_v1_1080x1920.png — pale blue behind the
+# droplet, pale gold behind the star coin, warm clay behind the acorn.
+const CURRENCY_TINT_DEFAULTS := {"water": "sky", "coin": "gold", "gem": "coral", "star": "gold"}
+# The wallet numeral's OWN shadow, the same shape and the same reason as the nav caption's
+# (NavBar.CAPTION_SHADOW): chalked pastel faces sit in the 80-92 value band, so white type resolves
+# against its own shadow rather than against the paper. `dy` and `blur` are fractions of the font size.
+const CURRENCY_NUM_SHADOW := {"dy": 0.06, "a": 0.34, "blur": 0.10}
 # The shared cut-paper edge defaults for the action button (same knob SET as button/frame; own corner).
 const ACTION_BUTTON_CP_DEFAULTS := {"deckle": true, "corner": 20, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 
@@ -392,7 +409,7 @@ static func action_role_fill(role: String, tints: Dictionary = ACTION_TINT_DEFAU
 ##                    every side, which turns the straight-down smear into a pool AROUND the glyph.
 ##                    `grow` defaults to 0 → a layer without it renders exactly as it always did.
 ## (The nav row's smooth corners and its rimless plain tiles are NOT separate flags: it zeroes `deckle_amp`
-## and `rim_width` through the ordinary cut-paper knob set in NavBar.tab_cp, like every per-row tuning.)
+## and `rim_width` through the ordinary cut-paper knob set in EdgeTab.tab_cp, like every per-row tuning.)
 static func action_button(role: String, size: Vector2, action: Callable, opts: Dictionary = {}) -> Button:
 	var b := Button.new()
 	b.name = String(opts.get("name", "ActionButton_" + role))
@@ -519,37 +536,9 @@ static func action_button(role: String, size: Vector2, action: Callable, opts: D
 		# an icon_px square block holding (optionally) the glyph's soft runtime drop shadow (darkened
 		# silhouette copies nudged down) UNDER the glyph, so it lifts off the paper tile (see GLYPH_SHADOW).
 		# The block is centred on the tile; STRETCH_KEEP_ASPECT_CENTERED keeps a square glyph filling icon_px.
-		var stack := Control.new()
-		stack.custom_minimum_size = Vector2(icon_px, icon_px)
-		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var glyph_shadow: Array = opts.get("glyph_shadow", GLYPH_SHADOW) as Array
-		for layer in (glyph_shadow if bool(opts.get("icon_shadow", true)) else []):
-			var sh := TextureRect.new()
-			sh.texture = glyph_tex
-			sh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			sh.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			sh.modulate = Look.shadow_color(float(layer["a"]))
-			sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			sh.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			# `grow` (0 by default → every existing caller renders unchanged): the copy is drawn this much
-			# larger than the glyph box, split evenly on all four sides, so the layer reads as a pool AROUND
-			# the icon rather than a smear under it. STRETCH_KEEP_ASPECT_CENTERED scales the silhouette into
-			# the bigger rect about its own centre.
-			var grow := icon_px * maxf(0.0, float(layer.get("grow", 0.0))) * 0.5
-			sh.offset_left -= grow
-			sh.offset_right += grow
-			sh.offset_top -= grow
-			sh.offset_bottom += grow
-			sh.offset_top += icon_px * float(layer["dy"])
-			sh.offset_bottom += icon_px * float(layer["dy"])
-			stack.add_child(sh)
-		var glyph := TextureRect.new()
-		glyph.texture = glyph_tex
-		glyph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		glyph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		stack.add_child(glyph)
+		var stack := glyph_shadow_stack(glyph_tex, icon_px,
+			glyph_shadow if bool(opts.get("icon_shadow", true)) else [])
 		icwrap.add_child(stack)
 		b.add_child(icwrap)
 	# press feedback: darken the paper while held, restore on release (matches _apply_deckle_button_surface)
@@ -730,6 +719,47 @@ static func _icon_rect(tex: Texture2D, px: float) -> Control:
 	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return t
+
+## AN ICON RESTING ON THE PAPER, not printed on it: an `icon_px` square block holding `layers` darkened
+## silhouette copies of `tex` UNDER one clean copy of it. Each layer is drawn `grow`×icon_px wider (split
+## evenly on all four sides, so the pool goes all the WAY ROUND rather than smearing downward) and
+## `dy`×icon_px lower, at alpha `a`. `grow` defaults to 0, which is the plain straight-down GLYPH_SHADOW
+## every board button has always drawn.
+##
+## ONE builder for every glyph in the game. It was lifted out of `action_button` verbatim when the wallet
+## pill's currency icons needed the same treatment: the nav tabs' glyphs rode the generated dense stack
+## (Paper.glyph_shadow) and read as objects lying on the tile, while the pill icons went through a bare
+## `make_icon` with no shadow layer at all and read as ink printed on the sheet. Two copies of this loop
+## is how the two would drift apart again.
+static func glyph_shadow_stack(tex: Texture2D, icon_px: float, layers: Array) -> Control:
+	var stack := Control.new()
+	stack.custom_minimum_size = Vector2(icon_px, icon_px)
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for layer in layers:
+		var sh := TextureRect.new()
+		sh.texture = tex
+		sh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		sh.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		sh.modulate = Look.shadow_color(float(layer["a"]))
+		sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		sh.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		# STRETCH_KEEP_ASPECT_CENTERED scales the silhouette into the bigger rect about its own centre.
+		var grow := icon_px * maxf(0.0, float(layer.get("grow", 0.0))) * 0.5
+		sh.offset_left -= grow
+		sh.offset_right += grow
+		sh.offset_top -= grow
+		sh.offset_bottom += grow
+		sh.offset_top += icon_px * float(layer["dy"])
+		sh.offset_bottom += icon_px * float(layer["dy"])
+		stack.add_child(sh)
+	var glyph := TextureRect.new()
+	glyph.texture = tex
+	glyph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glyph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stack.add_child(glyph)
+	return stack
 
 ## The home button's BADGE (disc shell) as a texture, with its own tunable edge polish — the standalone
 ## Badge workbench item edits `polish` (defringe / feather / shadow) and the home button reads it, so a
@@ -1442,26 +1472,30 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	# passed in by a caller, else read from the cached config's `gold_currency_pill` block.
 	var cp: Dictionary = opts.get("cp", {})
 	if cp.is_empty():
-		cp = cut_paper_opts_from_config(load_config(CONFIG_PATH), "gold_currency_pill", PILL_CP_DEFAULTS)
-	# the pill's paper is CREAM everywhere it ships; `fill` exists so the mock-compare rig can force it
-	# to the concept mock's own face colour and stop the fill being a variable in a shadow measurement
-	# (docs/design/verifying-against-a-mock.md). No caller passes it in the game.
-	var pill_fill: Color = opts.get("fill", Pal.CREAM)
+		cp = pill_cp_from_config(load_config(CONFIG_PATH), base_pill_h)
+	# the pill's paper is its CURRENCY's chalked paper role (water = sky, coin = gold, gem = coral),
+	# the same roles and the same chalk transform the nav tabs wear. `fill` overrides it — the
+	# mock-compare rig forces the concept mock's own face colour so the fill stops being a variable in a
+	# shadow measurement (docs/design/verifying-against-a-mock.md). No caller passes it in the game.
+	var pill_fill: Color = opts.get("fill",
+		NavBar.chalk(action_role_fill(icon_id, opts.get("tints", CURRENCY_TINT_DEFAULTS))))
 	var pill_margins := Vector4(pad_left, style_pad_y, pad_x, style_pad_y)
-	# the capsule corner IS the shared "Corner" edge knob (tunable in the workbench); PILL_CP_DEFAULTS seeds
-	# it to the old pill_h * 0.35 look so an untuned pill is unchanged.
-	var pill_corner := float(cp.get("corner", pill_h * 0.35))
+	# the corner IS the shared "Corner" edge knob; `pill_cp_from_config` derives it from the furniture
+	# language (0.208 of the sheet's height — the nav tab's own corner-to-height ratio), which is the
+	# smooth large-radius cut the concept draws, not the old pill_h * 0.35 capsule.
+	var pill_corner := float(cp.get("corner", pill_h * Paper.FURNITURE_CORNER_H_FRAC))
 	var deckle: bool = bool(opts.get("deckle", cp.get("deckle", true)))
 	if deckle:
 		_apply_deckle_button_surface(panel, pill_fill, pill_corner, cp, pill_margins, true)
 	else:
 		# smooth shader surface (deckle off): the original rounded paper-cut shell.
 		_apply_rounded_paper_surface(panel, "texture_cream.png", pill_fill, pill_corner, pill_margins)
-	# the stacked-paper BACKER — a slightly larger tinted under-sheet behind the pill face.
-	var backer := paper_backer(Vector2(pill_w, pill_h), opts, cp)
-	if backer != null:
-		panel.add_child(backer)
-		panel.move_child(backer, 0)
+	# THE STACKED-PAPER BACKER IS OFF for the pill. It was a gold under-sheet peeking 6px past the cream
+	# capsule; a furniture tile in this language is ONE sheet (the concept draws no under-sheet, and no
+	# nav tab has one), and the extra layer also broke the mock rig's silhouette match — profiled against
+	# the face rect our pill reported NEGATIVE darkening, a shadow that brightens
+	# (docs/design/verifying-against-a-mock.md rule 6). Dropped HERE and not in the config block, because
+	# the NEXT UNLOCK strip reads the same `backer*` keys through `paper_backer` and must not change.
 	if plus_action.is_valid():
 		panel.pressed.connect(plus_action)
 
@@ -1488,7 +1522,14 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	icon_slot.size = Vector2(icon_box, content_h)
 	icon_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	icon_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var icon := make_icon(icon_id, icon_px)
+	# THE ICON RESTS ON THE PILL'S PAPER. It used to be a bare `make_icon` — one TextureRect, no shadow
+	# layer of any kind — while every nav-tab glyph rode the row's generated dense stack, and that is
+	# exactly what the two read as: the tab icons sit on their tile, the pill's currency was printed on
+	# its sheet. Same builder, same generated stack (Paper.glyph_shadow: ~1px steps, the count derived
+	# from the reach, with the lateral `grow` term that puts a pool all the way round instead of a smear
+	# underneath), asked for at the pill icon's own much smaller box — so the pool scales with the art
+	# and the family is one derivation, not two tunings. `icon_shadow=false` opts a caller out.
+	var icon := _pill_icon(icon_id, icon_px, bool(opts.get("icon_shadow", true)))
 	icon.name = "GoldCurrencyIcon"
 	icon.position = Vector2(round((icon_box - icon_px) * 0.5 + icon_x), (content_h - icon_px) * 0.5)
 	icon_slot.add_child(icon)
@@ -1500,7 +1541,19 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	amount_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	amount_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var amount_value := int(counts.get(icon_id, opts.get("count", 2450)))
-	var amount := _kit_label(FX.format_amount(amount_value), num_size, Pal.INK)
+	# BOLD WHITE numerals on a soft dark shadow — the tab captions' treatment, for the same reason: the
+	# face is now a chalked pastel (value 80-92), where dark ink reads as a form filled in on a card and
+	# white type reads as part of the same printed sheet. Godot's own Label shadow does the work a nav
+	# caption needs a stack of copies for, because a numeral is one short string on a fixed baseline.
+	var amount := _kit_label(FX.format_amount(amount_value), num_size, Color.WHITE)
+	amount.add_theme_font_override("font", bold_font())
+	amount.add_theme_color_override("font_shadow_color",
+		Look.shadow_color(float(CURRENCY_NUM_SHADOW["a"])))
+	amount.add_theme_constant_override("shadow_offset_x", 0)
+	amount.add_theme_constant_override("shadow_offset_y",
+		maxi(1, int(round(float(num_size) * float(CURRENCY_NUM_SHADOW["dy"])))))
+	amount.add_theme_constant_override("shadow_outline_size",
+		maxi(1, int(round(float(num_size) * float(CURRENCY_NUM_SHADOW["blur"])))))
 	amount.name = "GoldCurrencyAmount"
 	amount.custom_minimum_size = Vector2(amount_w, content_h)
 	amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT   # right-align the number; amount_x pushes it toward the pill's right edge
@@ -1538,6 +1591,16 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	if bool(opts.get("shadow", false)) and not deckle:
 		return _meadow_with_shadow(panel, pill_h * 0.5, opts.get("shadow_params", {}) as Dictionary)
 	return panel
+
+## The wallet pill's currency icon: the SAME sprite `make_icon` resolves, wrapped in the shared glyph
+## stack so it casts the nav row's own pool. Falls back to the bare icon when the id has no sprite (the
+## `?` placeholder Look.icon draws is a Label, and a Label has no silhouette to cast).
+static func _pill_icon(icon_id: String, icon_px: float, shadowed: bool) -> Control:
+	var tex := _icon_tex(icon_id)
+	if tex == null or not shadowed:
+		return make_icon(icon_id, icon_px)
+	return glyph_shadow_stack(tex, icon_px, Paper.glyph_shadow(icon_px))
+
 
 static func _gold_currency_plus_button(opts: Dictionary = {}) -> Control:
 	var base := float(opts.get("plus_base", 34))
@@ -5296,8 +5359,25 @@ static func live_board_frame_size(view_size: Vector2, cfg: Dictionary, cols := 7
 	var csz := maxf(1.0, minf(cell_w, cell_h) * scale)
 	return Vector2(cols * csz + (cols - 1.0) * gap + frame * 2.0, rows * csz + (rows - 1.0) * gap + frame * 2.0)
 
+## THE WALLET PILL'S cut-paper edge: the block's own knobs with the PAPER FURNITURE patch merged over
+## them — a smooth large-radius cut, the lit hairline edge, the shared feather and the scene's
+## directional halo, all derived from the pill's own height by the nav row's own constants
+## (Paper.furniture_cp). It is code-set, exactly as EdgeTab.tab_cp is code-set over the action button's
+## block, and for the same reason: two of the knobs it needs (halo_falloff / halo_offset) have no
+## workbench row at all, and a directional light needs both. The block still owns everything the patch
+## does not name — deckle_freq, shadow_blur, rim_color.
+##
+## It lives in the OPTS RESOLVER rather than in `gold_currency_pill`, so that a caller handing the
+## builder an explicit `cp` (the mock-compare rig's `:cp=K=V` tunings) is the LAST word. Patched inside
+## the builder instead, a rig override would be silently overwritten and the cell would render the
+## baseline under the tuning's own label — docs/design/verifying-against-a-mock.md rule 4.
+static func pill_cp_from_config(cfg: Dictionary, pill_h: float) -> Dictionary:
+	var cp := cut_paper_opts_from_config(cfg, "gold_currency_pill", PILL_CP_DEFAULTS)
+	cp.merge(Paper.furniture_cp(pill_h), true)
+	return cp
+
 ## The shared GOLD CURRENCY PILL style opts from a saved config. The HUD, bag dialog, and workbench
-## all build the same cream-paper pill component directly from this block.
+## all build the same paper pill component directly from this block.
 static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var g: Dictionary = cfg.get("gold_currency_pill", {}) if cfg is Dictionary else {}
 	var scale := maxf(0.01, float(g.get("overall_scale", 100.0)) / 100.0)
@@ -5309,7 +5389,7 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"shadow_params": sp,
 		# the shared cut-paper EDGE knobs, read live from this block so the workbench sliders + the game HUD
 		# both flow the same values into the drawn pill (Kit.cut_paper_opts_from_config → the ONE edge applier).
-		"cp": cut_paper_opts_from_config(cfg, "gold_currency_pill", PILL_CP_DEFAULTS),
+		"cp": pill_cp_from_config(cfg, float(g.get("pill_h", 100.0)) * scale),
 		# the stacked-paper backer (second, larger sheet behind the face) — shared by the HUD pills
 		# AND the NEXT UNLOCK strip, so the whole top chrome stacks the same way.
 		"backer": bool(g.get("backer", false)),

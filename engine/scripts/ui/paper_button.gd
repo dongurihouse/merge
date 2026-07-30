@@ -15,6 +15,11 @@ extends RefCounted
 ## surface needed the same material, "the nav row's numbers" stopped being an honest name for it. Callers
 ## read from HERE — there is no second copy to drift.
 ##
+## …and the HUD's top chrome wears it too, through the PAPER FURNITURE block at the bottom of this file:
+## the wallet pills (games/grove/ui_kit.gd) and the settings tile (engine/scripts/scenes/map.gd) are the
+## same material scaled off their own HEIGHT rather than their width, because a pill is long and low and
+## it is the short dimension a cast shadow tracks.
+##
 ## WHAT IS *NOT* HERE, deliberately: the nav tab's FLARE, its bottom BLEED and its CAPTION. Those are not
 ## material, they are the geometry of a tab anchored to the screen edge — a free-standing square well must
 ## not taper, and has nothing to run off. They stay in nav_bar.gd.
@@ -200,3 +205,113 @@ static func glyph_shadow(icon_px: float) -> Array:
 			continue
 		out.append({"dy": GLYPH_SHADOW_DY * sqrt(u), "grow": GLYPH_SHADOW_GROW * u, "a": per})
 	return out
+
+
+# ── THE PAPER FURNITURE LANGUAGE ────────────────────────────────────────────────────────────────
+# Everything above this line is written as a fraction of a BUTTON's face WIDTH, because a button is
+# roughly square and a row of them shares one width. The knobs below are the SAME material for a piece
+# of furniture that is not: the wallet pills and the settings tile, which are chalked cut-paper lying on
+# this scene's art under this scene's light (concept:
+# _concepts/screens/home_screen_furniture_a_v1_1080x1920.png, the variant the owner approved:
+# "replicate that exact feel on the pills and settings button").
+#
+# WHY THE HEIGHT and not the width. A tab's reach is 0.105 of a ~197px slot ≈ 21px; a pill is ~250px wide
+# but only ~100px tall, and a shadow's reach is set by how far the sheet stands off the page, which
+# tracks the SHORT dimension of the piece — not how long it happens to be. Sized off the width a pill
+# would cast a 26px shadow off a 100px-tall sheet, half again the mock's ~15px. So `furniture_cp` takes a
+# HEIGHT and divides by the aspect the material was fitted at, which hands the width-fraction table back
+# unchanged: at the nav tile's own height these give the tab's own px (engine/tests/hud_paper_tests.gd
+# asserts that round trip).
+#
+# MEASURED, and it is the row's own light that fits best. On `make shot-mock` against the concept's own
+# wallet pill (`mock:wallet_acorn` on meadow_board — the same element, the same hand, the same flat sky;
+# the approved home concept has no flat ground anywhere and cannot be profiled, see mock_targets.json),
+# darkening = 1 − sampled/field, our pill against the mock's:
+#     right   rms 0.016 · the mock's own paper grain is 0.016 — at the floor
+#     left    rms 0.026, over the only 4px of real ground that pill gives
+#     top     rms 0.022-0.034 — ours holds a soft 4px contact where the painting has about one pixel
+#     bottom  rms 0.062-0.094 — THE residual: ours peaks ~1.4x deep at 3px and dies at 14px where the
+#             painting reaches past 16. The concept drops a longer, gentler foot than a halo whose
+#             offset slides equally in x and y can draw; an anisotropic offset is the knob if it ever
+#             reads heavy, and the rig's `:cp=` cannot express one today.
+# Raising the offset to chase that top/bottom bias was TRIED (1.42 -> 3.0 -> 4.5 px on one sheet): it
+# fixes the top and costs the other three sides every time — summed rms over all four went 0.238 ->
+# 0.283 -> 0.341. The value the material was fitted with is also the best fit here, so there is ONE light.
+
+# THE REFERENCE SHEET. These two are the geometry the whole width-fraction table above was measured on —
+# the concept mock's nav tile — restated here because a piece of furniture hands in a HEIGHT and there is
+# nothing else to convert it with. They are NOT a copy of the nav row's layout: `nav_bar.gd` owns
+# TILE_H_FRAC and CORNER_FRAC as the ROW's own numbers, and this module must not import the row it is a
+# component of (the dependency runs one way — a row is built out of the material). They are equal today,
+# and `engine/tests/hud_paper_tests.gd` pins them so — re-tuning the row's tile stops the sweep and makes
+# a human decide whether the furniture moves with it, rather than the two drifting apart in silence.
+const FURNITURE_ASPECT := 0.83        # the reference tile's visible HEIGHT over its width (NavBar.TILE_H_FRAC)
+const FURNITURE_CORNER_FRAC := 0.173  # …and its corner radius over that same width (NavBar.CORNER_FRAC)
+
+# The same material, re-expressed against the sheet's own height.
+const FURNITURE_CORNER_H_FRAC := FURNITURE_CORNER_FRAC / FURNITURE_ASPECT   # 0.208 of the sheet's height
+const FURNITURE_HALO_REACH_H_FRAC := HALO_REACH_FRAC / FURNITURE_ASPECT     # 0.127
+const FURNITURE_HALO_OFFSET_H_FRAC := HALO_OFFSET_FRAC / FURNITURE_ASPECT   # 0.0167 — down AND right
+const FURNITURE_BEVEL_H_FRAC := BEVEL_FRAC / FURNITURE_ASPECT               # 0.0096 — a hairline, ~1px
+
+# THE FURNITURE STANDS FURTHER OFF THE PAGE THAN A TAB DOES. Asked for on the first render of the pass
+# above — "need more shadow on the pills" — so these two are a DELIBERATE OVERSHOOT of the concept, not
+# a fit to it: the numbers above already scored at the reference's own paper grain on the pill's right
+# side, and nothing here is chasing a mismatch.
+#
+# DEPTH IS THE KNOB, NOT OFFSET. Sliding the halo further down-right was tried in the pass above and
+# costs three sides out of four every time (summed rms 0.238 -> 0.283 -> 0.341). What a sheet lifted
+# further off the page actually does is reach FURTHER and land DARKER at the contact, and both were
+# swept on the rig in one launch against the concept's own acorn pill (`make shot-mock`, cells
+# `wallet_acorn:blank:cp=…`, darkening = 1 - sampled/field):
+#     tuning         left    right   top     bottom   summed rms
+#     shipped        0.026   0.013   0.030   0.075    0.144
+#     alpha 55       0.036   0.039   0.044   0.087    0.206
+#     55 + reach 14  0.069   0.055   0.065   0.086    0.275   <-- this one
+#     70 + reach 14  0.113   0.135   0.086   0.125    0.459
+#     70 + reach 18  0.174   0.166   0.122   0.144    0.606
+# 1.9x the reference's total error, and the two heavier cells were LOOKED at, not just scored: at alpha
+# 70 the contact ring stops reading as a shadow and starts reading as a drawn dark stroke around the
+# sheet (right contact 0.619 against the painting's 0.229), which is the failure this language cannot
+# afford. The chosen pair also repairs the named residual of the pass above rather than worsening it —
+# our foot used to die at 12px where the painting reaches past 16; at reach x1.30 it runs
+# 0.291 / 0.175 / 0.103 / 0.056 / 0.012 at 6 / 8 / 10 / 12 / 16px against the painting's
+# 0.248 / 0.179 / 0.112 / 0.063 / 0.008.
+const FURNITURE_HALO_REACH_GAIN := 1.30   # …so its cast shadow reaches 30% further than a tab's
+const FURNITURE_HALO_DEEPEN := 1.375      # …and lands this much darker at the contact (40% -> 55%)
+
+## The knob NAMES `furniture_cp` owns. A caller that rescales a cp dict has to know which of its values
+## are already derived from the element's own size and so must not be scaled a SECOND time — the mock
+## rig's `scale_cp` is exactly that caller. `engine/tests/hud_paper_tests.gd` keeps this in step with
+## `furniture_cp` itself, so a knob added to one cannot go missing from the other.
+const FURNITURE_KNOBS := ["deckle_amp", "corner", "rim_width", "halo_reach", "halo_strength",
+	"halo_falloff", "halo_offset", "bevel_px", "bevel_strength", "edge_feather", "shadow_reach"]
+
+## The CUT-PAPER knob patch for a piece of furniture `h` px tall that is neither a plain button nor a
+## tab: the same chalk edge — smooth corners, the lit hairline, the shared feather, and the directional
+## halo lit from the upper left — with no flare, no rim and no bleed, and the halo run deeper than a
+## tab's by the two gains above. Merge it OVER a component's config-derived cp, the same way
+## `EdgeTab.tab_cp` is merged over the action button's.
+##
+## `edge_shadow` stays ON — `_draw_edge_halo` is gated on it — but the separate STRAIGHT-DOWN drop
+## shadow is zeroed, because on a piece of furniture the player can see all four sides of, it is a
+## second shadow on top of the directional one. Measured on the rig against the concept's own wallet
+## pill: with both stacked, our bottom edge read 0.545 darkening at 4px against the mock's 0.303 — the
+## foot was nearly twice as deep as the painting's while every other side matched. An edge-anchored tab
+## keeps its own (`EdgeTab.tab_cp` does not call this): a bled tab's foot is off the bottom of the
+## screen, so its downward stack never draws anything a player sees.
+static func furniture_cp(h: float) -> Dictionary:
+	var s := maxf(h, 1.0)
+	return {
+		"deckle_amp": DECKLE_AMP,                 # smooth cut, not the torn deckle
+		"corner": s * FURNITURE_CORNER_H_FRAC,
+		"rim_width": PLAIN_RIM_WIDTH,             # no warm cut-edge rim — the bevel is the edge
+		"shadow_reach": 0.0,                      # …the halo IS the shadow; see above
+		"halo_reach": s * FURNITURE_HALO_REACH_H_FRAC * FURNITURE_HALO_REACH_GAIN,
+		"halo_strength": minf(100.0, HALO_ALPHA_PCT * FURNITURE_HALO_DEEPEN),
+		"halo_falloff": HALO_FALLOFF,
+		"halo_offset": Vector2(s, s) * FURNITURE_HALO_OFFSET_H_FRAC,
+		"bevel_px": s * FURNITURE_BEVEL_H_FRAC,
+		"bevel_strength": BEVEL_STRENGTH_PCT,
+		"edge_feather": EDGE_FEATHER_PX,
+	}

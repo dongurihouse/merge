@@ -19,7 +19,14 @@
     "It exempts exactly that pair from the clean-window and field-patch guards, which exist for an",
     "element BESIDE another: a container's own contents are never crossed by a profile stepping OUT",
     "from its face, and the enclosed element's field genuinely IS the enclosing sheet. The guard",
-    "verifies the claim — an `encloses` name whose face is not contained in this one's fails."
+    "verifies the claim — an `encloses` name whose face is not contained in this one's fails.",
+    "",
+    "A MOCK MAY HAVE NO REGIONS AT ALL. Some concept art cannot be measured this way — an element",
+    "painted directly onto busy art has no flat ground beside it, and this rig divides every sample by",
+    "ONE field luma. Such a mock is still registered (it is the durable record of what was approved and",
+    "what its rects are) but declares `field_candidates` instead of regions: the patches that were tried",
+    "as field and failed. test_mock_targets.py re-measures them, so 'there is no flat ground here' is a",
+    "checked claim rather than a remembered one."
   ],
 
   "mocks": {
@@ -27,6 +34,40 @@
       "png": "res://games/grove/assets/_concepts/screens/palette_a_meadow_sky_board.png",
       "size": [931, 1690],
       "note": "the board screen the whole cut-paper skin was drawn from: flat sky field, one light from the upper left"
+    },
+    "home_furniture_a": {
+      "png": "res://games/grove/assets/_concepts/screens/home_screen_furniture_a_v1_1080x1920.png",
+      "size": [1080, 1920],
+      "note": [
+        "THE APPROVED TOP-CHROME CONCEPT (variant A, 'furniture only'): the home screen with its wallet",
+        "pills, level chip and settings gear restyled into the nav row's cut-paper language and the leaf",
+        "field left exactly as it ships. It is what the wallet/gear pass was built to.",
+        "",
+        "IT CARRIES NO REGIONS, AND CANNOT. Every piece of its furniture sits directly on the dense leaf",
+        "field — the variant's whole point — so there is no flat ground anywhere near it, and this rig",
+        "infers darkening from a luma ratio against ONE field colour. Measured with the rule-9 diagnostic",
+        "(mock_profile.flat_range: blur, then the worst max-min over a 24px tile), the widest stretches of",
+        "bare ground beside the top row read 77 to 131 against a limit of 12 — the meadow_board mock's own",
+        "declared sky patches read 4.7 to 7.9. A `field` patch cut from any of them would put the leaf",
+        "texture into the background every darkening on the sheet is then divided by. `field_candidates`",
+        "below are those patches; test_mock_targets.py re-measures them, so this claim is checked and not",
+        "remembered.",
+        "",
+        "WHAT WAS MEASURED INSTEAD. The pill's SHADOW was fitted against `wallet_acorn` / `wallet_water` on",
+        "meadow_board — the same wallet, painted by the same hand under the same upper-left light, on flat",
+        "sky — which is the comparison this rig can actually make. Variant A was used for the judgements",
+        "that need no ground at all: which paper role goes behind which currency, and the face rects below.",
+        "",
+        "A's FACE RECTS, for anyone measuring its colours: level chip [22,29,104,104] · water pill",
+        "[197,29,246,105] · coin pill [463,28,233,106] · acorn pill [714,28,224,106] · settings tile",
+        "[948,113,116,113]. Its pill faces are OVER-SATURATED against the tab family it was asked to join",
+        "(water 59%, coin 33%, acorn 38% mean saturation, against the shipped tabs' 7-30%), so the build",
+        "chalks the roles through NavBar.chalk instead of sampling A's own pixels."
+      ],
+      "field_candidates": [
+        [140, 20, 60, 116], [442, 22, 24, 112], [694, 22, 26, 112],
+        [1062, 120, 18, 104], [200, 150, 300, 90], [0, 150, 120, 110]
+      ]
     }
   },
 

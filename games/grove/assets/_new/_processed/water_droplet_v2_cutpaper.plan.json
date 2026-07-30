@@ -1,0 +1,22 @@
+{
+  "_note": [
+    "The water currency glyph, redrawn. The shipped ui/shared/icon_water.png was not blank art — at",
+    "256 it carries real paper fibre and a hairline rim — but every mark on it is HIGH-FREQUENCY, and",
+    "the wallet pill draws it about 45px tall. At that size the fibre and the rim average away and the",
+    "droplet renders as a flat solid blue slab, which is what the owner saw. Nothing in the runtime",
+    "path could fix that: the art carried no FORM, only texture.",
+    "Regenerated at 512 with the low-frequency modelling that survives phone size (art-style-guide.md",
+    "4: one flat base colour plus at most one same-hue shadow plane) — a broad matte lit plane on the",
+    "upper left, the sky-blue base, ONE same-hue darker plane hugging the lower right, a fine warm cut",
+    "edge, 2-4% paper fibre, no baked shadow. Silhouette and proportion are the shipped droplet's",
+    "(0.700 wide-to-tall against its 0.707), so nothing in the pill's layout moves.",
+    "Prompt: _originals/ui/water_droplet_v2_cutpaper.prompt.txt."
+  ],
+  "source": "_new/water_droplet_v2_cutpaper.png",
+  "category": "icon",
+  "params": { "size": 256 },
+  "outputs": [
+    { "name": "icon_water", "path": "ui/shared/icon_water.png" }
+  ],
+  "archive": "_originals/ui/water_droplet_v2_cutpaper.png"
+}

@@ -1184,11 +1184,56 @@ func _test_map_card_expedition_chrome() -> void:
 		var wears_glyph := rects.any(func(tr: TextureRect) -> bool:
 			return tr.texture != null and String(tr.texture.resource_path).findn(String(tiles[tile_name])) != -1)
 		ok(wears_glyph, "%s composites its transparent glyph in the middle" % tile_name)
-	# Settings left the bar for a plain gear pinned top-right, under the wallet pills
+	# Settings left the bar for a small PAPER TILE pinned top-right, BELOW the wallet pills. Not a
+	# destination in the row, but the same material as one — see map.gd _build_settings_gear and
+	# engine/tests/hud_paper_tests.gd for the furniture language it shares with the tabs.
 	ok(hx.get_node_or_null("SettingsTile") == null, "Settings is no longer a bottom-bar tile")
 	var gear := hx.get_node_or_null("SettingsGear") as Button
-	ok(gear != null, "Settings is a plain gear in the top-right chrome")
+	ok(gear != null, "Settings is a paper tile in the top-right chrome")
 	ok(gear != null and not _button_has_visible_text(gear), "the gear carries no caption — icon only")
+	var gear_face := gear.find_child("ActionButtonDeckleSurface", true, false) if gear != null else null
+	ok(gear_face != null, "the gear tile wears the shared code-drawn cut-paper face")
+	if gear_face != null:
+		var want_face: Color = NavBarKit.chalk(Kit.PAPER_SURFACES["green"]["fill"])
+		ok((gear_face.paper_color as Color).is_equal_approx(want_face),
+			"…filled with the chalked green paper role (%s)" % (gear_face.paper_color as Color).to_html(false))
+		ok(is_equal_approx(float(gear_face.deckle_amp), 0.0) and float(gear_face.halo_reach) > 4.0
+			and float(gear_face.halo_offset.x) > 0.3,
+			"…a smooth cut with the scene's directional shadow (halo %.1fpx, offset %.2f)"
+			% [float(gear_face.halo_reach), float(gear_face.halo_offset.x)])
+	var gear_glyph: Array = gear.find_children("*", "TextureRect", true, false) if gear != null else []
+	ok(gear_glyph.any(func(tr: TextureRect) -> bool:
+			return tr.texture != null and String(tr.texture.resource_path).findn("gear") != -1),
+		"…with the cut-paper gear sprite composited on it")
+	# …and the gear RESTS on that tile rather than being printed on it: the same generated dense pool the
+	# nav tabs' glyphs wear, asked for at the gear's own much smaller box. Counted on the built button,
+	# not on the constant that makes it — every copy but the topmost is a darkened one.
+	var gear_copies: Array = gear_glyph.filter(func(tr: TextureRect) -> bool:
+		return tr.texture != null and String(tr.texture.resource_path).findn("gear") != -1)
+	ok(gear_copies.size() >= 5,
+		"…standing on a stack of %d shadow copies under one clean one" % maxi(0, gear_copies.size() - 1))
+	var gear_shadows: Array = gear_copies.filter(func(tr: TextureRect) -> bool:
+		return tr.modulate.a < 0.95 or tr.modulate.v < 0.5)
+	ok(gear_shadows.size() == gear_copies.size() - 1,
+		"…all of them darkened but the top one (%d of %d)" % [gear_shadows.size(), gear_copies.size()])
+	if gear_copies.size() >= 2:
+		# the outermost copy stands PROUD of the artwork on every side — a pool, not a downward smear.
+		var outer := gear_copies[0] as TextureRect
+		ok(outer.offset_left < -1.5 and outer.offset_top < 0.0,
+			"…the pool goes all the way round it (%.1fpx out, %.1fpx up)" % [-outer.offset_left, -outer.offset_top])
+	# THE OWNER'S LAYOUT: the pills run to the right corner and the gear sits UNDER them, right-aligned
+	# with the cluster on the same shared margin — not inline at the end of the wallet row.
+	var wallet_row := hx._hud_panels[0] as Control if hx._hud_panels.size() > 0 else null
+	if gear != null and wallet_row != null:
+		var wr := wallet_row.get_global_rect()
+		var gr := gear.get_global_rect()
+		ok(gr.position.y >= wr.end.y,
+			"the settings tile sits BELOW the wallet, not beside it (%.1f >= %.1f)" % [gr.position.y, wr.end.y])
+		ok(absf(gr.end.x - wr.end.x) <= 2.0,
+			"…right-aligned with the wallet on the same margin (%.1f vs %.1f)" % [gr.end.x, wr.end.x])
+		var view_w: float = hx.get_viewport_rect().size.x
+		ok(view_w - wr.end.x <= hx._hud_edge_margin_px() + 1.0,
+			"the pill cluster still runs to the right corner (%.1fpx of margin)" % (view_w - wr.end.x))
 	# Board is LAST, so it lands in the bottom-right corner
 	var board := hx.get_node_or_null("BoardTile") as Button
 	var prev_tile := hx.get_node_or_null("DailyTile") as Button

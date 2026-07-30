@@ -1,0 +1,59 @@
+Generate an image (do not write code).
+
+Save the PNG into: /tmp/hp/gen/
+Name it: water_droplet_v2.png
+Output 512x512, transparent (alpha) background. Report the absolute path.
+
+SUBJECT: a single water droplet, the "water" currency icon for a mobile merge game. One
+classic teardrop: round bottom, tapering to a sharp point at the top, standing upright, exactly
+centred on the canvas. PROPORTIONS ARE A HARD REQUIREMENT: the droplet is clearly TALLER THAN IT
+IS WIDE — about 3 units wide to 4 units tall (image 3 has the exact silhouette to match). It must
+NOT be round or circular. Fill the canvas height with a small even transparent margin on all four
+sides; the wide left/right margins that leaves are correct. Flat front-on glyph — no
+horizon, no scene, no perspective, no ground, no cast shadow, no container, no sparkles, no
+text or numerals.
+
+INPUT IMAGE ROLES:
+- Image 1 (a board screen) is the PALETTE AND MATERIAL authority: matte hand-cut cardstock,
+  warm cut edges, shallow shadows. It does not control the subject.
+- Image 2 (a small droplet on a pale blue card) is the FORM AND DEPTH authority — how much
+  modelling this droplet must carry. Match its amount of interior shading, not its glossiness.
+- Image 3 is the CURRENT droplet: it is the SILHOUETTE AND PROPORTION authority — copy its
+  outline shape and its tall narrow proportion exactly, and keep its blue. It is also the failure
+  being fixed: it is a completely FLAT slab of one blue with a hairline outline and nothing else,
+  so at phone size it reads as ink printed on the card instead of a paper shape lying on it.
+  Replace its flatness and nothing else.
+
+WHAT THE DROPLET MUST CARRY (this is the whole point of the redraw). The shading has to be
+BROAD and LOW-FREQUENCY, because the icon is drawn at about 45 pixels tall in the game and any
+fine detail averages away to nothing at that size:
+- one flat sky-blue base colour over the whole shape (about #4FA3D4);
+- ONE same-hue darker shadow plane, a broad crescent hugging the lower-right of the shape,
+  covering roughly a third of it — a single deliberate paper plane, not a soft airbrushed
+  gradient and not many small planes;
+- one broad MATTE lighter plane on the upper-left, the lit side — a flat paper plane with a soft
+  edge, never a glassy highlight and never a white blob;
+- a fine warm cut edge with a thin locally-darker edge just inside it, all the way round;
+- subtle paper fibre, about 2-4% local value variation.
+The result must read as a piece of coloured cardstock cut into a droplet and lit from the
+upper left, with clearly visible light and shade sides at a glance.
+
+Style: Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock
+— never plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient,
+glossy 3D, or realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or
+three dominant masses per object; each surface one flat base color plus at most one same-hue
+shadow plane; subtle paper fiber of about 2-4% local value variation; a fine warm cut edge plus
+a thin locally-darker edge. No universal white sticker outline and no heavy black outline. One
+upper-left light source. Consolidate leaves, shingles, stones, and ornament into a few readable
+shapes; never render thousands of tiny details. Features stay legible at phone size. Use the
+fixed Meadow Sky role palette. No text, labels, numerals, or watermark.
+
+AVOID: a round or circular droplet; a droplet as wide as it is tall; a droplet touching or
+running off any canvas edge; a flat single-colour silhouette; a glassy specular hotspot; a white sticker outline; a
+heavy black outline; a cast shadow or contact shadow of any kind (the game adds its own); a
+background card, tile, circle or pill behind the droplet; more than one droplet.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is
+already approved. Do NOT offer a visual companion or read any skills. Generate the
+image NOW with your built-in image generation, key out the background to transparent,
+and save it to the path above. Then report the saved path.

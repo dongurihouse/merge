@@ -168,8 +168,11 @@ func _check_level_badge_layout() -> void:
 	var num := badge.get_node_or_null("lv_num") as Label if badge != null else null
 	var water_h := water_pill.get_global_rect().size.y if water_pill != null else 0.0
 	var badge_h := badge.get_global_rect().size.y if badge != null else 0.0
-	ok(badge != null and water_h > 0.0 and badge_h >= water_h * 1.19 and badge_h <= water_h * 1.21,
-		"level badge is about 20%% larger than the wallet pill (badge=%.1f pill=%.1f)" % [badge_h, water_h])
+	# The badge was stepped up with the top-chrome paper pass (Hud.LEVEL_BADGE_SCALE 1.2 -> 1.35), so it
+	# holds against the new pastel pills. engine/tests/hud_paper_tests.gd owns the reason and the bounds;
+	# this stays as the layout-side pin that it is still SIZED off the pill and did not float free.
+	ok(badge != null and water_h > 0.0 and badge_h >= water_h * 1.32 and badge_h <= water_h * 1.35,
+		"level badge is about a third larger than the wallet pill (badge=%.1f pill=%.1f)" % [badge_h, water_h])
 	var badge_center := badge.get_global_rect().get_center() if badge != null else Vector2.ZERO
 	var num_center := num.get_global_rect().get_center() if num != null else Vector2(INF, INF)
 	ok(num != null and badge_center.distance_to(num_center) <= 1.0,

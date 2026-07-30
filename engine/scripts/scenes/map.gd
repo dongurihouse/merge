@@ -28,7 +28,7 @@ const Overlay = preload("res://engine/scripts/ui/overlay.gd")   # shared modal-o
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")   # selected resident cells use the same corner focus as the board
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge → the level screen
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared bottom nav row (board + map)
-const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")   # cut-paper sprite tile (the gear)
+const SpriteButton = preload("res://engine/scripts/ui/sprite_button.gd")   # baked-sprite button (the feature page's Continue)
 const Paper = preload("res://engine/scripts/ui/paper_button.gd")   # the shared paper-button SURFACE treatment (nav tabs wear it too)
 const EdgeTab = preload("res://engine/scripts/ui/edge_tab.gd")     # …and the screen-edge TAB geometry (bleed + flare), shared with the board's bottom row
 # The bottom-bar tiles build through the shared code-drawn Kit.action_button (rugged edge + glyph) —
@@ -2189,10 +2189,18 @@ func _build_bottom_chrome() -> void:
 	_refresh_piggy_pip()
 	_refresh_liveops_badges()
 
-# SETTINGS — a PLAIN gear pinned to the top-right corner, one shared margin below the wallet pills.
-# Deliberately NOT a bottom-bar tile and NOT a paper button: the bar is the row of destinations, and
-# settings is a utility you reach rarely, so it wears no tile, no caption, no shadow — just the gear
-# glyph. Sized off the shared button metric so it reads as chrome, not as a nav target.
+# SETTINGS — a small PAPER TILE pinned to the top-right corner, one shared margin BELOW the wallet
+# pills. It is not a bottom-bar destination and carries no caption: the bar is the row of places you go,
+# and settings is a utility you reach rarely, so it is the smallest tile on the screen and it sits out of
+# the wallet's line. What it does share is the material — the same chalked cut-paper face, smooth corner,
+# lit hairline and upper-left directional shadow as a nav tab and a wallet pill (Paper.furniture_cp, the
+# height-scaled form of the shared paper-button treatment), so it reads as a piece of the same furniture
+# instead of a loose sprite lying on the art. Concept:
+# _concepts/screens/home_screen_furniture_a_v1_1080x1920.png — a green tile with a cream gear on it.
+# Sized off the shared button metric so it reads as chrome, not as a nav target.
+const GEAR_TILE_ROLE := "green"        # the paper role its face is chalked from (the Daily tab's own)
+const GEAR_GLYPH_FRAC := 0.62          # the gear glyph's box, as a fraction of the tile — the nav row's
+
 func _build_settings_gear() -> void:
 	var Kit: GDScript = Game.kit_script()
 	var HC: GDScript = load(HOME_CHROME_PATH)
@@ -2201,11 +2209,23 @@ func _build_settings_gear() -> void:
 		Audio.play("button_tap", -2.0)
 		_open_settings()
 	var b: Button
-	var gear_path := Look.kit("gear.png")
-	if ResourceLoader.exists(gear_path):
-		# the cut-paper gear sprite (its own soft drop shadow), sized off the shared button metric
-		b = SpriteButton.build(load(gear_path), Vector2(px, px), open_settings,
-			{"name": "SettingsGear", "tooltip": Strings.t("settings.title")})
+	var gear_rel := "ui/gear.png"
+	if Kit != null and ResourceLoader.exists(Game.art(gear_rel)):
+		# the paper tile: the shared action button, given the gear sprite as its glyph and the furniture
+		# form of the material as its edge. No caption -> the glyph centres in the tile rather than
+		# riding high. Not `Paper.apply`, which scales the material off a button's WIDTH and leaves the
+		# straight-down drop shadow on: this tile is furniture beside the wallet, and wears what the
+		# wallet wears.
+		var glyph_px := px * GEAR_GLYPH_FRAC
+		b = Kit.action_button("settings", Vector2(px, px), open_settings, {
+			"name": "SettingsGear",
+			"tooltip": Strings.t("settings.title"),
+			"glyph_rel": gear_rel,
+			"icon_scale": GEAR_GLYPH_FRAC,
+			"fill": NavBar.chalk(Kit.action_role_fill("settings", {"settings": GEAR_TILE_ROLE})),
+			"cp": Paper.furniture_cp(px),
+			"glyph_shadow": Paper.glyph_shadow(glyph_px),
+		})
 	else:
 		b = Button.new()
 		b.name = "SettingsGear"

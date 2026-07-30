@@ -25,7 +25,14 @@ const STRAW = Pal.STRAW
 
 const HUD_SIDE_Z := 30        # above ambient/weather, below fly/floating FX
 const HUD_WALLET_Z := 40      # wallet stays above the side row when the top bands overlap
-const LEVEL_BADGE_SCALE := 1.2
+# The Lv badge's size, as a multiple of the currency pill's height. The badge is the LAYERED star /
+# flower rosette (Look.make_star_level_badge), deliberately NOT restyled into a paper tile with the rest
+# of the top chrome: it is player status, not a wallet slot, and the concept's flattened chip lost that
+# distinction. It is a step larger than it was (1.2) so it holds its own against the new pastel pills
+# without becoming a fourth pill — +12.5% on the side, which at the shipped 86px pill height is
+# 104px -> 116px. `engine/tests/hud_paper_tests.gd` bounds it against the pill on both sides: bigger
+# than a pill is tall, and still clear of the wallet cluster's left edge.
+const LEVEL_BADGE_SCALE := 1.35
 
 # The Y where the HUD's tallest top element ends — the Lv badge (pill_h × LEVEL_BADGE_SCALE, the
 # currency pills are shorter). Page content anchors BELOW this so it never slides behind the pills.

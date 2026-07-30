@@ -140,7 +140,7 @@ const CAPTIONS := {
 	"button": "Button — the shared kit button in every shape it builds (bg · paper · badge · chip)",
 	"action_button": "Action buttons — the shared rugged-edge nav tiles (map · residents · daily · vault · mail · play · home · bag) as map.gd + board.gd build them",
 	"hud_layout": "HUD layout — the board screen's real regions: top HUD, next-unlock strip, quest fence, board, bottom bar",
-	"gold_currency_pill": "Gold currency pills — home wallet",
+	"gold_currency_pill": "Gold currency pills — home wallet (the PAPER LOOK is code-set from the nav row: corner · halo · bevel · feather · deckle come from Paper.furniture_cp and override the edge sliders below; the block still owns deckle_freq, shadow_blur, rim_color and every layout knob)",
 	"progress_bar": "Progress bar — track + fill (reusable)",
 	"torn_cell": "Torn cell — THE slot cell: every board/dialog cell state, plus the item, its shadow, the cost chip and the lock",
 	"quest_card": "Quest card — giver (portrait · ask · plaque reward)",
