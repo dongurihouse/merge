@@ -32,6 +32,7 @@ func _initialize() -> void:
 	await _test_runway_drag_guide_strengths_use_real_input()
 	await _test_ready_outline_stays_between_slots_and_pieces_with_stale_generator_nodes()
 	await _test_ready_outline_and_flag_off()
+	await _test_two_chains_arm_and_draw_at_once()
 	_test_contour_covers_bends_branches_rings_and_pinches()
 	_test_contour_rounds_and_resamples_for_drawing()
 	_test_landscape_outline_uses_transposed_geometry()
@@ -885,6 +886,50 @@ func _test_ready_outline_and_flag_off() -> void:
 	off._on_release(off._cell_pos(Vector2i(3, 2)) + half)
 	off.queue_free()
 	Feat.FLAGS["cascade"] = original
+
+# TWO chains armed at the same time. Nothing anywhere picks a single best: `ready_ladders` appends
+# EVERY same-line component that scores, `_armed_cascade_marks` keeps them all, `_draw` loops every
+# entry and `_rebuild_tags` dedups per CELL rather than per chain. Two components of the SAME line is
+# the case that could have collapsed — `ready_ladders` walks the board with one shared `visited` map —
+# so pin that one, and pin that the result is drawn as two SEPARATE contours with their own ×n each.
+func _test_two_chains_arm_and_draw_at_once() -> void:
+	var b := _open_board("cascade_two_chains_at_once")
+	await process_frame
+	# One line, two components four rows apart so they can never join: a ×3 and a ×4.
+	_blank_fixture(b, {
+		Vector2i(1, 1): 101,
+		Vector2i(1, 2): 101,
+		Vector2i(1, 3): 102,
+		Vector2i(1, 4): 103,
+		Vector2i(5, 1): 101,
+		Vector2i(5, 2): 101,
+		Vector2i(5, 3): 102,
+		Vector2i(5, 4): 103,
+		Vector2i(5, 5): 104,
+	})
+	await process_frame      # _rebuild_tags queue_free()s the previous chips; let the frees land
+	ok(_outline_ladder_count(b) == 2,
+		"two separate same-line components each arm their own ladder (got %d)" % _outline_ladder_count(b))
+	ok(_outline_number_tag_count(b) == 2 and _outline_has_tag(b, "×3") and _outline_has_tag(b, "×4"),
+		"each armed chain carries its own ×n, sized to its own length (%s)" % str(_outline_label_texts(b)))
+	var o := _outline(b)
+	var boxes: Array = []
+	for raw in Array(o.get("ladders")):
+		var run := Array((raw as Dictionary).get("run", []))
+		ok(not run.is_empty(), "each armed entry carries the run its contour is built from")
+		boxes.append(_loop_bounds(o, run))
+	ok(boxes.size() == 2 and not (boxes[0] as Rect2).intersects(boxes[1] as Rect2),
+		"the two chains draw two separate contours, not one shape spanning both")
+	# and a second line arming beside them is a third mark, not a replacement.
+	b.board.place(Vector2i(3, 1), 201)
+	b.board.place(Vector2i(3, 2), 201)
+	b.board.place(Vector2i(3, 3), 202)
+	b.board.place(Vector2i(3, 4), 203)
+	b._rebuild_all()
+	await process_frame
+	ok(_outline_ladder_count(b) == 3 and _outline_number_tag_count(b) == 3,
+		"a third chain on another line adds a mark rather than replacing one (got %d)" % _outline_ladder_count(b))
+	b.queue_free()
 
 # The contour's ONE rule has to cover every shape a run or a component can take, so pin the shapes
 # a straight-row fixture can never show: a bend, a T, a closed ring with a hole, and the DIAGONAL
