@@ -38,6 +38,8 @@ static func build(board, ctx: Dictionary) -> Array:
 	if board == null:
 		return []
 	match int(ctx.get("mode", MODE_REST)):
+		MODE_RUN:
+			return _run_marks(board, ctx)
 		MODE_DRAG:
 			return _drag_marks(board, ctx)
 		_:
@@ -82,6 +84,23 @@ static func _rest_chains(board, min_n: int) -> Array:
 static func _run_of(entry: Dictionary) -> Array:
 	var run := Array(entry.get("run", []))
 	return run.duplicate() if not run.is_empty() else Array(entry.get("cells", [])).duplicate()
+
+# --- RUN --------------------------------------------------------------------------------------
+# While a cascade is walking, the run OWNS the display: one mark, the head plus everything still to
+# come, for the whole run. It reads only the caller's context — never ready_ladders — because a
+# mid-chain board has no armed ladder of its own, and consulting it is exactly what used to erase
+# this glow one beat after the first automatic step.
+static func _run_marks(board, ctx: Dictionary) -> Array:
+	var head := Vector2i(ctx.get("head", NO_CELL))
+	var remaining := Array(ctx.get("run", []))
+	if head.x < 0 or remaining.is_empty():
+		return []
+	var cells: Array = [head]
+	for raw in remaining:
+		cells.append(Vector2i(raw))
+	var n := int(ctx.get("n", cells.size()))
+	return [mark("chain", cells, NO_CELL, BoardModel.line_of(board.item_at(head)), n,
+		1.0, 1.0, true, Vector2i(cells[cells.size() - 1]))]
 
 # --- DRAG -------------------------------------------------------------------------------------
 # ONE place for the eye. Of everything the held piece could do, the LONGEST chain it would form is

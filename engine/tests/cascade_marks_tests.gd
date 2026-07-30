@@ -10,6 +10,7 @@ func _initialize() -> void:
 	_test_rest_ranks_longest_first_and_caps()
 	_test_drag_keeps_only_the_longest_chain_loud()
 	_test_drag_without_a_chain_hides_every_chain_mark()
+	_test_run_emits_one_mark_covering_the_whole_remaining_run()
 	finish()
 
 func _blank_board() -> BoardModel:
@@ -145,3 +146,46 @@ func _test_drag_without_a_chain_hides_every_chain_mark() -> void:
 		if String(m.get("role", "")) == "target":
 			ok(is_equal_approx(float(m.get("weight", 0.0)), CascadeMarks.MERGE_WEIGHT),
 				"a plain merge target keeps today's merge weight")
+
+func _test_run_emits_one_mark_covering_the_whole_remaining_run() -> void:
+	var b := _blank_board()
+	b.place(Vector2i(3, 2), 102)
+	b.place(Vector2i(4, 2), 103)
+	b.place(Vector2i(5, 2), 104)
+	# One rung PAST the run's far end, so the resting mark over this same component covers four cells
+	# where the run covers three: an assert on the run's cells cannot be satisfied by the resting one.
+	b.place(Vector2i(6, 2), 105)
+	# A SECOND resting mark of another line, so "exactly one mark" cannot be satisfied by the board's
+	# own resting state: this board reads as two runways at rest, and RUN must emit neither.
+	b.place(Vector2i(3, 5), 202)
+	b.place(Vector2i(4, 5), 203)
+	b.place(Vector2i(5, 5), 204)
+	ok(CascadeMarks.build(b, {"mode": CascadeMarks.MODE_REST, "chain_min_n": 2, "runway_min_n": 3}).size() == 2,
+		"the fixture really does have resting marks of its own")
+	var marks := CascadeMarks.build(b, {
+		"mode": CascadeMarks.MODE_RUN, "chain_min_n": 2, "runway_min_n": 3,
+		"head": Vector2i(3, 2), "run": [Vector2i(4, 2), Vector2i(5, 2)], "n": 3,
+	})
+	ok(marks.size() == 1, "a running chain draws exactly one mark (got %d)" % marks.size())
+	var m: Dictionary = marks[0]
+	ok(String(m.get("role", "")) == "chain", "and it is a chain mark")
+	ok(_cells_match(Array(m.get("run", [])), [Vector2i(3, 2), Vector2i(4, 2), Vector2i(5, 2)]),
+		"covering the head plus every remaining cell (got %s)" % str(m.get("run", [])))
+	ok(is_equal_approx(float(m.get("weight", 0.0)), 1.0) and bool(m.get("tag", false))
+		and Vector2i(m.get("tag_cell", Vector2i(-1, -1))) == Vector2i(5, 2),
+		"at full weight, tagged at the run's far end")
+	# A mid-run board has no ready ladder of its own — the old code recomputed REST here and blanked
+	# the glow. RUN must not consult the board's resting state at all.
+	var last := CascadeMarks.build(b, {
+		"mode": CascadeMarks.MODE_RUN, "chain_min_n": 2, "runway_min_n": 3,
+		"head": Vector2i(5, 2), "run": [], "n": 3,
+	})
+	ok(last.is_empty(), "a run with nothing left to walk emits nothing")
+
+func _cells_match(got: Array, want: Array) -> bool:
+	if got.size() != want.size():
+		return false
+	for i in want.size():
+		if Vector2i(got[i]) != Vector2i(want[i]):
+			return false
+	return true
