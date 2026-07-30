@@ -20,6 +20,8 @@ func _initialize() -> void:
 	begin("grove · cascade combos")
 	await process_frame
 	await _test_x2_ladder_arms_a_cascade()
+	await _test_run_glow_survives_every_step()
+	await _test_stack_invariant_holds_at_rest_on_drag_and_mid_run()
 	await _test_drag_merge_auto_runs_and_locks_input()
 	await _test_preroll_delays_first_auto_step_and_telegraphs_run()
 	await _test_x2_preroll_is_shorter_than_a_longer_run()
@@ -375,6 +377,102 @@ func _test_x2_ladder_arms_a_cascade() -> void:
 	ok(BoardLogic.chain_reward_code(2) == 0 and not G.is_chest(b.board.item_at(Vector2i(3, 2))), \
 		"a x2 run pays no chest — the reward ladder still starts at x3")
 	b.queue_free()
+
+# The run's OWN glow must survive the whole cascade. It did not: the pre-roll wrote the run into the
+# same field _after_board_change recomputes from ready_ladders, and a mid-chain board runs out of
+# armed ladder before the run runs out of steps — so the telegraph was erased partway through and
+# never came back. Measured at e3aeab9e on this ×3 fixture: the drawn glow went from the whole run
+# to NOTHING while chain_running() was still true.
+func _test_run_glow_survives_every_step() -> void:
+	var b := _open_board("cascade_run_glow")
+	await process_frame
+	_blank_fixture(b, _ladder_fixture(4, 2))
+	await process_frame
+	_drag_merge(b, Vector2i(0, 2), Vector2i(1, 2))
+	var blank_frames := 0
+	var frames := 0
+	while (b.chain_running() or bool(b.animating)) and frames < 240:
+		if _outline_lit_run(b).is_empty():
+			blank_frames += 1
+		frames += 1
+		await process_frame
+	ok(frames > 0 and blank_frames == 0,
+		"the running chain keeps its glow on every frame (%d blank of %d)" % [blank_frames, frames])
+	await _wait_for_idle(b, 3.0)
+	b.queue_free()
+	await process_frame
+
+# The cells any LIT mark covers right now, read the way `_draw` itself reads them: the single mark
+# list when board.gd publishes one, and otherwise the legacy channel `_draw` falls back to. Reading
+# `marks` ALONE would report "blank" on the parent commit for the trivial reason that nothing writes
+# marks there, which proves nothing about the run — this reproduces the real glow the player sees.
+func _outline_lit_run(b: Node) -> Array:
+	var o := _outline(b)
+	if o == null:
+		return []
+	var out: Array = []
+	var lit = o.get("marks")
+	if lit is Array and not (lit as Array).is_empty():
+		for raw in lit as Array:
+			var m: Dictionary = raw
+			if float(m.get("weight", 0.0)) > 0.0:
+				out.append_array(Array(m.get("run", [])))
+		return out
+	for key in ["drag_ladders", "ladders"]:
+		var arr = o.get(key)
+		if arr is Array and not (arr as Array).is_empty():
+			for raw in arr as Array:
+				var e: Dictionary = raw
+				var run := Array(e.get("run", []))
+				out.append_array(run if not run.is_empty() else Array(e.get("cells", [])))
+			return out
+	return out
+
+# The stack invariant held at rest and failed in every state the suite never checked: measured at
+# e3aeab9e the outline sat at index 65 with the first item at 64 on every drag frame, so the guide
+# painted OVER piece art. _position_cascade_outline moved the node to the first item's index without
+# accounting for its own LOWER index — move_child measures its target AFTER the node is pulled out,
+# so a node already below the items lands one place too high.
+func _test_stack_invariant_holds_at_rest_on_drag_and_mid_run() -> void:
+	var b := _open_board("cascade_stack_modes")
+	await process_frame
+	_blank_fixture(b, _ladder_fixture(4, 2))
+	await process_frame
+	ok(_outline_stack_is_visible_between_board_and_items(b),
+		"stack invariant holds at rest (%s)" % _stack_report(b))
+	_input_begin_drag(b, Vector2i(0, 2))
+	await process_frame
+	ok(_outline_stack_is_visible_between_board_and_items(b),
+		"stack invariant holds during a drag (%s)" % _stack_report(b))
+	_input_release(b, Vector2i(1, 2))
+	var checked := 0
+	var bad := 0
+	while (b.chain_running() or bool(b.animating)) and checked < 240:
+		if not _outline_stack_is_visible_between_board_and_items(b):
+			bad += 1
+		checked += 1
+		await process_frame
+	ok(checked > 0 and bad == 0, "stack invariant holds mid-run (%d bad of %d)" % [bad, checked])
+	await _wait_for_idle(b, 3.0)
+	b.queue_free()
+	await process_frame
+
+# The three indices the invariant is about, so a failure names the numbers instead of a bare false.
+func _stack_report(b: Node) -> String:
+	var o := _outline(b)
+	if o == null:
+		return "no outline"
+	var item_min := 9999
+	for raw_node in b.gen_nodes.values() + b.piece_nodes.values():
+		var n := raw_node as Node
+		if n != null and is_instance_valid(n) and not n.is_queued_for_deletion() and n.get_parent() == b.board_area:
+			item_min = mini(item_min, n.get_index())
+	var slots_max := -1
+	for raw_node in b.slot_nodes.values():
+		var n := raw_node as Node
+		if n != null and is_instance_valid(n) and not n.is_queued_for_deletion():
+			slots_max = maxi(slots_max, n.get_index())
+	return "slots_max %d, outline %d, item_min %d" % [slots_max, o.get_index(), item_min]
 
 func _test_drag_merge_auto_runs_and_locks_input() -> void:
 	var b := _open_board("cascade_auto_run")
