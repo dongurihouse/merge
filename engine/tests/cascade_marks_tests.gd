@@ -8,6 +8,8 @@ const CascadeMarks = preload("res://engine/scripts/core/cascade_marks.gd")
 func _initialize() -> void:
 	print("== cascade guide marks ==")
 	_test_rest_ranks_longest_first_and_caps()
+	_test_drag_keeps_only_the_longest_chain_loud()
+	_test_drag_without_a_chain_hides_every_chain_mark()
 	finish()
 
 func _blank_board() -> BoardModel:
@@ -56,3 +58,90 @@ func _test_rest_ranks_longest_first_and_caps() -> void:
 	ok(capped.size() == CascadeMarks.REST_MAX, "rest truncates at REST_MAX (got %d)" % capped.size())
 	var top := int((capped[0] as Dictionary).get("n", 0))
 	ok(top == 5, "the cap keeps the LONGEST chains, not the first found (got %d)" % top)
+
+func _occupied_cells(b: BoardModel) -> Array:
+	var out: Array = []
+	for i in b.items.size():
+		if int(b.items[i]) > 0:
+			out.append(BoardModel.cell_of(i))
+	return out
+
+func _drag_ctx(b: BoardModel, from: Vector2i) -> Dictionary:
+	return {
+		"mode": CascadeMarks.MODE_DRAG, "chain_min_n": 2, "runway_min_n": 3,
+		"from": from, "code": b.item_at(from), "targets": _occupied_cells(b),
+	}
+
+func _loud(marks: Array) -> Array:
+	var out: Array = []
+	for raw in marks:
+		var m: Dictionary = raw
+		if float(m.get("weight", 0.0)) > CascadeMarks.DRAG_DIM + 0.001:
+			out.append(m)
+	return out
+
+func _test_drag_keeps_only_the_longest_chain_loud() -> void:
+	var b := _blank_board()
+	# Held piece: a t1 at (0,0). Two targets for it, of different chain length.
+	b.place(Vector2i(0, 0), 101)
+	b.place(Vector2i(0, 2), 101)          # merging here produces t2 with nothing above  -> n = 1
+	b.place(Vector2i(3, 4), 101)          # merging here climbs the ladder below         -> n = 3
+	b.place(Vector2i(4, 4), 102)
+	b.place(Vector2i(5, 4), 103)
+	var marks := CascadeMarks.build(b, _drag_ctx(b, Vector2i(0, 0)))
+	var loud := _loud(marks)
+	var loud_targets: Array = []
+	for raw in loud:
+		var m: Dictionary = raw
+		if String(m.get("role", "")) == "target":
+			loud_targets.append(Vector2i(m.get("cell", Vector2i(-1, -1))))
+	ok(loud_targets == [Vector2i(3, 4)],
+		"the drag lights exactly the longest chain's drop cell (got %s)" % str(loud_targets))
+	var tagged: Array = []
+	for raw in marks:
+		var m: Dictionary = raw
+		if bool(m.get("tag", false)):
+			tagged.append([Vector2i(m.get("tag_cell", Vector2i(-1, -1))), int(m.get("n", 0))])
+	ok(tagged == [[Vector2i(3, 4), 3]], "the x n chip sits on the winning drop cell (got %s)" % str(tagged))
+	var dimmed := 0
+	for raw in marks:
+		if is_equal_approx(float((raw as Dictionary).get("weight", 0.0)), CascadeMarks.DRAG_DIM):
+			dimmed += 1
+	ok(dimmed >= 1, "the losing target is dimmed rather than dropped (got %d dimmed)" % dimmed)
+	ok(String((marks[marks.size() - 1] as Dictionary).get("role", "")) == "target",
+		"the winning target is emitted last, so it draws on top")
+
+func _test_drag_without_a_chain_hides_every_chain_mark() -> void:
+	var b := _blank_board()
+	b.place(Vector2i(0, 0), 101)
+	b.place(Vector2i(0, 2), 101)          # a plain pair: merging is possible, nothing cascades
+	# A lone one-tier-up kin, far from everything: its empty neighbours are the staging pads. A
+	# same-CODE kin could not be used here — any board where dropping the held code would cascade
+	# also gives the held code a cascading merge target, so a winner would exist and the staging
+	# pads would (correctly) be suppressed.
+	b.place(Vector2i(5, 0), 102)
+	var marks := CascadeMarks.build(b, _drag_ctx(b, Vector2i(0, 0)))
+	for raw in marks:
+		var role := String((raw as Dictionary).get("role", ""))
+		ok(role != "chain" and role != "runway",
+			"a drag that forms no chain draws no chain or runway mark (saw %s)" % role)
+	var targets := 0
+	var stages := 0
+	for raw in marks:
+		match String((raw as Dictionary).get("role", "")):
+			"target": targets += 1
+			"stage": stages += 1
+	ok(targets == 1, "the plain merge target still shows (got %d)" % targets)
+	ok(stages > 0, "the staging pads still show (got %d)" % stages)
+	var stage_cells: Array = []
+	for raw in marks:
+		var m: Dictionary = raw
+		if String(m.get("role", "")) == "stage":
+			stage_cells.append(Vector2i(m.get("cell", Vector2i(-1, -1))))
+	ok(stage_cells == [Vector2i(4, 0), Vector2i(5, 1), Vector2i(6, 0)],
+		"the pads ring the lone kin, row-major (got %s)" % str(stage_cells))
+	for raw in marks:
+		var m: Dictionary = raw
+		if String(m.get("role", "")) == "target":
+			ok(is_equal_approx(float(m.get("weight", 0.0)), CascadeMarks.MERGE_WEIGHT),
+				"a plain merge target keeps today's merge weight")
