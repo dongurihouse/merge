@@ -36,9 +36,10 @@ const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")
 const Paper = preload("res://engine/scripts/ui/paper_button.gd")   # the shared paper-button surface treatment
 const EdgeTab = preload("res://engine/scripts/ui/edge_tab.gd")     # …and the screen-edge tab geometry (bleed + flare)
 const ActionBar = preload("res://engine/scripts/ui/action_bar.gd") # the board's bottom-row builders (the info tray)
+const UnlockBar = preload("res://engine/scripts/ui/unlock_bar.gd") # the board's NEXT UNLOCK strip + its bar
 
 ## Every element name a region may name. An unknown one REFUSES the run rather than rendering a blank.
-const NAMES := ["nav", "wallet", "well", "tray"]
+const NAMES := ["nav", "wallet", "well", "tray", "unlock", "progress"]
 
 ## The cut-paper knobs that are LENGTHS in px, and so must be rescaled with the face (see the header).
 ## Knobs that are fractions, percentages, counts or colours are deliberately absent.
@@ -76,14 +77,19 @@ static func build(element: String, args: Dictionary, face_w: float, mods: Dictio
 		"wallet": return _build_wallet(args, face_w, mods)
 		"well": return _build_well(args, face_w, mods)
 		"tray": return _build_tray(args, face_w, mods)
+		"unlock": return _build_unlock(args, face_w, mods)
+		"progress": return _build_progress(args, face_w, mods)
 	push_error("mock_elements: no adapter named '%s' (have: %s)" % [element, ", ".join(NAMES)])
 	return {}
 
 
 ## Does this element accept a forced face colour? `fill=` is the rig's way of removing the fill as a
 ## variable, and an adapter that cannot honour it must say so rather than quietly ignoring it.
+## `progress` is absent on purpose: a progress bar has no single "face colour". Its two faces are the
+## well's floor and the capsule's card, and forcing one of them would remove the wrong variable — the
+## thing under test IS the pair. The region hands both in from the mock instead (see `args`).
 static func takes_fill(element: String) -> bool:
-	return element in ["nav", "wallet", "well", "tray"]
+	return element in ["nav", "wallet", "well", "tray", "unlock"]
 
 
 # --- shared -------------------------------------------------------------------------------
@@ -381,3 +387,77 @@ static func _build_wallet(args: Dictionary, face_w: float, mods: Dictionary) -> 
 	var h := maxf(float(o.get("pill_h", 100.0)), pill.custom_minimum_size.y)
 	pill.size = Vector2(w, h)
 	return {"node": pill, "drawn_w": w, "face_w": w, "face_h": h, "face_dx": 0.0}
+
+
+# --- the board's NEXT UNLOCK strip -----------------------------------------------------------
+
+## The whole band — the shipping engine/scripts/ui/unlock_bar.gd control, built at the mock's own box and
+## driven through its own setters, so what stands on the field is the strip the board draws.
+##
+## SCALE (rule 3). Everything the band's look is made of is derived from its own HEIGHT — the corner, the
+## badge, the two type sizes, the bar box, the whole shared material AND its drop-shadow reach are all
+## fractions of it (`UnlockBar.surface_cp`) — so handing it the mock's own face height scales it
+## coherently and there is nothing left to rescale by hand. That is a property of unlock_bar.gd, not a
+## general one: `well` and `tray` both take absolute config px and need `scale_cp`.
+##
+## `args`: face_h (the mock's own band height) · level (the number under NEXT UNLOCK) · frac (the fill
+## the mock happens to draw).
+## Mods: `:frac=N` a different fill · `:ready` the affordable/gold state · `:fill=#RRGGBB` · the shared
+## `:cp=` (applied to the band's own composed knob set, so an unknown one is REFUSED as everywhere else).
+static func _build_unlock(args: Dictionary, face_w: float, mods: Dictionary) -> Dictionary:
+	var Kit := _kit()
+	if Kit == null:
+		return {}
+	var face_h := float(args.get("face_h", face_w * 0.127))
+	var bar := UnlockBar.new()
+	bar.name = "MockUnlockBar"
+	bar.size = Vector2(face_w, face_h)
+	bar.relayout()      # `resized` does not fire for a band sized by hand outside a container
+	bar.set_next_level(int(args.get("level", 3)))
+	if mods.has("ready"):
+		bar.set_ready(true)
+	bar.set_progress(clampf(float(mods.get("frac", args.get("frac", 0.67))), 0.0, 1.0))
+	var surface := bar.find_child(UnlockBar.DECKLE_SURFACE_NODE, true, false) as Control
+	if surface == null:
+		push_error("mock_elements: the unlock strip built no cut-paper surface")
+		return {}
+	# the band's OWN composed knob set — so a `cp=` mod is checked against exactly the knobs the board
+	# ships, and an unknown one is refused rather than rendering the baseline under the tuning's label.
+	var cp := UnlockBar.surface_cp(Kit, Game.kit_config(), face_h)
+	if not _report(patch({}, cp, mods, face_w)):
+		return {}
+	var fill: Color = Color(String(mods["fill"])) if mods.has("fill") else surface.paper_color
+	surface.configure(cp, fill, null, Kit.cut_paper_tile())
+	surface.corner = float(cp["corner"])
+	return {"node": bar, "drawn_w": face_w, "face_w": face_w, "face_h": face_h, "face_dx": 0.0}
+
+
+## JUST THE BAR — the well and its capsule, standing on a flat field of the BAND's cream (which is what
+## the mock's own bar lies on: this element is drawn INSET into another sheet, so rule 16 applies and the
+## field is that sheet, not the sky).
+##
+## Built through `UnlockBar.bar_opts`, the same static the strip itself calls, so the rig cannot drift
+## from the shipping bar by an opt. `_progress_layout_paper` runs off `resized`, and this bar never enters
+## a tree at its final size before the capture, so the layout callable is fired by hand.
+##
+## `args`: face_h (the mock's own bar height) · frac. Mods: `:frac=N` · `:ready` · the shared `:opt=`.
+## `:cp=` is REFUSED: the bar's cut-paper knobs live inside its `paper` sub-dict, so a `cp=` written here
+## would land on nothing and the cell would render the BASELINE under the tuning's own label (rule 4).
+static func _build_progress(args: Dictionary, face_w: float, mods: Dictionary) -> Dictionary:
+	var Kit := _kit()
+	if Kit == null:
+		return {}
+	if mods.has("cp"):
+		print("REFUSED: a progress bar's cut-paper knobs are inside its `paper` sub-dict, so `cp=` would")
+		print("be silently ignored and the cell would render the BASELINE under the tuning's own label.")
+		print("  this element's own mods: frac=N, ready, opt=K=V")
+		return {}
+	var box := Vector2(face_w, float(args.get("face_h", face_w * 0.09)))
+	var o: Dictionary = UnlockBar.bar_opts(Kit, Game.kit_config(), box, mods.has("ready"))
+	if not _report(patch(o, {}, mods, face_w)):
+		return {}
+	var frac := clampf(float(mods.get("frac", args.get("frac", 0.67))), 0.0, 1.0)
+	var bar: Control = Kit.progress_bar(frac, o)
+	bar.size = box
+	Kit.progress_bar_set_frac(bar, frac)     # fires the layout callable: nothing has resized this bar yet
+	return {"node": bar, "drawn_w": box.x, "face_w": box.x, "face_h": box.y, "face_dx": 0.0}

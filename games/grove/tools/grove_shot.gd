@@ -20,6 +20,7 @@ const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Claims = preload("res://engine/scripts/core/claims.gd")
 const Improvements = preload("res://engine/scripts/core/improvements.gd")
+const Quests = preload("res://engine/scripts/core/quests.gd")   # purge_progress: what the strip reads back
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")
 const BoardActions = preload("res://engine/scripts/core/board_actions.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
@@ -379,12 +380,38 @@ func _initialize() -> void:
 			scn._cue_empty_water()                 # + the drifting hint anchored to the water pill
 			await create_timer(0.35).timeout       # catch the hint floater mid-rise (before it fades)
 		"unlock":
-			# the board's NEXT UNLOCK strip mid-arc: the coin clock banked to ~67% of the next
-			# level threshold (matches the board_next_unlock_v1 mock face).
+			# the board's NEXT UNLOCK strip mid-arc: the coin clock banked partway through ONE level's
+			# band, so the fill shows a real fraction. `level=` picks the band, `frac=` the fill; the
+			# defaults are the board_next_unlock_v1 mock's own face — level 2, i.e. "NEXT UNLOCK /
+			# LEVEL 3", 67%.
+			#
+			# THE FILL IS AN ARGUMENT, not a constant, because a bar photographed at ONE fill hides
+			# exactly the half of it that is not showing: at 0% the fill capsule is invisible and only
+			# the track is under test, near 100% the track is a sliver. The band's material cannot be
+			# verified from either alone.
+			#
+			# THE BAND IS AN ARGUMENT for the same honesty: coins_at_level is (L-1)² here, so level 2's
+			# whole band is THREE coins and no fill between 34% and 66% exists at all. A near-100%
+			# capture needs a wider band — level 11's is 21 coins — and pretending otherwise is what the
+			# previous spelling did.
+			#
+			# It banked `coins_at_level(2) * frac`, which is the LEVEL THRESHOLD scaled, not a position
+			# inside the band: at the default 0.67 that rounded to 1 coin — coins_at_level(2) EXACTLY —
+			# so the clock sat on the threshold and the strip rendered 0%, under a comment claiming 67%.
+			# Verified in the capture before this fix. Hence both the arithmetic below (base + band·frac,
+			# the same shape Quests.purge_progress reads back) and the printed line: a seeding mode that
+			# cannot say what it actually seeded is how a capture lies for months.
+			var u_level := maxi(1, int(Base.opt(args, "level", "2")))
+			var frac := clampf(float(Base.opt(args, "frac", "0.67")), 0.0, 1.0)
+			var u_base := G.coins_at_level(u_level)
+			var u_band := maxi(1, G.coins_at_level(u_level + 1) - u_base)
 			var gu := Save.grove()
-			gu["coins_earned"] = int(round(float(G.coins_at_level(2)) * 0.67))
+			gu["coins_earned"] = u_base + int(round(float(u_band) * frac))
 			Save.grove_write()
 			scn._update_unlock_bar()
+			print("UNLOCK level=%d band=%d coins=%d asked=%.2f shown=%d%%" % [u_level, u_band,
+				int(gu["coins_earned"]), frac,
+				int(round(Quests.purge_progress(int(gu["coins_earned"])) * 100.0))])
 			await create_timer(0.2).timeout
 		"level":
 			# the level screen (tapping the Lv badge or a locked cell): banked partway to the
