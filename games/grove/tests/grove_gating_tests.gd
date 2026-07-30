@@ -3,6 +3,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ## registry, and the mastery reveal clamp. Spec: docs/superpowers/specs/2026-07-29-feature-level-gating-design.md
 
 const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
+const BoardLogicRef = preload("res://engine/scripts/core/board_logic.gd")
 const Improvements = preload("res://engine/scripts/core/improvements.gd")
 const Mastery = preload("res://engine/scripts/core/mastery.gd")
 const ShopUI = preload("res://engine/scripts/ui/shop.gd")
@@ -22,6 +23,9 @@ func _initialize() -> void:
 	_test_registry_picks_the_first_unseen_armed_ready_spec()
 	_test_registry_complete_is_derived_from_the_same_array()
 	_test_registry_complete_does_not_call_ready()
+	await _test_cascade_teach_waits_for_a_real_chain()
+	_test_cascade_teach_is_unarmed_below_its_level()
+	_test_weather_teach_requires_a_pair_inside_the_patch()
 	finish()
 
 ## Set the coin clock so G.level() reads exactly `lvl`.
@@ -144,3 +148,36 @@ func _test_registry_complete_does_not_call_ready() -> void:
 		return true
 	TeachRegistry.complete([spec])
 	ok(not called[0], "complete() is ledger-only — it never invokes ready()")
+
+func _test_cascade_teach_waits_for_a_real_chain() -> void:
+	fresh("teach_cascade")
+	_set_level(G.FEATURE_LEVEL["cascade"])
+	Save.mark_ftue_seen("merge")
+	Save.mark_ftue_seen("gen_tap")
+	Save.mark_board_tutorial_seen()
+	var h = board_host()
+	await process_frame
+	# This registry assertion makes the RED phase non-vacuous: without the Task 5 specs,
+	# "not cascade" below would pass merely because the board has never heard of cascade.
+	ok(not TeachRegistry.spec_for(h._teach_specs(), "cascade").is_empty()
+			and not TeachRegistry.spec_for(h._teach_specs(), "weather").is_empty(),
+		"the live board registry contains the weather and cascade teach specs")
+	# With no 3+ chain on the board the cascade spec is armed but NOT ready, so it offers nothing.
+	ok(h._hand_hint_eligible() != "cascade",
+		"the cascade teach stays silent until the board actually offers a chain")
+	h.queue_free()
+
+func _test_cascade_teach_is_unarmed_below_its_level() -> void:
+	fresh("teach_cascade_low")
+	_set_level(G.FEATURE_LEVEL["cascade"] - 1)
+	# The spec's own gate, read directly — independent of what the board happens to hold.
+	ok(not FeatureGate.armed("cascade"),
+		"the cascade teach cannot fire at L%d" % int(G.FEATURE_LEVEL["cascade"] - 1))
+
+func _test_weather_teach_requires_a_pair_inside_the_patch() -> void:
+	fresh("teach_weather")
+	_set_level(G.FEATURE_LEVEL["weather"])
+	Save.mark_ftue_seen("merge")
+	Save.mark_ftue_seen("gen_tap")
+	ok(FeatureGate.armed("weather"), "weather is armed at its level with both verbs seen")
+	ok(not FeatureGate.revealed("weather"), "armed is not revealed")

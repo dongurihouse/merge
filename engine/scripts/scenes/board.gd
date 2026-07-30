@@ -1321,9 +1321,9 @@ func _hint_pair() -> Array:
 	return pair
 
 # --- FTUE hand hints -------------------------------------------------------------------
-# Three one-time teaches, in ledger order: drag-to-merge, tap-the-generator, then (from L6)
-# place-the-Soil-seed. Specs: docs/superpowers/specs/2026-07-23-ftue-hand-hint-design.md and
-# §5 of 2026-07-26-cell-improvements-design.md.
+# One-time teaches, in priority order: drag-to-merge, tap-the-generator, weather, cascade,
+# then place-the-Soil-seed. Specs: docs/superpowers/specs/2026-07-23-ftue-hand-hint-design.md,
+# §5 of 2026-07-26-cell-improvements-design.md, and the feature-level gating design.
 #
 # The soil teach runs as TWO beats behind ONE persisted key (`soil_seed`): id "soil_seed"
 # points at the seed on the board, and once the seed is selected id "soil_place" moves the
@@ -1363,10 +1363,38 @@ func _maybe_hand_hint() -> void:
 	_hand_hint_id = want if _hand_hint != null else ""
 
 # THE TEACH SPEC ARRAY — the single ordered list both readers derive from (ui/teach_registry.gd).
-# Order IS priority. The soil beats come first because the seed is already on the board and a
-# merge/gen teach behind it would point away from it.
+# Order IS priority.
 func _teach_specs() -> Array:
 	return [
+		{
+			"id": "merge", "ledger": "merge",
+			"gate": func() -> bool: return true,
+			"ready": func() -> bool: return not BoardLogic.find_mergeable_pair(board).is_empty(),
+			"rects": _merge_teach_rects,
+			"gesture": HandHint.GESTURE_DRAG,
+		},
+		{
+			"id": "gen_tap", "ledger": "gen_tap",
+			"gate": func() -> bool: return Save.ftue_seen("merge"),
+			"ready": func() -> bool: return not _hand_hint_gen_cell().is_empty(),
+			"rects": _gen_tap_teach_rects,
+			"gesture": HandHint.GESTURE_TAP,
+		},
+		{
+			"id": "weather",
+			"ledger": "unlock_weather",
+			"gate": func() -> bool: return FeatureGate.armed("weather"),
+			"ready": func() -> bool: return not _weather_teach_pair().is_empty(),
+			"rects": _weather_teach_rects,
+			"gesture": HandHint.GESTURE_DRAG,
+		},
+		{
+			"id": "cascade", "ledger": "unlock_cascade",
+			"gate": func() -> bool: return FeatureGate.armed("cascade"),
+			"ready": func() -> bool: return not _cascade_teach_pair().is_empty(),
+			"rects": _cascade_teach_rects,
+			"gesture": HandHint.GESTURE_DRAG,
+		},
 		{
 			"id": "soil_place", "ledger": "soil_seed",
 			"gate": func() -> bool: return Save.ftue_seen("soil"),
@@ -1386,20 +1414,6 @@ func _teach_specs() -> Array:
 				if seed_cell.is_empty():
 					return []
 				return [Rect2(), _cell_local_rect(seed_cell[0])],
-			"gesture": HandHint.GESTURE_TAP,
-		},
-		{
-			"id": "merge", "ledger": "merge",
-			"gate": func() -> bool: return true,
-			"ready": func() -> bool: return not BoardLogic.find_mergeable_pair(board).is_empty(),
-			"rects": _merge_teach_rects,
-			"gesture": HandHint.GESTURE_DRAG,
-		},
-		{
-			"id": "gen_tap", "ledger": "gen_tap",
-			"gate": func() -> bool: return Save.ftue_seen("merge"),
-			"ready": func() -> bool: return not _hand_hint_gen_cell().is_empty(),
-			"rects": _gen_tap_teach_rects,
 			"gesture": HandHint.GESTURE_TAP,
 		},
 	]
@@ -1422,6 +1436,48 @@ func _gen_tap_teach_rects() -> Array:
 	if gn == null or not is_instance_valid(gn):
 		return []
 	return [Rect2(), _local_rect(gn)]
+
+# The mergeable pair the weather teach points at: one sitting INSIDE the live sky patch, so the
+# taught gesture is "merge in the glow" rather than a merge that happens to be anywhere.
+func _weather_teach_pair() -> Array:
+	if _sky_state.is_empty() or not SkyLogic.gate_open():
+		return []
+	var pair := BoardLogic.find_mergeable_pair(board)
+	if pair.size() < 2:
+		return []
+	if not SkyLogic.in_patch(_sky_state, pair[0]) and not SkyLogic.in_patch(_sky_state, pair[1]):
+		return []
+	return pair
+
+func _weather_teach_rects() -> Array:
+	var pair := _weather_teach_pair()
+	if pair.size() < 2:
+		return []
+	var a: Control = piece_nodes.get(pair[0])
+	var b: Control = piece_nodes.get(pair[1])
+	if a == null or not is_instance_valid(a) or b == null or not is_instance_valid(b):
+		return []
+	return [_local_rect(a), _local_rect(b)]
+
+# The pair whose merge would TIP a real cascade — the same predicate _prepare_chain computes,
+# so the teach can never point at a drag that turns out to be an ordinary merge.
+func _cascade_teach_pair() -> Array:
+	var pair := BoardLogic.find_mergeable_pair(board)
+	if pair.size() < 2:
+		return []
+	if 1 + BoardLogic.chain_path(board, pair[0], pair[1]).size() < CHAIN_MIN_N:
+		return []
+	return pair
+
+func _cascade_teach_rects() -> Array:
+	var pair := _cascade_teach_pair()
+	if pair.size() < 2:
+		return []
+	var a: Control = piece_nodes.get(pair[0])
+	var b: Control = piece_nodes.get(pair[1])
+	if a == null or not is_instance_valid(a) or b == null or not is_instance_valid(b):
+		return []
+	return [_local_rect(a), _local_rect(b)]
 
 func _hand_hint_eligible() -> String:
 	return TeachRegistry.eligible(_teach_specs())
@@ -1480,18 +1536,19 @@ func _dismiss_hand_hint() -> void:
 	_hand_hint_id = ""
 
 # The taught action HAPPENED — bank it and hand off to the next teach.
-func _end_hand_hint(id: String) -> void:
+func _end_hand_hint(ledger: String) -> void:
 	if not Features.on("ftue_hand_hint"):   # flag off: tear down ANY live hint, not just an id match —
 		_dismiss_hand_hint()                 # a different-id hint would otherwise linger until some later,
 		return                                # unrelated rebuild. No ledger write while the flag is off.
-	if _hand_hint_id == id or (id == "soil_seed" and _hand_hint_id == "soil_place"):
-		# Tear down before the seen check below — a live hint must clear even if `id` is already
+	var live := TeachRegistry.spec_for(_teach_specs(), _hand_hint_id)
+	if String(live.get("ledger", "")) == ledger:
+		# Tear down before the seen check below — a live hint must clear even if `ledger` is already
 		# marked seen (that check returns early and never re-teaches, so it must not gate the teardown).
 		_dismiss_hand_hint()
 
-	if Save.ftue_seen(id):
+	if Save.ftue_seen(ledger):
 		return
-	Save.mark_ftue_seen(id)
+	Save.mark_ftue_seen(ledger)
 	_maybe_hand_hint()
 
 # --- display orientation -------------------------------------------------------------
@@ -5611,6 +5668,8 @@ func _run_chain_step(current: Vector2i) -> void:
 		_after_merge(current, partner, produced, node, true)
 
 func _finish_chain() -> void:
+	if _hand_hint_id == "cascade" and _chain_n >= CHAIN_MIN_N:
+		_end_hand_hint("unlock_cascade")
 	_chain_run = []
 	_chain_n = 0
 	_chain_active = false
@@ -5822,6 +5881,8 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control, was_
 				_drop_coin_near(b, code)
 			else:
 				_drop_special_near(b, code)
+	if _hand_hint_id == "weather" and SkyLogic.gate_open() and SkyLogic.in_patch(_sky_state, b):
+		_end_hand_hint("unlock_weather")
 	_chain_auto_step = false
 	var keep_running := _chain_active and not _chain_run.is_empty()
 	if keep_running:
