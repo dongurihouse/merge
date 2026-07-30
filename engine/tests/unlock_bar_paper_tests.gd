@@ -186,7 +186,7 @@ func _initialize() -> void:
 	var worst := 0.0
 	for i in range(2, 121):
 		var r := float(i)
-		var s := _sagitta_of(r, float(probe._arc_steps(r)))
+		var s := _sagitta_of(r, float(probe.arc_steps(r)))
 		if s > worst:
 			worst = s
 			worst_r = r
@@ -217,7 +217,7 @@ func _panel_sagitta_px(p: Control) -> float:
 	if p == null:
 		return 0.0
 	var r := clampf(p.corner, 0.0, minf(p.size.x, p.size.y) * 0.5)
-	return _sagitta_of(r, float(p.call("_arc_steps", r)))
+	return _sagitta_of(r, float(p.call("arc_steps", r)))
 
 ## cut_paper's LEGACY count for a quarter-arc — the formula this rule replaced, kept only so the sweep
 ## above has a known-positive to fail on. Not reachable from any shipped path.
