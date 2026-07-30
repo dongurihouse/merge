@@ -28,6 +28,10 @@ MAX_FOCUS_MS. The residue it tolerates is the one measured after engine/tools/no
 (a single ~15 ms activation that the shim answers from inside the process); the behaviour it exists
 to catch is two orders of magnitude larger.
 
+It samples the activation POLICY as well, which is the cause rather than the symptom, and the two
+are not interchangeable: the run that sent this guard red on 2026-07-30 was frontmost for 0 ms in 0
+grabs and foreground-ELIGIBLE for 878 ms. See MAX_FOREGROUND_MS.
+
 SKIPS (exit 0, with the reason printed) when there is nothing to measure: not macOS, no `godot`, no
 GUI session (no active displays), or another quiet run already owns override.cfg. CI is headless, so
 it skips there; it is the dev machine — the one with an owner to interrupt — that it protects.
@@ -67,9 +71,21 @@ MAX_FOCUS_MS = 150
 # Longest the capture process may remain a REGULAR (foreground-eligible) application. The theft
 # itself is intermittent — the same unshimmed recipe took the keyboard on some runs and not on
 # others — so a guard that only watched for it would pass on a bad build about as often as not.
-# Being Regular is not intermittent: measured, an unshimmed capture is Regular from ~240 ms to exit
-# (~1100 ms of a 1.3 s run) and a shimmed one for the ~10 ms of Launch Services' check-in, before
-# the shim demotes it again.
+# Being Regular is not intermittent: Launch Services promotes the capture at its check-in (~575 ms
+# into a 1.5 s run) on EVERY run, whatever macOS then decides about activating it.
+#
+# Measured on this machine, widget_shot, one capture, sampled at FOCUS_SAMPLE_S:
+#
+#     no shim at all                              ~1100 ms of a 1.3 s run
+#     shim answering the activation NOTIFICATION    606 ms when macOS declined the activation
+#                                                  6-35 ms when it granted it (n=15)
+#     shim POLLING the policy (current)                0 ms, n=21, both cases
+#
+# That middle row is why this limit is 200 and not 40: the notification-only shim's residue was a
+# coin flip on something the process does not control, so a threshold tight enough to catch it on a
+# lucky run would be inside its own floor. 200 ms sits an order of magnitude above today's residue
+# and well below every regression band, and the coin flip itself is gone — see the WHY POLLING
+# section of engine/tools/nofocus_shim.m.
 MAX_FOREGROUND_MS = 200
 
 

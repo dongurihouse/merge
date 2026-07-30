@@ -26,15 +26,33 @@
 //      reads the initial policy from;
 //   3. replaces -[NSApplication activateIgnoringOtherApps:] and -[NSApplication activate] with
 //      no-ops, and forces every -[NSApplication setActivationPolicy:] to Prohibited;
-//   4. re-demotes to Prohibited the instant the app is told it is becoming active, which is the
-//      only answer to an activation the process never requested.
+//   4. POLLS the activation policy on the main run loop every 2 ms and demotes the moment it reads
+//      Regular, which is the only answer to a promotion the process never requested;
+//   5. re-demotes on the activation notifications too, as a same-pump backstop for step 4.
 //
-// Steps 1-3 alone left the theft intact. Step 4 is what collapses it: measured, the capture now
-// owns the keyboard for a single-digit number of milliseconds ONCE per launch instead of holding
-// it for the whole run. That residue is a floor, not an oversight — the Window Server has already
-// switched the front app by the time any in-process code can answer. It is not zero, and a
-// keystroke that lands inside that window is still delivered to the capture. The structural fix
-// for the rest is FEWER LAUNCHES: see `make shot-batch`.
+// Steps 1-3 alone left the theft intact: the check-in promotion happens LATER than anything the
+// constructor can do (measured, ~575 ms into a 1.5 s capture) and no hook of ours is on its path.
+//
+// WHY POLLING AND NOT JUST THE NOTIFICATION (step 5 was step 4, and was the whole answer, until
+// 2026-07-30). Answering NSApplicationWillBecomeActiveNotification only works on a run where macOS
+// ACTUALLY ACTIVATES the capture. The promotion to Regular and the activation are separate events:
+// the check-in promotes unconditionally, the activation is macOS's choice, and when the owner is
+// working in the front app it is routinely declined. Measured on this machine, one capture, with
+// the notification as the only lever:
+//
+//     activation arrives      Regular  540 ->  577 ms   (~35 ms)   <- the case every test run hit
+//     activation declined     Regular  577 -> 1316 ms   (~606 ms)  <- Regular until exit
+//
+// So the shim was a coin flip on the very case it exists for — the owner at the keyboard is exactly
+// when macOS declines the activation, and exactly when a foreground-eligible capture can hurt. The
+// 2 ms poll does not care whether the activation ever comes: it reads the policy back and answers
+// the promotion itself. Same capture, same machine, activation declined: Regular for 0 ms, never
+// observed foreground-eligible by a 2 ms external sampler, for the whole run.
+//
+// The poll is bounded by the main run loop being pumped, which is where AppKit calls must happen
+// anyway: a capture that blocks its main thread across the check-in stays Regular for as long as it
+// blocks. That did not happen in any of the 21 runs measured, but it is the residue, and the
+// structural fix for it is FEWER LAUNCHES: see `make shot-batch`.
 //
 // SCOPE. quiet_godot.sh injects this, so only screenshot runs get it. The owner's own launches
 // (`make g`, `make w`, `make sw`, `make fx`, `make debug`) run godot directly and stay normal,
@@ -116,6 +134,18 @@ static void tu_mark_ui_element(void) {
 	CFDictionarySetValue(info, CFSTR("LSBackgroundOnly"), CFSTR("1"));
 }
 
+// Read the policy back every tick and answer a promotion nobody in this process asked for. Only
+// Regular is acted on: Regular is the foreground-ELIGIBLE state, and it is the one thing that lets
+// the window server hand this process the owner's keyboard. Accessory is not, so a run that settles
+// at Accessory (which is where a demotion lands while the app is already active — Prohibited is
+// refused then) is left alone instead of being re-poked at 500 Hz for the rest of the capture.
+static void tu_tick(CFRunLoopTimerRef timer, void *info) {
+	(void)timer; (void)info;
+	if (NSApp && [NSApp activationPolicy] == NSApplicationActivationPolicyRegular) {
+		tu_demote("poll");
+	}
+}
+
 __attribute__((constructor))
 static void tu_nofocus_install(void) {
 	tu_mark_ui_element();
@@ -139,8 +169,20 @@ static void tu_nofocus_install(void) {
 		method_setImplementation(mp, (IMP)tu_setActivationPolicy);
 	}
 
-	// The activation nobody asked for: answer it the moment AppKit reports it. WillBecomeActive
-	// fires first and sometimes lands before the switch completes; DidBecomeActive is the backstop.
+	// The promotion nobody asked for: catch it by READING the policy back, on the same main run
+	// loop AppKit requires for setActivationPolicy:. 2 ms is finer than the 6-35 ms a
+	// notification-driven answer ever managed, and unlike a notification it fires whether or not
+	// macOS chooses to activate this process. Common modes, so a modal/tracking pump counts too.
+	CFRunLoopTimerRef poll = CFRunLoopTimerCreate(kCFAllocatorDefault, CFAbsoluteTimeGetCurrent(),
+		0.002, 0, 0, tu_tick, NULL);
+	if (poll) {
+		CFRunLoopAddTimer(CFRunLoopGetMain(), poll, kCFRunLoopCommonModes);
+	}
+	if (verbose()) fprintf(stderr, "tu_nofocus: poll timer installed=%d\n", (int)(poll != NULL));
+
+	// Backstop for the poll, on the runs where the activation does arrive: it lands on the same
+	// pump, so whichever of the two the run loop reaches first answers it. WillBecomeActive fires
+	// before the switch completes; DidBecomeActive covers the rest.
 	NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
 	[nc addObserverForName:NSApplicationWillBecomeActiveNotification object:nil queue:nil
 		usingBlock:^(NSNotification *n) { (void)n; tu_demote("willBecomeActive"); }];
