@@ -34,6 +34,13 @@
 ## per launch (178 ms total, NSWorkspace activate/deactivate notifications), and the frontmost
 ## application polled every 2 ms was never the capture. tools/test_quiet_window.py measures both.
 ##
+## The shim answered that promotion by REACTING to the activation notification until 2026-07-30,
+## which only works on the runs where macOS actually activates the capture — and it declines exactly
+## when the owner is working in the front app. On those runs the capture stayed foreground-eligible
+## for the rest of the launch (measured 606-878 ms) with nothing left to demote it. It now POLLS the
+## policy back on the main run loop every 2 ms and answers the promotion whether or not an
+## activation follows: 0 ms foreground-eligible over 21 runs, both cases.
+##
 ## The old recipe's ~1000 ms was ~460 ms of engine boot plus ~560 ms of macOS's SYNCHRONOUS
 ## minimize animation. `window/size/mode=1` never worked: window_get_mode() read WINDOWED at
 ## script entry, so the old "quiet" was really the in-script minimize — and it was only ever
