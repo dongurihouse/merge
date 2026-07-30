@@ -1,0 +1,56 @@
+Generate an image (do not write code). Use your built-in image generation.
+
+Save the PNG into: /private/tmp/claude-501/-Users-xup-dh-merge/1b2a3e7a-ee44-4759-b001-2a580f46c30a/scratchpad/berries
+Name it: berries_A.png
+Report the absolute path when done.
+
+Use case: stylized-concept.
+Asset type: 12-tier merge-item line sheet for the mobile game "Acorn Forest: Merge!" — the Fairy Hollow WILD BERRIES line.
+
+Input images:
+- Image 1 is the ACCEPTED cut-paper item-line style authority (a glowshroom line sheet). Match its MATERIAL and CONSTRUCTION exactly: flat matte cardstock color planes, a fine warm cream cut edge around every paper piece, a thin locally-darker inner edge, subtle 2-4% paper-fiber tooth inside the shapes, one upper-left light. Do NOT copy its mushroom content.
+- Image 2 is the mandatory Meadow Sky palette authority.
+- Image 3 is the mandatory object-simplicity / detail-budget authority. Do not copy its scene content.
+
+Canvas: exact 1024x1536 PNG, arranged as 3 columns x 4 rows of evenly sized cells with generous gutters. No visible grid lines. All four rows are the same height; the bottom row is NOT squeezed.
+Background: one perfectly flat solid #FF00FF field, edge to edge.
+
+CONSTRUCTION DIRECTION FOR THIS VERSION — "clean botanical cut-paper":
+Every berry is built from a SMALL NUMBER OF BROAD FLAT PAPER SHAPES stacked with visible overlap: one large body plane, one lighter same-hue highlight plane cut as a simple crescent or panel on the upper-left, and separately cut paper leaves/calyx laid on top. Each paper piece shows its own warm cream cut rim where it overlaps the piece below. The silhouette reads first; the interior is calm.
+
+MANDATORY RENDERING RULES (the previous version failed all of these — do not repeat them):
+- Absolutely NO airbrushed gradients, NO glossy candy shading, NO specular highlight blobs, NO plastic or vinyl sticker look, NO 3D render, NO watercolor, NO clay.
+- NO white outer sticker outline / white halo around the object. The outermost edge is the warm cream paper cut edge only, and it hugs the shape.
+- Color is applied as FLAT PAPER PLANES. At most one same-hue shadow plane per surface. Value steps are hard-edged paper overlaps, not soft blends.
+- No cast shadow, contact shadow, drop shadow, floor shadow, ground smudge, reflection, background texture, glow, sparkles, particles, aura, detached FX, text, labels, numerals, or watermark.
+
+COLOR: this line must be COLORFUL and every tier must own a DIFFERENT dominant hue. Do not let three tiers share the same green. Small attached leaves/caps use meadow green; the berry bodies span the list below.
+
+SIZING: all 12 items share the same visual footprint and fill the same amount of their cell. Early tiers may be simpler but must not be smaller. Center every item with generous padding; nothing is cropped or touches a cell boundary.
+
+Exactly one clean connected cutout-friendly berry per cell, row-major tiers 1 to 12:
+1. BERRY BUD — one unopened green berry bud: a small teardrop body cradled by three broad pointed paper sepals. Dominant hue: fresh leaf green.
+2. REDCURRANT SPRIG — three glossy round translucent-red currants hanging from one short shared stem; one connected object, three large equal spheres, not a heap. Dominant hue: bright translucent red.
+3. WILD STRAWBERRY — one heart/triangle silhouette with a few LARGE oval seed marks and a broad three-lobe leaf crown on top. Dominant hue: deep scarlet.
+4. GREEN GOOSEBERRY — one plump oval berry with four bold vertical cream ribs running top to bottom and a tiny stem nub at the base; no leafy crown. Dominant hue: pale translucent green.
+5. BLUEBERRY — one perfectly round berry with a bold five-point star calyx cut as a separate paper piece sitting on top. Dominant hue: deep indigo blue.
+6. RASPBERRY — one upright CONE built from seven large round paper drupelets in tidy rows, with a small green cap at the top. Cone silhouette, clearly taller than wide. Dominant hue: rose pink.
+7. GOLDEN HUSK BERRY (cape gooseberry) — one round amber berry sitting inside an OPEN papery husk of three broad swept-back cream-gold lobes. The husk is the most obviously cut-paper shape on the sheet. Dominant hue: golden amber.
+8. BLACKBERRY — one tall elongated capsule built from large paper drupelets, distinctly narrower and taller than the raspberry, with a small star cap. Dominant hue: near-black violet-purple.
+9. ROSEHIP — one plump orange-red teardrop hanging point-down, with a dark five-point dried sepal crown at its BOTTOM tip and a short curved stem at the top. Dominant hue: warm orange-red.
+10. SNOWBERRY — one smooth round ivory-white berry with a small lavender star calyx on top. Dominant hue: warm ivory white.
+11. CRYSTAL DEWBERRY — one premium berry whose body is cut into five or six broad faceted violet paper panels of two related violet values, with one attached green leaf. Dominant hue: violet.
+12. RAINBOW FAIRY BERRY — one premium round berry built from broad radiating rainbow cut-paper panels (coral, gold, green, teal, blue, violet) with a warm gold cut rim and one attached green paper leaf on top. A single berry, not a cluster, not a beach ball; the panels are hand-cut paper wedges of unequal width.
+
+HARD CONTENT CONSTRAINTS:
+- Berries only. No melon, watermelon, honeydew, date, cactus fruit, prickly pear, pomegranate, fig, citrus, apple, pear, grape bunch, or eggplant silhouettes. No bowls, baskets, jars, piles, vines, brambles, loose leaves, loose stems, loose seeds, or cut-open interiors.
+- One connected object per cell. All details are broad and physically attached. No hairline stems, no thin tendrils, no tiny scattered leaves.
+- No Grove acorn emblem.
+- Tiers 4, 6 and 8 must read as three obviously different silhouettes. Tiers 5 and 10 must read as different objects through color and calyx, not just tint.
+
+Output only the image sheet. Do not draw any explanatory text inside the image.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is
+already approved. Do NOT offer a visual companion or read any skills. Generate the
+image NOW with your built-in image generation, and save it to the path above with the
+flat #FF00FF background intact (do NOT key it to transparent). Then report the saved path.
