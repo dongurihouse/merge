@@ -14,8 +14,17 @@ const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 ## How far the interior gutters may sit from the outer band in warm shift. Not a threshold to taste:
 ## CRACK_COLOR and the band rails' mean differ by 0.0318 in RAW warm shift, and a shared pull `p`
 ## toward cream scales that gap to 0.0318 * (1 - p) — so 0.04 holds for ANY shared pull value, while
-## dropping the pull from one side alone puts the delta at 0.218, ~5x over.
+## dropping the pull from one side alone puts the delta at 0.218, ~5x over. A TINT is a second shared
+## pull `q` over the same two surfaces, which scales the gap again to 0.0318 * (1-p) * (1-q): still
+## bounded by 0.0318 for every pull pair, so the same number holds for every tint — and dropping the
+## tint from the gutters alone puts the delta 3x to 7x over it (measured across the four candidates).
 const BAND_GUTTER_WARM_TOL := 0.04
+
+## How far the surfaces of ONE mark may disagree on how far they took the tint, as a fraction of the
+## whole pull. They come from one `tinted()` call each, so the only spread is Color's float32 storage
+## (~1e-7); 1e-4 is three orders above that and three orders below the smallest real split — leaving
+## any one surface untinted puts the spread at the whole pull, 0.70 or more.
+const TINT_PULL_TOL := 1e-4
 
 func _initialize() -> void:
 	begin("grove · cascade combos")
@@ -52,6 +61,7 @@ func _initialize() -> void:
 	_test_runway_glow_is_weaker_than_an_armed_ladder()
 	_test_glow_levels_stay_ordered_and_equally_warm()
 	_test_chain_gutters_carry_the_band_warmth()
+	_test_tint_carries_the_whole_mark_on_one_pull()
 	_test_cascade_phase_pins_for_captures()
 	BoardScriptRef.forced_rng_seed = -1        # leave the statics as we found them
 	Ambient.forced_weather = ""
@@ -181,12 +191,17 @@ func _outline(b: Node) -> Control:
 
 ## The guide is ONE ordered mark list now, so the suite's old channel vocabulary is read back off
 ## roles. Nothing here recomputes a rule — every helper reads what the renderer was handed:
-##   ladder        role "chain" carrying its own ×n tag   (armed at rest, or the run in flight)
-##   drag ladder   role "chain", untagged and above DRAG_DIM — the ONE chain a held piece would form
+##   ladder        role "chain" above DRAG_DIM  (armed at rest, held in a drag, or the run in flight)
 ##   runway        role "runway"
 ##   pad "stage"   role "stage"    — an empty cell to build into
-##   pad "cascade" role "target" WITH the tag — the occupied drop whose merge really runs a chain
-##   pad "merge"   role "target" without it   — an ordinary same-code target
+##   pad "cascade" role "target" WITH the tag — the cell the tipping merge lands on, which is where
+##                 the ×n chip rides too
+##   pad "merge"   role "target" without it   — an ordinary same-code target, or a backgrounded
+##                 chain's own bloom
+##
+## A chain is TWO marks: the contour over its run and the bloom on run[0]. The ×n rides the bloom in
+## every mode, so "the chain mark carrying the tag" — what these helpers used to look for — now
+## matches nothing at all.
 func _outline_marks(b: Node) -> Array:
 	var o := _outline(b)
 	if o == null:
@@ -201,10 +216,13 @@ func _marks_with_role(b: Node, role: String) -> Array:
 			out.append(raw)
 	return out
 
+## The chains drawn at full loudness — one per armed ladder at rest, or the one a drag has focused.
+## The backgrounded chains a drag keeps sit AT DRAG_DIM and are excluded by the weight, exactly as
+## `_outline_drag_ladders` does; both read the same property because they are the same mark now.
 func _outline_ladder_count(b: Node) -> int:
 	var n := 0
 	for raw in _marks_with_role(b, "chain"):
-		if bool((raw as Dictionary).get("tag", false)):
+		if float((raw as Dictionary).get("weight", 0.0)) > CascadeMarks.DRAG_DIM + 0.001:
 			n += 1
 	return n
 
@@ -220,13 +238,13 @@ func _outline_runway_weight(b: Node) -> float:
 		return float((raw as Dictionary).get("weight", 0.0))
 	return -1.0
 
-## The drag's focused chain: untagged (its ×n rides the drop target instead) and loud. The dimmed
-## resting chains a drag keeps in the background sit AT DRAG_DIM, so the weight test excludes them.
+## The drag's focused chain: the loud one. The dimmed resting chains a drag keeps in the background
+## sit AT DRAG_DIM, so the weight test excludes them.
 func _outline_drag_ladders(b: Node) -> Array:
 	var out: Array = []
 	for raw in _marks_with_role(b, "chain"):
 		var m: Dictionary = raw
-		if not bool(m.get("tag", false)) and float(m.get("weight", 0.0)) > CascadeMarks.DRAG_DIM + 0.001:
+		if float(m.get("weight", 0.0)) > CascadeMarks.DRAG_DIM + 0.001:
 			out.append(m)
 	return out
 
@@ -238,10 +256,8 @@ func _outline_drag_ladder_run(b: Node) -> Array:
 	return Array((found[0] as Dictionary).get("run", [])) if not found.is_empty() else []
 
 func _outline_ready_ladder_run(b: Node) -> Array:
-	for raw in _marks_with_role(b, "chain"):
-		if bool((raw as Dictionary).get("tag", false)):
-			return Array((raw as Dictionary).get("run", []))
-	return []
+	var found := _outline_drag_ladders(b)
+	return Array((found[0] as Dictionary).get("run", [])) if not found.is_empty() else []
 
 func _pad_kind_of(m: Dictionary) -> String:
 	match String(m.get("role", "")):
@@ -874,7 +890,10 @@ func _test_drag_focuses_the_held_cascade_path() -> void:
 		"drag focus puts the cascade number on the occupied drop target, not the chain end")
 	_input_release(b, from)
 	await process_frame
-	ok(_outline_drag_ladder_count(b) == 0 and _outline_has_tag(b, "×5"),
+	# The drag's chain and a resting chain are the SAME mark now, so "no drag ladder" is no longer a
+	# thing to count — what tells them apart is which chain is drawn. The ×5 tag hidden during the
+	# drag (asserted above) is back, and it is the component's own best run again, not the ×3.
+	ok(_outline_ladder_count(b) == 1 and _outline_has_tag(b, "×5") and not _outline_has_tag(b, "×3"),
 		"releasing the drag restores the resting ready-ladder outline")
 	b.queue_free()
 
@@ -1003,6 +1022,14 @@ func _test_ready_ladder_glow_excludes_duplicate_tip_source() -> void:
 		"1,1,2,3 still arms a ready ladder")
 	ok(_cells_equal(_outline_ready_ladder_run(b), [target, t2, t3]),
 		"the ready glow outlines the merge destination onward, excluding the duplicate source")
+	# ONE effect stack in every mode, checked through the real board rather than the rule module: a
+	# chain AT REST carries the target bloom a drag shows, on run[0] — the cell the tipping merge
+	# lands on — and its ×n rides that same cell instead of the top of the ladder.
+	ok(_outline_has_pad_kind_at(b, "cascade", target) and not _outline_has_pad_kind_at(b, "cascade", t3),
+		"a RESTING chain blooms on the cell its tipping merge lands on (got %s)"
+			% str(_outline_pad_cells_by_kind(b, "cascade")))
+	ok(_outline_has_tag_at(b, "×3", target) and not _outline_has_tag_at(b, "×3", t3),
+		"…and its ×3 rides that same cell, not the run's far end")
 	b.queue_free()
 
 func _test_runway_drag_guide_strengths_use_real_input() -> void:
@@ -1355,7 +1382,10 @@ func _test_glow_levels_stay_ordered_and_equally_warm() -> void:
 		var band_at := _rail_index(func(rail): return int(rail[0]) == CascadeOutline.ANCHOR_GAP \
 			and float(rail[1]) > -1.0 and float(rail[3]) * CascadeOutline.ALPHA_LIFT >= 1.0)
 		var band: Color = Array(CascadeOutline.lit_rails()[band_at])[2]
-		var gutter: Color = CascadeOutline.CRACK_COLOR.lerp(Pal.CREAM, CascadeOutline.cream_pull())
+		# READ the colour the drawing uses. This re-did `lit_crack()`'s lerp inline, which agreed with
+		# it only for as long as nothing else touched the interior — the tint knob does, and a guard
+		# that recomputes a formula passes however the call site drifts away from it.
+		var gutter: Color = CascadeOutline.lit_crack()
 		var warmth := absf((band.r - band.b) - (gutter.r - gutter.b)) * 255.0
 		ok(warmth <= 4.0, "glow '%s' keeps band and gutters equally warm (R-B apart by %.1f levels)" \
 			% [name, warmth])
@@ -1381,29 +1411,169 @@ func _rail_index(pred: Callable) -> int:
 # it, and nothing asserted the two agree, so either constant could re-split them silently. The axis
 # is warm shift because that is the axis the regression moved.
 func _test_chain_gutters_carry_the_band_warmth() -> void:
-	# The band is selected by GEOMETRY off the DERIVED table — "an ANCHOR_GAP rail outside the tile
-	# edge" is the definition of "rides the tray gutter", and it is what lit_rails() keys the pull on.
-	# Selecting off the derived table is what makes this bite: if lit_rails() stops pulling, the
-	# geometry fields are untouched, so the SAME rails are picked and seen un-pulled, and B fails.
-	# Both tables are selected by that predicate independently, so nothing here assumes lit_rails()
-	# emits one row per RAILS row in order — only that it leaves a rail's anchor and offset alone.
-	var derived := _gap_band_warmth(CascadeOutline.lit_rails())
-	var raw := _gap_band_warmth(CascadeOutline.RAILS)
-	# A: without this, a table refactor that empties the selection makes the means NaN and the two
-	# asserts below could pass on nothing at all.
-	ok(derived.size() >= 2, "the outer gap band is a real selection of rails (%d)" % derived.size())
-	var band := _mean_of(derived)
-	var band_raw := _mean_of(raw)
-	# B: the pull actually reaches the table the drawing reads. Catches it being dropped from BOTH
-	# sides, which C alone would pass — so B also pins that the pull exists at all, and it is the
-	# assert to revisit (not C) if the approved look ever goes back to an unpulled amber band.
-	ok(band < band_raw, "the cream pull reaches the DRAWN band: warm shift %.3f against the raw table's %.3f" \
-		% [band, band_raw])
-	# C: and the interior sits on the same warmth as that band.
-	var gutter := _warm_shift(CascadeOutline.lit_crack())
-	ok(absf(gutter - band) <= BAND_GUTTER_WARM_TOL,
-		"the interior gutters carry the band's warmth: |%.3f - %.3f| = %.3f <= %.2f" \
-		% [gutter, band, absf(gutter - band), BAND_GUTTER_WARM_TOL])
+	var before := CascadeOutline.forced_tint
+	# …under every HUE the mark can be pinned to, not only the shipped one: a tint is a second shared
+	# pull over the same two surfaces, so it can re-split them exactly the way the first one did.
+	var tints: Array = CascadeOutline.TINTS.keys()
+	tints.append("")                                        # "" = whatever hue is shipped
+	for raw_tint in tints:
+		CascadeOutline.forced_tint = String(raw_tint)
+		var hue := String(raw_tint) if String(raw_tint) != "" else "shipped"
+		# The band is selected by GEOMETRY off the DERIVED table — "an ANCHOR_GAP rail outside the tile
+		# edge" is the definition of "rides the tray gutter", and it is what lit_rails() keys the pull on.
+		# Selecting off the derived table is what makes this bite: if lit_rails() stops pulling, the
+		# geometry fields are untouched, so the SAME rails are picked and seen un-pulled, and B fails.
+		# Both tables are selected by that predicate independently, so nothing here assumes lit_rails()
+		# emits one row per RAILS row in order — only that it leaves a rail's anchor and offset alone.
+		var derived := _gap_band_warmth(CascadeOutline.lit_rails())
+		var raw := _gap_band_warmth(CascadeOutline.RAILS)
+		# A: without this, a table refactor that empties the selection makes the means NaN and the two
+		# asserts below could pass on nothing at all.
+		ok(derived.size() >= 2, "tint '%s': the outer gap band is a real selection of rails (%d)" \
+			% [hue, derived.size()])
+		var band := _mean_of(derived)
+		var band_raw := _mean_of(raw)
+		# B: the pull actually reaches the table the drawing reads. Catches it being dropped from BOTH
+		# sides, which C alone would pass — so B also pins that the pull exists at all, and it is the
+		# assert to revisit (not C) if the approved look ever goes back to an unpulled amber band.
+		ok(band < band_raw, "tint '%s': the pull reaches the DRAWN band: warm shift %.3f against the raw table's %.3f" \
+			% [hue, band, band_raw])
+		# C: and the interior sits on the same warmth as that band.
+		var gutter := _warm_shift(CascadeOutline.lit_crack())
+		ok(absf(gutter - band) <= BAND_GUTTER_WARM_TOL,
+			"tint '%s': the interior gutters carry the band's warmth: |%.3f - %.3f| = %.3f <= %.2f" \
+			% [hue, gutter, band, absf(gutter - band), BAND_GUTTER_WARM_TOL])
+	CascadeOutline.forced_tint = before
+
+# The mark's HUE knob (CascadeOutline.TINTS), which exists because the opacity one is exhausted. A
+# colour change like this fails PARTIALLY: the ring moves off the tray's amber and the tile faces —
+# the largest lit area of the whole mark — stay on it, so the chain reads as a re-coloured outline
+# around unchanged amber tiles. That is the same split as the amber-bars-in-a-cream-ring regression
+# the warmth guard above was written for, one knob later. So pin the five things a tint can break:
+#   * the SHIPPED hue is one of the named candidates, read from the same row `tint=<name>` reads —
+#     not a fourth copy of a colour that could drift, which is how a capture stops showing what ships;
+#   * `cream` is the CONTROL: the PRE-TINT look, the colour the one pull is applied TO. Since
+#     2026-07-30 the shipped hue is `cool`, so "the control" and "what the code returns by default"
+#     are DIFFERENT things and the control can no longer be pinned by comparing the two. It is pinned
+#     by what it MEANS instead: every candidate's every drawn surface is exactly `tinted()` of the
+#     cream one. A `cream` that stopped being the identity puts a second pull under every candidate's
+#     baseline and this fails — and no rewrite of it to "whatever the code now returns" is possible,
+#     because the claim is about the relationship between two reads, not about either read's value;
+#   * every surface of the mark takes the SAME pull — measured as the fraction of the way each drawn
+#     colour has travelled toward the tint's target, read off the accessors the drawing calls;
+#   * the target bloom is one of those surfaces. It had its own warm literal at the call site and
+#     shipped as an amber patch inside the first `cool` chain, so it is named separately as well;
+#   * the hot line ON the tile edge is the ONE surface left as solved, because it is the tile's own
+#     cut edge rather than light lying on the tray.
+func _test_tint_carries_the_whole_mark_on_one_pull() -> void:
+	var before := CascadeOutline.forced_tint
+	CascadeOutline.forced_tint = ""
+	var shipped := _mark_surfaces()
+	CascadeOutline.forced_tint = CascadeOutline.SHIPPED_TINT
+	var named := _mark_surfaces()
+	CascadeOutline.forced_tint = "cream"
+	var control := _mark_surfaces()
+	var control_bloom := _bloom_probe()
+	# A: a real selection, and every read saw the same one — everything below indexes them together.
+	ok(control.size() >= 5 and control.size() == shipped.size() and named.size() == shipped.size(),
+		"the mark is a real set of drawn surfaces (%d, against the shipped read's %d and the named %d)" \
+		% [control.size(), shipped.size(), named.size()])
+	var copy_drift := 0.0
+	for i in mini(named.size(), shipped.size()):
+		copy_drift = maxf(copy_drift, _channel_gap(Color(shipped[i]), Color(named[i])))
+	ok(copy_drift == 0.0 and CascadeOutline.TINTS.has(CascadeOutline.SHIPPED_TINT),
+		"what ships IS the candidate TINTS['%s'], not a copy of it (worst channel delta %.7f)" \
+		% [CascadeOutline.SHIPPED_TINT, copy_drift])
+	for raw_name in CascadeOutline.TINTS:
+		var name := String(raw_name)
+		CascadeOutline.forced_tint = name
+		var target: Color = CascadeOutline.tint_target()
+		var lit := _mark_surfaces()
+		var lo := INF
+		var hi := -INF
+		var off_axis := 0.0
+		var from_control := 0.0
+		for i in mini(control.size(), lit.size()):
+			var f := _pull_fraction(Color(control[i]), Color(lit[i]), target)
+			lo = minf(lo, f)
+			hi = maxf(hi, f)
+			off_axis = maxf(off_axis, _pull_residual(Color(control[i]), Color(lit[i]), target, f))
+			from_control = maxf(from_control, _channel_gap(CascadeOutline.tinted(Color(control[i])), Color(lit[i])))
+		# B: the CONTROL. Every candidate is this candidate's ONE pull applied to the cream read, so
+		# the cream read is the pre-tint colour by consequence and not by assertion of a literal.
+		ok(from_control == 0.0,
+			"tint '%s' is ONE pull off the 'cream' CONTROL, which is therefore the PRE-TINT look (worst channel delta %.7f)" \
+			% [name, from_control])
+		# C: one pull, every surface. A face or a gutter left behind reports a fraction of 0 while the
+		# band reports the whole pull, so the spread IS the size of the split.
+		ok(hi - lo <= TINT_PULL_TOL, "tint '%s' carries every surface of the mark the same distance (%.5f apart, %.3f..%.3f)" \
+			% [name, hi - lo, lo, hi])
+		# D: …and each one moved ALONG the axis to the target, not merely as far. Without this a
+		# surface re-coloured to something else entirely could project to the same fraction.
+		ok(off_axis <= TINT_PULL_TOL, "tint '%s' moves every surface toward its target and nowhere else (worst residual %.5f)" \
+			% [name, off_axis])
+		# E: and a candidate that moves nothing is not a candidate. `cream` is the control, and its
+		# whole job is to move nothing.
+		var moved: bool = lo > 0.0
+		ok(moved == (name != "cream"), "tint '%s' %s the mark off the pre-tint hue (pull %.3f)" \
+			% [name, "moves" if name != "cream" else "leaves", lo])
+		# F: the target bloom, named. It is the light on the cell a merge lands in — inside the
+		# contour and over the lit face — and it is compared against `tint_pull()` itself, so "the
+		# bloom took the whole pull" is measured against the knob rather than against a copy of it.
+		var bloom := _bloom_probe()
+		var bloom_pull := _pull_fraction(control_bloom, bloom, target)
+		var bloom_off := _pull_residual(control_bloom, bloom, target, bloom_pull)
+		ok(absf(bloom_pull - CascadeOutline.tint_pull()) <= TINT_PULL_TOL and bloom_off <= TINT_PULL_TOL,
+			"tint '%s': the target bloom takes the mark's whole pull (%.3f of the knob's %.3f, residual %.5f)" \
+			% [name, bloom_pull, CascadeOutline.tint_pull(), bloom_off])
+		# G: the hot line is the tile's CUT EDGE, not light on the tray — it stays exactly as solved
+		# under every tint, and it is excluded from the surfaces above for that reason.
+		var hot_at := _rail_index(func(rail): return int(rail[0]) == CascadeOutline.ANCHOR_GAP \
+			and is_equal_approx(float(rail[1]), -1.0))
+		var hot: Color = Array(CascadeOutline.lit_rails()[hot_at])[2]
+		var solved: Color = Array(CascadeOutline.RAILS[hot_at])[2]
+		ok(hot_at >= 0 and _channel_gap(hot, solved) == 0.0,
+			"tint '%s' leaves the hot line on the tile edge exactly as solved (%s)" % [name, str(hot)])
+	CascadeOutline.forced_tint = before
+
+# Every colour of the chain mark a tint has to carry, in a fixed order: the contour rails except the
+# hot line ON the tile edge (left as solved on purpose), the interior gutters, the tile face, and the
+# bloom on the cell the merge lands in. READ off the accessors the drawing itself calls — a guard that
+# recomputed the lerp would pass however far the call sites drifted from it.
+func _mark_surfaces() -> Array:
+	var out: Array = []
+	for row in CascadeOutline.lit_rails():
+		var rail: Array = row
+		if int(rail[0]) == CascadeOutline.ANCHOR_GAP and is_equal_approx(float(rail[1]), -1.0):
+			continue
+		out.append(rail[2])
+	out.append(CascadeOutline.lit_crack())
+	out.append(CascadeOutline.lit_face())
+	# TWO lines, because the bloom is the one surface built from the line's own colour: a tint applied
+	# to a literal instead of to the argument would move one hue and not the other.
+	out.append(CascadeOutline.lit_bloom(G.line_color(1)))
+	out.append(CascadeOutline.lit_bloom(G.line_color(3)))
+	return out
+
+# The bloom on ONE line, for the assert that names it. Same accessor the drawing calls.
+func _bloom_probe() -> Color:
+	return CascadeOutline.lit_bloom(G.line_color(1))
+
+# How far `lit` has travelled from `base` toward `target`, as a share of the whole way there.
+func _pull_fraction(base: Color, lit: Color, target: Color) -> float:
+	var axis := _axis(base, target)
+	return NAN if axis.length_squared() < 1e-6 else _axis(base, lit).dot(axis) / axis.length_squared()
+
+# …and how far off that straight line it landed, so "travelled the same distance" cannot be satisfied
+# by a surface that went somewhere else entirely.
+func _pull_residual(base: Color, lit: Color, target: Color, frac: float) -> float:
+	return (_axis(base, lit) - _axis(base, target) * frac).length()
+
+func _axis(from: Color, to: Color) -> Vector3:
+	return Vector3(to.r - from.r, to.g - from.g, to.b - from.b)
+
+func _channel_gap(a: Color, b: Color) -> float:
+	return maxf(absf(a.r - b.r), maxf(absf(a.g - b.g), absf(a.b - b.b)))
 
 # The warm shift of every rail in `table` that rides the tray gutter outside the tile edge. Takes the
 # raw table or the derived one — the rows share their geometry fields, and only the colour differs.

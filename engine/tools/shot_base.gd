@@ -180,7 +180,7 @@ static func begin(tree: SceneTree, cfg: Dictionary) -> Dictionary:
 	await _apply_size(tree, _size_from(args, cfg.get("size", SHOT_SIZE)))
 	_apply_weather(args, String(cfg.get("weather", "clear")))
 	_apply_cascade_phase(args)
-	if not _apply_cascade_glow(args):
+	if not _apply_cascade_glow(args) or not _apply_cascade_tint(args):
 		finish(tree, 2)
 		return {}
 
@@ -303,4 +303,19 @@ static func _apply_cascade_glow(args: Array) -> bool:
 		print("  valid levels: %s" % ", ".join(PackedStringArray(CascadeOutline.LEVELS.keys())))
 		return false
 	CascadeOutline.forced_level = want
+	return true
+
+# The contour's HUE, the same way — `tint=<name>` names one of CascadeOutline.TINTS, so one batched
+# launch shoots the candidates side by side. Anything else (and the default) leaves the shipped hue,
+# so every existing capture is byte-identical to before. It REFUSES an unknown name rather than
+# falling through: a capture of the shipped mark read as a candidate is exactly how a tint gets
+# picked on the wrong evidence.
+static func _apply_cascade_tint(args: Array) -> bool:
+	var want := opt(args, "tint", "")
+	if want != "" and not CascadeOutline.TINTS.has(want):
+		print("REFUSED: tint='%s' is not a cascade tint — the capture would have shown the SHIPPED" % want)
+		print("one and been read as a variant of it.")
+		print("  valid tints: %s" % ", ".join(PackedStringArray(CascadeOutline.TINTS.keys())))
+		return false
+	CascadeOutline.forced_tint = want
 	return true
