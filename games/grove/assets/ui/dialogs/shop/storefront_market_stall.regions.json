@@ -1,0 +1,151 @@
+{
+  "_doc": [
+    "THE SHOP SCREEN'S HIT REGIONS — the judgement half of a storefront that IS a painting.",
+    "",
+    "Owner call 2026-07-30: 'use the whole image from the mock'. The shop screen is the approved",
+    "concept art itself (storefront_market_stall.png, a byte copy of _concepts/dialogs/",
+    "shop_screen_variations_v1/shop_screen_a_market_stall.png). Nothing on that screen is re-drawn:",
+    "the awning, the signboard, the SHOP title, the shelves, the goods, the cream amount tags, the",
+    "green price buttons, the section plaque and the coral X all come from the picture. What the game",
+    "adds is this file's worth of TRANSPARENT hit rects laid over it.",
+    "",
+    "EVERY RECT IS IN THE PICTURE'S OWN PIXELS at `size` below, as [x, y, w, h]. The game divides them",
+    "by `size` and multiplies by the rect the picture is actually drawn at, so a region tracks the ART",
+    "and not the viewport — the picture is letterboxed on any aspect that is not 1080x1920.",
+    "",
+    "HOW THE RECTS WERE FOUND. games/grove/tools/measure_shop_screen.py scans the PNG and prints every",
+    "anchor: the eight action-green price buttons, the eight cream amount tags, the four slate shelf",
+    "planks, the two stall posts, the coral X disc, and the empty column gutter between each shelf's",
+    "two offers. Nothing was eyeballed. `measured` on each offer records the anchors the rect was",
+    "derived from, and games/grove/tools/tests/test_shop_screen_regions.py re-measures them on every",
+    "`make test-config` — so a re-exported or re-cropped picture fails the build instead of silently",
+    "sliding every hit box off its goods.",
+    "",
+    "THE CELL is the offer's half of its shelf bay: from below whatever separates it from the bay",
+    "above (the hung signboard, the ACORN POUCHES plaque, the shelf above) down to the bottom of its",
+    "own plank, split left/right at the MEASURED empty gutter between the two offers' artwork. The",
+    "gutter is NOT the picture's midline: the treasure chest on the bottom shelf reaches to x=510, so",
+    "that row splits at 502 and a midline split would have sold the $49.99 pack to a tap on the chest.",
+    "",
+    "CELLS NEVER OVERLAP EACH OTHER. The eight `price` rects are laid OVER the cells (the game adds",
+    "them last), so a price button that hangs below its own plank — $0.99 and $4.99 both do, by 24px —",
+    "still resolves to its own offer while the POPULAR ribbon's tip above that line resolves to the",
+    "$9.99 pack it points at. The debug overlay (make shot-map MODE=shophits) probes the ENGINE's own",
+    "picker at five points per region and reddens any region whose pick disagrees with its id, which is",
+    "how that claim is checked rather than asserted.",
+    "",
+    "`art_claims` IS THE PICTURE'S OWN COPY, transcribed. It is the guard's input, not the game's:",
+    "grove_shop_tests.gd asserts the LIVE config still grants those amounts at those prices, so a",
+    "re-priced ladder fails the build instead of leaving the painting to lie. See the price/locale",
+    "note in docs/design/art-style-guide.md's shop entry — a baked '$0.99' is wrong outside the US.",
+    "",
+    "`unplaceable` names the live offers this painting has no shelf for. They are NOT bugs to be",
+    "silently dropped; they are the cost of a fixed picture, and grove_shop_tests.gd fails if the list",
+    "ever grows without someone deciding to grow it."
+  ],
+
+  "art": "ui/dialogs/shop/storefront_market_stall.png",
+  "source_mock": "res://games/grove/assets/_concepts/dialogs/shop_screen_variations_v1/shop_screen_a_market_stall.png",
+  "size": [1080, 1920],
+
+  "close": {
+    "rect": [892, 155, 133, 133],
+    "drawn": [912, 175, 93, 93],
+    "note": "The coral X the picture draws is 93px across — 33.6pt on a 390pt-wide phone, under the 44pt platform floor. The hit rect is opened to 133px (48pt) around the SAME centre. It cannot reach any offer: the topmost cell starts at y=372, 84px below this rect's bottom. Both halves are checked, not asserted: test_shop_screen_regions.py measures these rects against each other, and grove_shop_tests.gd's `close_region` re-checks the overlap on the BUILT screen, taps the centre (it dismisses) and taps 8px past each edge (it does not). The debug overlay draws BOTH rects — the dashed tap area and the drawn disc inside it — so the difference is visible rather than described."
+  },
+
+  "offers": [
+    {
+      "id": "refill",
+      "cell": [33, 372, 490, 473],
+      "price": [218, 684, 202, 87],
+      "art_claims": {"amount": 100, "price": "FREE", "caption": "FREE REFILL"},
+      "measured": {"tag": [205, 604, 226, 111], "button": [222, 688, 194, 79]},
+      "note": "the counter's left half: the watering can, its 100 tag, the FREE button and the FREE REFILL plaque on the plank's lip. Top is 6px under the signboard's bottom edge (366)."
+    },
+    {
+      "id": "coin_pouch",
+      "cell": [523, 372, 523, 473],
+      "price": [624, 683, 205, 88],
+      "art_claims": {"amount": 150, "price": "5", "price_icon": "gem", "caption": "QUICK HELP"},
+      "measured": {"tag": [609, 601, 238, 115], "button": [628, 687, 197, 80]},
+      "note": "the counter's right half: the coin sack, its 150 tag, the acorn-5 button and the QUICK HELP plaque."
+    },
+    {
+      "id": "cash_0",
+      "cell": [33, 953, 496, 280],
+      "price": [303, 1185, 177, 75],
+      "art_claims": {"amount": 80, "price": "$0.99"},
+      "measured": {"tag": [318, 1105, 152, 77], "button": [307, 1189, 169, 67]},
+      "note": "first ladder shelf, left. The cell stops at 1233 — the POPULAR ribbon of the shelf below starts at 1234 — and this offer's price rect rides over that seam to keep its own button whole."
+    },
+    {
+      "id": "cash_1",
+      "cell": [529, 953, 517, 280],
+      "price": [737, 1184, 185, 77],
+      "art_claims": {"amount": 450, "price": "$4.99"},
+      "measured": {"tag": [753, 1105, 172, 77], "button": [741, 1188, 177, 69]},
+      "note": "first ladder shelf, right (the green acorn pouch). Same seam and the same price-rect overhang as cash_0."
+    },
+    {
+      "id": "cash_2",
+      "cell": [33, 1234, 495, 337],
+      "price": [310, 1500, 191, 74],
+      "art_claims": {"amount": 1000, "price": "$9.99", "flag": "POPULAR"},
+      "measured": {"tag": [323, 1421, 176, 75], "button": [314, 1504, 183, 66], "flag": [53, 1234, 197, 106]},
+      "note": "second ladder shelf, left (the tan sack). The cell's top IS the POPULAR ribbon's own top edge, so the flag that points at this pack belongs to this pack. The live ladder marks the same tier `pop` — grove_shop_tests asserts the two agree."
+    },
+    {
+      "id": "cash_3",
+      "cell": [528, 1234, 518, 337],
+      "price": [779, 1501, 175, 74],
+      "art_claims": {"amount": 2200, "price": "$19.99"},
+      "measured": {"tag": [796, 1421, 174, 76], "button": [783, 1505, 167, 66]},
+      "note": "second ladder shelf, right (the woven basket)."
+    },
+    {
+      "id": "cash_4",
+      "cell": [33, 1572, 469, 313],
+      "price": [283, 1800, 211, 84],
+      "art_claims": {"amount": 6000, "price": "$49.99"},
+      "measured": {"tag": [303, 1715, 173, 79], "button": [287, 1804, 203, 76]},
+      "note": "bottom shelf, left (the wooden crate). This row's gutter is the tightest on the picture — 496..509 — because the chest beside it reaches to x=510."
+    },
+    {
+      "id": "cash_5",
+      "cell": [502, 1572, 544, 313],
+      "price": [794, 1801, 205, 83],
+      "art_claims": {"amount": 13000, "price": "$99.99", "flag": "BEST VALUE"},
+      "measured": {"tag": [813, 1716, 184, 79], "button": [798, 1805, 197, 75], "flag": [766, 1575, 118, 113]},
+      "note": "bottom shelf, right (the treasure chest). Its BEST VALUE rosette starts at y=1575, inside this cell, so the badge belongs to the pack it sits on."
+    }
+  ],
+
+  "gutters": [
+    {"row": "counter", "empty_columns": [467, 580], "split": 523},
+    {"row": "ladder_1", "empty_columns": [483, 575], "split": 529},
+    {"row": "ladder_2", "empty_columns": [507, 550], "split": 528},
+    {"row": "ladder_3", "empty_columns": [496, 509], "split": 502}
+  ],
+
+  "furniture": {
+    "posts": [[33, 188, 60, 1684], [982, 192, 64, 1684]],
+    "plank_bands": [[672, 831], [1124, 1242], [1444, 1558], [1789, 1875]],
+    "section_plaque": [283, 872, 516, 78],
+    "signboard": [273, 176, 569, 190],
+    "note": "Not tappable — recorded because the cells were derived from it, and re-measured by the guard so a re-exported picture cannot quietly move a shelf. The posts set the cells' outer edges (33 and 1046); the plank bands set each cell's bottom; the signboard's bottom edge (366) sets the counter cells' top; the ACORN POUCHES plaque belongs to NO offer — it spans both columns, so a tap on it would have to pick one, and the gap 846..952 is therefore left unassigned."
+  },
+
+  "unplaceable": [
+    {
+      "id": "water_fill",
+      "when": "the free daily refill has been claimed (Shop._quick_help_section pushes a gem-priced full can in front of the pouch)",
+      "cost": "the gem->water purchase has no shelf on this picture and is not reachable from the shop while the art is fixed"
+    },
+    {
+      "id": "scissors",
+      "when": "Features.on('scissors') and any generator is at mastery rank 2+",
+      "cost": "the coin-priced scissors tool has no shelf on this picture"
+    }
+  ]
+}

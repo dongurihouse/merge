@@ -21,7 +21,7 @@ const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")  # the 
 const Login = preload("res://engine/scripts/core/login.gd")            # reward_for(day) → the REAL weekly rungs the daily preview shows
 const LoginUI = preload("res://engine/scripts/ui/login.gd")            # the REAL daily dialog / day-cell renderer (the game's daily card)
 const LadderUI = preload("res://engine/scripts/ui/ladder.gd")          # the REAL discovery-ladder renderer (corner tier chips + generator header)
-const ShopUI = preload("res://engine/scripts/ui/shop.gd")              # the REAL shop storefront renderer (Shop.build_body — sage art-left cards)
+const ShopUI = preload("res://engine/scripts/ui/shop.gd")              # the REAL shop storefront renderer (Shop.build_body — the market stall)
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # the REAL level dialog sheet (the game's level screen)
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
@@ -150,7 +150,7 @@ const CAPTIONS := {
 	"dialog": "Mail dialog — cards (card style: badge · icon · Claim · title/body)",
 	"daily": "Daily — the game's real login screen (grid + capstone) in the shared frame",
 	"mystery": "Mystery — slot reveal (reels spin · premium shines · pick N)",
-	"shop": "Shop — packs (shared frame)",
+	"shop": "Shop — the market stall",
 	"level": "Level — the game's real dialog (level_popup: medallion · tally pill · bar · CTA)",
 	"tiers": "Discovery — tier ladder (shared frame, no vines)",
 	"info_bar": "Info bar — board bottom action bar (Home · ⓘ · selected piece · Bag)",
@@ -348,14 +348,11 @@ func _default_params() -> Dictionary:
 		# lands on. NO saved knobs (the frame is the shared one; width is the engine's min(560, 94%) cap). `preview`
 		# picks the pool (day 4 = 3 cards/1 win · day 7 = 5 cards/2 wins) and the state (all shown · winners landed).
 		"mystery": {"preview": "day 7 · revealed"},
-		# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells, its own scroll cap
-		# (list_max_h 0 = no scroll, show every item), and the GAME's real items.
-		# …its offer card being the SHARED code-drawn cut-paper sheet, its edge knobs are seeded from the
-		# card's OWN defaults (Kit.SHOP_CARD_CP_DEFAULTS — the mock-measured corner, and no rim) rather than
-		# from the schema. `_cut_paper_section` seeds an unsaved knob from the SCHEMA default, which for a
-		# component that overrides one would open the inspector on a value the game does not render and then
-		# write it back on the next Save: the shop's rim is 0 and the schema's is 2.
-		"shop": {"icon_size": 100, "card_pad": 12, "grid_gap": 14}.merged(Kit.SHOP_CARD_CP_DEFAULTS),
+		# …and the SHOP has NO saved knobs at all: the storefront is the approved painting (2026-07-30), so
+		# there is no card padding, no grid gap and no cut-paper edge left to tune. The entry stays so the
+		# page can still be selected and previewed; it is deliberately empty rather than carrying the
+		# retired card's keys, which would be written back on the next Save with nothing reading them.
+		"shop": {},
 		# the LEVEL dialog — the game's REAL sheet (level_popup.gd), screen-fraction sized off the shared
 		# frame-width knob: NO own saved knobs (the old parchment level_dialog's fonts/pads are retired).
 		# preview_level / into / span / mode are workbench-only preview state; the game sets them from save.
@@ -566,19 +563,13 @@ func _make_element(id: String) -> Control:
 			# (no shuffle) so the capture is repeatable. Frame edits flow through via frame_cfg: _params.
 			return _mystery_preview(String(p.preview))
 		"shop":
-			# the REAL game storefront (shop.gd) — the SAME Shop.build_body the shop screen renders: sage
-			# art-left offer cards, a 2-column grid, plain navy all-caps section headers, bespoke green price
-			# slabs. The old Kit.shop_dialog here was orphaned (3-col daily-card cells, sprig dividers,
-			# ribbons) — the game diverged to shop.gd. Demo data mirrors the game's sections.
-			var width := _dlg_px("shop")
-			var scale := _dlg_scale("shop")
-			var inner := width - 2.0 * float(Kit.frame_border("parchment")["pad_x"]) / scale
-			var fopts := Kit.dialog_opts_from_config(_params)
-			fopts["banner_text"] = "Shop"
-			fopts["content_scale"] = scale
-			fopts["clip_below_banner"] = true   # rows clip UNDER the title band, like the game
-			fopts["list_max_h"] = 2600.0        # show the whole storefront (the game caps to 72% of the viewport)
-			return Kit.dialog_frame(ShopUI.build_body(Kit, inner, _shop_demo_sections(), ShopUI.shop_layout(_params)), width, fopts)
+			# the REAL game storefront (shop.gd) — the SAME Shop.build_body the shop screen renders. Since
+			# 2026-07-30 that is the market-stall PAINTING: the approved concept art itself, with transparent
+			# hit rects over it. There is nothing on this page to tune (see the sidebar) — it is here so the
+			# storefront can be LOOKED at beside the rest of the UI, and so a broken art path or a registry
+			# that stopped parsing shows up as an empty page rather than only at a real shop open.
+			return ShopUI.build_body(Vector2(_dlg_px("shop"), _dlg_px("shop") * 4.0),
+				_shop_demo_sections(), {})
 		"level":
 			# the game's REAL level dialog sheet (level_popup.gd _sheet) — byte-for-byte what tapping
 			# the Lv badge opens; only the preview state (level · progress · mode) is workbench-side.
@@ -1220,20 +1211,15 @@ func _level_dialog_preview(p: Dictionary) -> Control:
 
 ## Demo section data for the shop preview — the SAME {caption, cards[]} shape shop.gd builds from live
 ## state (Free refill · Quick help · Acorn pouches), so Shop.build_body renders the real storefront.
+## `offer_id` is what earns a card its region on the painting, so the demo carries the game's own ids.
 func _shop_demo_sections() -> Array:
+	var packs: Array = []
+	for i in 6:
+		packs.append({"offer_id": ShopUI.cash_offer_id(i), "cash": true})
 	return [
-		{"caption": "Free refill", "cards": [
-			{"icon": "shop_can", "count": 30, "price": "Free", "affordable": true}]},
-		{"caption": "Quick help", "cards": [
-			{"title": "Fill water", "icon": "shop_can", "count": 30, "price": "25", "price_icon": "gem"},
-			{"title": "Coin pouch", "icon": "shop_pouch", "count": 150, "price": "5", "price_icon": "gem"}]},
-		{"caption": "Acorn pouches", "cards": [
-			{"icon": "pack_t1", "count": 80, "cash": true, "price": "$0.99"},
-			{"icon": "pack_t2", "count": 450, "cash": true, "price": "$4.99"},
-			{"icon": "pack_t3", "count": 1000, "cash": true, "price": "$9.99"},
-			{"icon": "pack_t4", "count": 2200, "cash": true, "price": "$19.99"},
-			{"icon": "pack_t5", "count": 6000, "cash": true, "price": "$49.99"},
-			{"icon": "pack_t6", "count": 13000, "cash": true, "price": "$99.99"}]},
+		{"caption": "Free refill", "cards": [{"offer_id": ShopUI.OFFER_REFILL}]},
+		{"caption": "Quick help", "cards": [{"offer_id": ShopUI.OFFER_POUCH}]},
+		{"caption": "Acorn pouches", "cards": packs},
 	]
 
 func _daily_dialog_preview() -> Control:
@@ -1722,17 +1708,20 @@ func _element_sidebar(_id: String) -> void:
 			mplay.pressed.connect(_play_mystery_spin)
 			_sidebar_body.add_child(mplay)
 		"shop":
-			# the shop is the game's real storefront (shop.gd Shop.build_body). Each offer-card metric is
-			# SAVED config the game reads (shop.gd shop_layout), so tuning here flows to the live shop:
-			# the product icon size, the card's inner padding, the grid gap/margin, and the card corner.
-			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_slider_row(["icon_size", 50, 160]))   # product art size, % of default
-			_sidebar_body.add_child(_slider_row(["card_pad", 2, 40]))      # inner padding (px)
-			_sidebar_body.add_child(_slider_row(["grid_gap", 2, 48]))      # gap / margin between cards + sections (px)
-			# the offer card is the shared code-drawn cut-paper sheet now, not a baked nine-patch, so its
-			# edge is tunable here like every other paper surface. `corner` is one of these knobs — it is
-			# NOT listed separately above, or the same key would carry two sliders.
-			_cut_paper_section("shop")
+			# THE STOREFRONT HAS NO KNOBS, and that is the whole point of the design. It is the approved
+			# painting (owner, 2026-07-30: "use the whole image from the mock"), so there is no icon size, no
+			# card padding, no grid gap and no cut-paper edge to tune — every one of those sliders would now
+			# write a config key nothing reads, and a slider whose key nothing reads is worse than no slider
+			# (it still WRITES on the next Save). To change this screen, change the picture; to change where
+			# a tap lands, edit the region registry beside it and re-run
+			# `PYTHONPATH=. python3 games/grove/tools/measure_shop_screen.py --check`.
+			_group_header("Nothing to tune", true)
+			var note := Label.new()
+			note.text = "The shop screen is the concept painting itself.\n" \
+				+ "Art:      assets/ui/dialogs/shop/storefront_market_stall.png\n" \
+				+ "Regions:  …/storefront_market_stall.regions.json"
+			note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_sidebar_body.add_child(note)
 		"level":
 			# the sheet is the game's real level_popup.gd. Each element's SIZE (% of its default) and its
 			# vertical NUDGE (px, +down) are SAVED — the game reads them from the level config, so tuning

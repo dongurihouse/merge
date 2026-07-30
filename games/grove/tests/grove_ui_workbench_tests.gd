@@ -525,36 +525,26 @@ func _torn_cell_page_hides_knobs_the_face_ignores() -> void:
 	no_sh.free()
 
 func _shop_page_carries_the_shared_edge_once() -> void:
-	# THE SHOP'S OFFER CARD IS THE SHARED CUT-PAPER SHEET now, not a baked nine-patch, so its edge has to be
-	# tunable here like every other paper surface — that is half of what makes "the shop follows the material
-	# automatically" true rather than aspirational. And exactly ONCE: `corner` is a member of the shared knob
-	# set, so the standalone Corner slider the page used to carry would be a second control writing the same
-	# config key, where the last one built silently wins.
+	# THE SHOP PAGE HAS NO KNOBS, and that is the assertion. The storefront was a set of baked nine-patch
+	# offer cards, then a shared cut-paper card, then a whole code-drawn stall; since 2026-07-30 it is the
+	# approved PAINTING (owner: "use the whole image from the mock"), so there is no icon size, no card
+	# padding, no grid gutter and no cut-paper edge left for this page to tune. Every one of those sliders
+	# would now write a config key nothing reads — and a slider whose key nothing reads is worse than no
+	# slider, because it still WRITES on the next Save and the next reader of that block believes it.
 	var view := UIWorkbenchView.new()
 	view._selected = "shop"
 	view._sidebar_body = VBoxContainer.new()
 	view._element_sidebar("shop")
 	var labels := _row_labels(view._sidebar_body)
-	ok(labels.has("Cut-paper edge (shared)"), "the Shop page carries the shared cut-paper edge section")
-	for knob in ["Corner", "Deckle Amp", "Edge Feather", "Shadow Reach"]:
-		ok(labels.has(knob), "…including its %s row" % knob)
-	var corners := 0
-	for l in labels:
-		if l == "Corner":
-			corners += 1
-	ok(corners == 1, "…and the card corner has exactly ONE slider writing shop.corner (%d)" % corners)
-	# the page's own layout knobs are untouched — this section was added beside them, not instead of them
-	for knob in ["Icon Size", "Card Pad", "Grid Gap"]:
-		ok(labels.has(knob), "…and the Shop page keeps its %s knob" % knob)
-	# …and the page OPENS ON WHAT THE GAME RENDERS. `_cut_paper_section` seeds an unsaved knob from the
-	# SCHEMA default, so a component that overrides one (the shop's rim is 0 where the schema's is 2) would
-	# otherwise show — and, on the next Save, WRITE — a value the game never drew. Read off the live params,
-	# after the section has had its chance to seed them.
+	for gone in ["Cut-paper edge (shared)", "Corner", "Deckle Amp", "Edge Feather", "Shadow Reach",
+			"Icon Size", "Card Pad", "Grid Gap"]:
+		ok(not labels.has(gone),
+			"the Shop page carries no %s row (the storefront is fixed art)" % gone)
+	ok(not labels.is_empty(), "…but the page still says something (%d rows)" % labels.size())
+	# …and its saved block is EMPTY, not a leftover of the retired card. A block still carrying `corner` /
+	# `card_pad` / `grid_gap` would be re-written on the next Save under a page that draws none of them.
 	var block: Dictionary = view._params["shop"]
-	for pair in [["corner", 22.0], ["rim_width", 0.0]]:
-		ok(is_equal_approx(float(block.get(String(pair[0]), -1.0)), float(pair[1])),
-			"the Shop page opens on the card's OWN %s, not the schema's (%.1f)"
-				% [String(pair[0]), float(block.get(String(pair[0]), -1.0))])
+	ok(block.is_empty(), "…and the Shop config block is empty (%s)" % str(block.keys()))
 	view._sidebar_body.free()
 	view.free()
 

@@ -152,6 +152,33 @@ approaches, lives in, and uses the location.
 - Preserve exact requested text; invent no labels, badges, counters, or buttons. For environment/
   background approvals, omit UI entirely so composition is judged on its own.
 
+### 7.1 · The SHOP screen is a whole painting (the one screen that is)
+
+Owner call, 2026-07-30: *"use the whole image from the mock"*. The shop is the approved concept art
+itself — `games/grove/assets/ui/dialogs/shop/storefront_market_stall.png`, a byte copy of
+`_concepts/dialogs/shop_screen_variations_v1/shop_screen_a_market_stall.png` — displayed as one
+TextureRect. It is the ONLY screen in the game built this way, and it is a deliberate exception to
+everything above: nothing on it is drawn from the kit, no text on it is typeset, and there is no
+cut-paper knob that reaches it. To change the shop, change the picture.
+
+What the game adds is a table of transparent hit rects measured off that picture and shipped beside it
+(`storefront_market_stall.regions.json`). Re-measure with
+`PYTHONPATH=. python3 games/grove/tools/measure_shop_screen.py --check`;
+`games/grove/tools/tests/test_shop_screen_regions.py` re-checks it on every `make test-config`.
+
+**Two things a painted storefront cannot do, and both cost money:**
+
+1. **The prices and amounts are baked in.** `grove_shop_tests.gd` (`art_claims_vs_config`) pins the
+   live ladder to what the art claims, so a re-tune fails the build rather than leaving the picture to
+   lie. It cannot fix the **currency**: the App Store shows every user their own local price, so a
+   painted `$0.99` is wrong for most of the world and is the kind of thing store review rejects. The
+   small fix is live text composited over the eight green price plates ONLY, leaving the rest of the
+   picture untouched — an owner decision, not a silent one.
+2. **The picture sells exactly what it draws.** Eight offers. Any live offer with no shelf — today the
+   💎 water fill (offered once the free daily refill is spent) and the scissors tool (mastery 2) — is
+   unreachable from the shop. They are named in the registry's `unplaceable` block with what each one
+   costs, and the suite fails if that set grows.
+
 ## 8 · Cutting & post-processing
 
 Raw art is generated on a flat removable background and cut **deterministically** — the scripts do every

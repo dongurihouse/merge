@@ -41,6 +41,7 @@ PY_TESTS     := tools/test_boot_splash_assets.py \
                 games/grove/tests/bake_scene_composites_tests.py \
                 games/grove/tools/tests/test_extract_meadow_ui_v2.py \
                 games/grove/tools/tests/test_mock_targets.py \
+                games/grove/tools/tests/test_shop_screen_regions.py \
                 games/tools/test_intake_apply.py \
                 tools/sfx_synth/test_synth.py \
                 tools/test_quiet_window.py \
@@ -155,7 +156,7 @@ icon: ## process an icon raw:  make icon IN=/tmp/x.png OUT=res://assets/ui/y.png
 	$(GODOT) --headless --path $(PROJECT) -s res://games/tools/process_icon.gd -- "$(IN)" $(OUT) $(SIZE)
 
 ## --- screenshots (quiet: the window is parked off-screen, never steals focus) ---
-shot-map: ## capture the map:  make shot-map [MODE=fresh|interior|progress|shop|settings|spirits] [OUT=/tmp/map.png]
+shot-map: ## capture the map:  make shot-map [MODE=fresh|interior|progress|shop|shophits|settings|spirits] [OUT=/tmp/map.png]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/map_shot.gd -- $(or $(MODE),fresh) $(or $(OUT),/tmp/map.png)
 
 shot-grove: ## capture the board (byte-deterministic per MODE):  make shot-grove [MODE=fresh|played|gate|hud|fullline] [OUT=/tmp/grove.png]

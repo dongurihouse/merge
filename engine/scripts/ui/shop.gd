@@ -28,10 +28,10 @@ const PurchaseWait = preload("res://engine/scripts/ui/purchase_wait.gd")
 const D = Game.DATA                                               # the active game's data (§10 IAP ladder)
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").Shop   # the engine's shop dials
-const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
-const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")   # the item art's shape-true cast (wrap_sprite)
+const Screen = preload("res://engine/scripts/ui/shop_screen.gd")         # THE storefront: the mock's own painting + its hit regions
+const HitOverlay = preload("res://engine/scripts/ui/shop_hit_overlay.gd")  # the debug-gated hit-region overlay
 const OVERLAY_NAME := "ShopOverlay"
 const CONFIRM_NAME := "ShopCashConfirmOverlay"   ## the cash confirm raised over an open shop
 
@@ -197,24 +197,19 @@ static func _open(host: Control, opts: Dictionary) -> void:
 			if is_instance_valid(pair[0]):
 				(pair[0] as CanvasItem).z_index = int(pair[1]))
 
-	# The storefront FACE is the SHARED mock-true frame (Kit.dialog_frame — the same warm-cream sheet,
-	# ink title and coral ✕ every restyled dialog wears); the shop's own BODY (section headers · the
-	# 2-up offer grid · the info footer) is built here, per the shop_dialog_v3_unified_storefront mock.
-	# Width is a % of the SCREEN (responsive).
-	var vw: float = host.get_viewport_rect().size.x
+	# The storefront IS the market-stall PAINTING (concept A of shop_screen_variations_v1). There is no
+	# dialog frame, no offer card, and nothing on it drawn in code: engine/scripts/ui/shop_screen.gd puts
+	# the approved art on the screen and lays transparent hit rects over it. This file keeps the MONEY.
 	var cfg: Dictionary = Game.kit_config()
-	var width: float = vw * Kit.DIALOG_DESIGN_PCT["shop"] / 100.0
-	var cscale: float = maxf(0.01, Kit.dialog_content_scale(cfg, "shop"))
-	var inner: float = grid_inner_w(Kit, cfg, vw)
 
 	var refs := {
 		"coin": hud_wallet.get("coin", {"node": null, "label": null}),
 		"gem": hud_wallet.get("gem", {"node": null, "label": null}),
 		"overlay": overlay, "opts": opts, "host": host,
-		"kit": Kit, "cfg": cfg, "inner": inner}
+		"kit": Kit, "cfg": cfg}
 
-	# (re)build the storefront from the live wallet + stock; a buy rebuilds it in place to refresh
-	# balances and affordability.
+	# (re)build the storefront from the live wallet + stock; a buy rebuilds it in place so a claimed
+	# faucet stops being tappable.
 	var rb := {"fn": Callable(), "first": true}
 	refs["rb"] = rb
 	rb.fn = func() -> void:
@@ -222,313 +217,66 @@ static func _open(host: Control, opts: Dictionary) -> void:
 			return
 		for c in cc.get_children():
 			c.queue_free()
-		var fopts: Dictionary = Kit.dialog_opts_from_config(cfg)
-		fopts["content_scale"] = cscale
-		fopts["banner_text"] = Strings.t("shop.title")
-		fopts["clip_below_banner"] = true   # the list clips UNDER the title band — rows never ride behind "SHOP"
-		fopts["on_close"] = modal["dismiss"]
-		# on a PHONE the full ladder is taller than the screen, so cap the inner height to the
-		# viewport — the shop then scrolls inside the sheet.
-		fopts["list_max_h"] = host.get_viewport_rect().size.y * 0.72
-		var dialog: Control = Kit.dialog_frame(_build_body(refs), width, fopts)
-		cc.add_child(dialog)
+		var screen: Control = build_body(host.get_viewport_rect().size, _sections(refs),
+			{"on_close": modal["dismiss"]})
+		cc.add_child(screen)
+		# the hit-region overlay: authoring-gated debug chrome, never a normal run (see shop_hit_overlay.gd)
+		HitOverlay.mount(overlay, screen)
 		if rb.first:
-			FX.pop_in(dialog)
+			FX.pop_in(screen)
 			rb.first = false
 	rb.fn.call()
 
-# --- the mock-true storefront body (shop_dialog_v3_unified_storefront) ---------------
-# Colours sampled from the mock; the sheet/title/✕ come from the shared frame and are NOT re-specified.
-const SAGE := Color("#E4DEBD")        # an offer card's sage face
-const PILL_GREEN := Color("#5C8A57")  # the price pill
-# THE OFFER CARD'S CORNER, re-derived for the CODE-DRAWN sheet (it was 18 — the baked nine-patch's painted
-# radius). The measurement lives with the card's other shared edge knobs on the kit
-# (Kit.SHOP_CARD_CP_DEFAULTS); this is the Kit-less fallback for a caller that hands `shop_layout` no
-# config at all, and must not drift from it (games/grove/tests/grove_shop_tests.gd pins the pair).
-const CARD_CORNER := 22.0
-const GRID_GAP := 14.0
+# --- the market-stall storefront: THE PAINTING -----------------------------------------
+# The picture and the rects laid over it live on engine/scripts/ui/shop_screen.gd and in the registry
+# that ships beside the art. This file keeps the MONEY: what is on sale, what it costs, and what pressing
+# it does. The screen is handed the same offer dictionaries the sage-card grid and the code-drawn stall
+# both were, so a re-layout cannot re-wire a tier.
 
-## The offer card's own cut-paper SHEET, by node name — the shared code-drawn panel
-## (engine/scripts/ui/cut_paper.gd) that replaced the baked nine-patch card frames. Named so the suites can
-## read the rendered edge off it rather than off the knob dict handed to it.
-const CARD_SURFACE_NODE := "ShopCardDeckleSurface"
+## The per-offer identity every region carries, so the debug hit overlay can name what a region resolves
+## to and the suites can assert region ↔ purchase. One id per live offer, stable across a rebuild: the
+## free refill, the two quick-help offers, the scissors, and `cash_<i>` per ladder tier. The SAME ids are
+## the keys of the region registry — an offer with no id there has no shelf on the painting.
+const OFFER_REFILL := "refill"
+const OFFER_WATER := "water_fill"
+const OFFER_POUCH := "coin_pouch"
+const OFFER_SCISSORS := "scissors"
 
-# The whole scrolling body: each section's header + offer grid.
-static func _build_body(refs: Dictionary) -> Control:
-	return build_body(refs.kit, refs.inner, _sections(refs), shop_layout(refs.get("cfg", {})))
+static func cash_offer_id(i: int) -> String:
+	return "cash_%d" % i
 
-## The shop BODY — the VBox of section headers + offer grids, built purely from section DATA (each
-## {caption, cards[]}). SHARED: the game (_build_body) computes the sections from live state and passes
-## them here; the workbench "shop" element passes demo sections. So the tool renders the real shop layout.
-## The shop LAYOUT knobs read from the saved config's "shop" block — the offer-card metrics the workbench
-## tunes and the game honours: icon size (% of default art), card padding, the grid gap/margin, and the
-## card corner. Absent keys reproduce the mock-measured constants exactly.
-static func shop_layout(cfg: Dictionary) -> Dictionary:
-	var sh: Dictionary = (cfg as Dictionary).get("shop", {}) if cfg is Dictionary else {}
-	var o := {
-		"icon_size": float(sh.get("icon_size", 100)) / 100.0,   # art size, % of the default
-		"card_pad": float(sh.get("card_pad", 12)),              # inner padding (px)
-		"grid_gap": float(sh.get("grid_gap", GRID_GAP)),        # gap between cards + sections (px)
-		"corner": float(sh.get("corner", CARD_CORNER)),         # card corner radius (px)
-	}
-	# …and the card's EDGE, from the SHARED cut-paper knob set read off the same `shop` block. Kept here
-	# rather than in `_offer_card` so the whole storefront resolves its look in one place, and so the
-	# workbench's live _params flow through the identical reader the game uses.
-	var Kit: GDScript = Game.kit_script()
-	if Kit != null:
-		o["cp"] = Kit.shop_card_cp_from_config(cfg)
-	return o
+## THE SHARED STOREFRONT BUILDER. The game (`_open`) computes the sections from live state and passes them
+## here; the workbench passes demo sections. So the tool renders the real storefront, at the real layout.
+## `box` is the space the picture is fitted into (the game hands it the whole viewport — the art is a
+## full-bleed storefront and the frosted backdrop shows only in the letterbox).
+static func build_body(box: Vector2, sections: Array, opts: Dictionary = {}) -> Control:
+	return Screen.build(box, offers_by_id(sections), opts)
 
-## The offer grid's INNER width, in LAYOUT px: the shop dialog's design width less the sheet's own insets,
-## which count at 1/content_scale because the frame scales the whole body (the residents.gd idiom).
-## Pulled out of `_open` so there is ONE derivation of it — the storefront's, and the one the mock rig
-## builds a card at (rule 3 of docs/design/verifying-against-a-mock.md: take the size from the shipping
-## path, not from a number typed beside it).
-static func grid_inner_w(Kit: GDScript, cfg: Dictionary, vw: float) -> float:
-	var width: float = vw * Kit.DIALOG_DESIGN_PCT["shop"] / 100.0
-	var cscale: float = maxf(0.01, Kit.dialog_content_scale(cfg, "shop"))
-	return width - 2.0 * float(Kit.frame_border("parchment")["pad_x"]) / cscale
-
-## The layout width ONE offer card gets inside a grid `inner` px wide: a `wide` card (the Free-refill lead,
-## and any lone offer) takes the whole row; the rest pair up either side of the grid gap.
-static func card_layout_w(inner: float, gap: float, wide: bool) -> float:
-	return inner if wide else (inner - gap) * 0.5
-
-static func build_body(Kit: GDScript, w: float, sections: Array, lay: Dictionary = {}) -> Control:
-	var col := VBoxContainer.new()
-	col.name = "ShopBody"
-	col.add_theme_constant_override("separation", int(float(lay.get("grid_gap", GRID_GAP)) + 2.0))
-	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+## The live sections flattened to {offer_id: card}. The one place the storefront's DATA meets the
+## painting's region ids, and the reason a card without an `offer_id` simply never gets a region rather
+## than landing on whichever shelf happened to be free.
+static func offers_by_id(sections: Array) -> Dictionary:
+	var out := {}
 	for sec in sections:
-		var s := sec as Dictionary
-		col.add_child(_section_header(Kit, String(s.get("caption", ""))))
-		col.add_child(_offer_grid(Kit, s.get("cards", []), w, lay))
-	return col
+		for c in (sec as Dictionary).get("cards", []):
+			var card := c as Dictionary
+			var id := String(card.get("offer_id", ""))
+			if id != "":
+				out[id] = card
+	return out
 
-# A section HEADER — the mock's centred navy all-caps title.
-static func _section_header(Kit: GDScript, caption: String) -> Control:
-	var row := HBoxContainer.new()
-	row.name = "ShopSectionHeader"
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 14)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.custom_minimum_size = Vector2(0, 74)   # the mock's generous air above/below a section title
-	var l := _ink_label(Kit, caption.to_upper(), FS.HEADING)
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(l)
-	return row
-
-# One section's offers as the mock's TWO-column grid. A card marked `wide` (the Welcome bundle) takes a
-# full row of its own; the rest pair up.
-static func _offer_grid(Kit: GDScript, cards: Array, w: float, lay: Dictionary = {}) -> Control:
-	var col := VBoxContainer.new()
-	col.name = "ShopOfferGrid"
-	col.add_theme_constant_override("separation", int(GRID_GAP))
-	var gap: float = float(lay.get("grid_gap", GRID_GAP))
-	var half: float = card_layout_w(w, gap, false)
-	var row: HBoxContainer = null
-	for c in cards:
-		var d := c as Dictionary
-		# a lone offer (the Free-refill lead) gets the Welcome bundle's full-row proportions rather
-		# than a half-width tile stretched across the row.
-		if bool(d.get("wide", false)) or cards.size() == 1:
-			row = null
-			col.add_child(_offer_card(Kit, d, w, true, lay))
-			continue
-		if row == null or row.get_child_count() >= 2:
-			row = HBoxContainer.new()
-			row.add_theme_constant_override("separation", int(gap))
-			col.add_child(row)
-		row.add_child(_offer_card(Kit, d, half, false, lay))
-	return col
-
-# ONE offer card (the mock's product tile): a sage rounded face with the product ART filling the left
-# and, on the right, the amount in large navy type over the green buy CTA. Tight padding — the art and
-# the CTA carry the card.
-# d keys: title · icon · count · label · note · price · price_icon · affordable · cash · on_buy.
-static func _offer_card(Kit: GDScript, d: Dictionary, w: float, wide: bool, lay: Dictionary = {}) -> Control:
-	var h: float = w * (0.26 if wide else 0.54)
-	var card := PanelContainer.new()
-	card.name = "ShopOfferCard"
-	var pad: float = float(lay.get("card_pad", 12))
-	# THE CARD FACE IS THE SHARED CODE-DRAWN CUT-PAPER SHEET (engine/scripts/ui/cut_paper.gd) — the same
-	# component the dialog's own sheet, the mail rows and the daily calendar's day cells are made of. It used
-	# to be one of three baked nine-patch PNGs (card_wide / card_tall / card_pouch) with a torn edge PAINTED
-	# into them, and no shared knob can reach a painted edge: when the whole UI's paper went from a torn
-	# deckle to a smooth antialiased cut, the storefront's outer sheet followed and its cards did not.
-	# Reading the edge from Kit.shop_card_cp_from_config is what makes the shop inherit this change — and
-	# every future one — with no shop-specific work.
-	# The PanelContainer keeps its node identity and an EMPTY stylebox (no margins of its own), so it stacks
-	# the sheet and the padded content host into the same rect: the mail card's idiom exactly.
-	card.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-	var cp: Dictionary = (lay.get("cp", {}) as Dictionary).duplicate()
-	if cp.is_empty():
-		cp = Kit.shop_card_cp_from_config({})   # a caller that handed us no config still gets the shared edge
-	var surface: Control = Kit.rugged_paper_surface(card, CARD_SURFACE_NODE, Vector2.ZERO, SAGE,
-		Kit.PAPER_EDGE, float(lay.get("corner", CARD_CORNER)), cp)
-	card.custom_minimum_size = Vector2(w, h)
-	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-	# CONTENT PADDING, re-derived for the drawn sheet. The old pads were tuned against the baked art's own
-	# transparent margin; a drawn sheet states its own allowance — `content_inset()` = the corner arc's bite
-	# plus the inner half of the antialias band, which is the paper that is only partly opaque. The authored
-	# pad still applies where it is the larger of the two, so the workbench slider keeps its meaning.
-	var inset: float = surface.content_inset() if surface != null else 0.0
-	var host := MarginContainer.new()
-	host.name = "ShopOfferCardBody"
-	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	host.add_theme_constant_override("margin_left", int(maxf(pad, inset)))
-	host.add_theme_constant_override("margin_right", int(maxf(pad, inset)))
-	host.add_theme_constant_override("margin_top", int(maxf(pad * 0.67, inset)))
-	host.add_theme_constant_override("margin_bottom", int(maxf(pad * 0.67, inset)))
-	card.add_child(host)
-
-	var body := HBoxContainer.new()
-	body.add_theme_constant_override("separation", 8)
-	body.alignment = BoxContainer.ALIGNMENT_CENTER
-	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the art FILLS the card's left side (mock); capped so a 512px master never upscales past crisp.
-	var art_px: float = minf(h * (0.95 if wide else 0.78), 240.0) * float(lay.get("icon_size", 1.0))
-	var art: Control = Kit.make_icon(String(d.get("icon", "gem")), art_px)
-	art.custom_minimum_size = Vector2(art_px, art_px)
-	art.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# give the item art a shape-true cut-paper drop shadow too (a dark copy of its own silhouette —
-	# wrap_sprite, not wrap: the card's rect cast would print a grey slab around the transparent art)
-	if art is TextureRect and (art as TextureRect).texture != null:
-		art = SpritePanel.wrap_sprite(art, (art as TextureRect).texture)
-	body.add_child(art)
-
-	var textcol := VBoxContainer.new()
-	textcol.alignment = BoxContainer.ALIGNMENT_CENTER
-	textcol.add_theme_constant_override("separation", 6)
-	textcol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	textcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	textcol.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var count := int(d.get("count", 0))
-	var amount_text := _commas(count) if count > 0 else String(d.get("label", ""))
-	if amount_text != "":
-		var al := _amount_label(amount_text, FS.DISPLAY if count > 0 else FS.BODY)
-		textcol.add_child(al)
-	if String(d.get("note", "")) != "":
-		var nl := Label.new()
-		nl.text = String(d.note)
-		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		nl.add_theme_font_size_override("font_size", FS.FINE)
-		nl.add_theme_color_override("font_color", Color(BARK, 0.9))
-		nl.add_theme_constant_override("outline_size", 0)
-		nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		textcol.add_child(nl)
-	var pill := _price_pill(Kit, d)
-	# a textured pill keeps its OWN aspect (set in _price_pill) — skip the stretch-to-column overrides.
-	var pill_textured := pill != null and pill.has_meta("shop_textured")
-	if pill != null and wide:
-		# a WIDE single-product card lays out as the mock's one row: art left · the amount
-		# centred in the open middle · the green CTA docked at the right edge.
-		body.add_child(textcol)
-		pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		if not pill_textured:
-			pill.custom_minimum_size.x = 230.0
-		body.add_child(pill)
-	else:
-		if pill != null:
-			# the CTA spans the card's right column (mock: the green slab owns the bottom-right half)
-			if not pill_textured:
-				pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			textcol.add_child(pill)
-		body.add_child(textcol)
-	# a TITLED card (the mock's Quick-help pair) heads itself with a small centred navy caps line
-	# ("FILL WATER" / "COIN POUCH") above the icon+amount body; untitled cards are unchanged.
-	if String(d.get("title", "")) != "":
-		var titled := VBoxContainer.new()
-		titled.add_theme_constant_override("separation", 2)
-		titled.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var tl := _ink_label(Kit, String(d.title).to_upper(), FS.BODY)
-		tl.name = "ShopOfferTitle"
-		tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		titled.add_child(tl)
-		body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		titled.add_child(body)
-		host.add_child(titled)
-	else:
-		host.add_child(body)
-	# NO wrapper shadow. The baked card was a flat sprite and had to be handed one (SpritePanel.wrap stepped
-	# copies of its nine-patch face behind it); the drawn sheet casts its OWN, from the same shared knobs
-	# (`edge_shadow` · `shadow_reach` · `shadow_strength`) as every other paper surface. Keeping the wrapper
-	# would put two shadows under one card.
-	return card
-
-# The GREEN price pill — the card's buy CTA (a real-money price, a 💎 cost, or a free claim). Carries the
-# `shop_buy` meta the UI-shape smoke counts, plus `shop_cash` on a real-money pack (the capture tool taps it).
-static func _price_pill(Kit: GDScript, d: Dictionary) -> Control:
-	if String(d.get("price", "")) == "":
-		return null
-	var icon_id := String(d.get("price_icon", ""))
-	# the SHARED pill_button (green role) — the code-drawn cut-paper edge + its OWN shape-true shadow,
-	# tuned from the workbench Button element. The whole pill keeps its natural width (deckle must not
-	# stretch), so the `shop_textured` meta tells the caller to skip the stretch-to-column overrides.
-	var price := String(d.price)
-	var opts := {
-		"bg": "green",
-		"font": FS.HEADING,
-		"icon": icon_id,          # a 💎/🪙 cost carries its glyph; a USD/free pack ("") prints the text alone
-		"icon_size": 44,
-		"shadow": true,
-	}
-	var b: Button = Kit.pill_button("" if icon_id != "" else price.to_upper(), opts)
-	b.name = "ShopBuyButton"
-	b.set_meta("shop_buy", true)
-	b.set_meta("shop_textured", true)
-	if bool(d.get("cash", false)):
-		b.set_meta("shop_cash", true)
-	b.add_theme_font_override("font", Kit.bold_font())
-	for c in ["font_color", "font_hover_color", "font_pressed_color"]:
-		b.add_theme_color_override(c, Color.WHITE)   # the mock's green CTA prints in pure white
-	# a currency-priced CTA carries the number beside the glyph (pill_button's b.icon supplies the glyph)
-	if icon_id != "":
-		b.text = price
-	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	if d.has("affordable") and not bool(d.get("affordable", true)):
-		b.modulate = Color(1, 1, 1, 0.45)   # can't afford → the CTA greys (still pressable: the wallet wiggles)
-	var cb: Callable = d.get("on_buy", Callable())
-	if cb.is_valid():
-		b.pressed.connect(func() -> void: cb.call())
-	return b
-
-# A bold navy label (the mock's one type voice for titles and headers).
-static func _ink_label(Kit: GDScript, text: String, size: int) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_override("font", Kit.bold_font())
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", INK)
-	l.add_theme_constant_override("outline_size", 0)
-	return l
-
-# A card's AMOUNT — large navy, in the standard (not bold) face, centred.
-static func _amount_label(text: String, size: int) -> Label:
-	var l := Label.new()
-	l.name = "ShopOfferAmount"
-	l.text = text
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", INK)
-	l.add_theme_constant_override("outline_size", 0)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return l
-
-# Thousands separators on a pack's amount ("13000" → "13,000"), as the mock prints them.
-static func _commas(n: int) -> String:
-	var s := str(absi(n))
-	var out := ""
-	while s.length() > 3:
-		out = "," + s.substr(s.length() - 3) + out
-		s = s.substr(0, s.length() - 3)
-	return ("-" if n < 0 else "") + s + out
+## The offers the live storefront produced that the painting has NO region for. Today that is the 💎 water
+## fill (offered only once the free daily refill is spent) and the scissors tool (mastery 2). They are not
+## dropped quietly: the built screen carries the same list, the registry names them under `unplaceable`
+## with what each one costs, and grove_shop_tests.gd fails if the set changes.
+static func unplaceable_offers(sections: Array) -> Array:
+	var placed: Array = Screen.offer_ids()
+	var out: Array = []
+	for id in offers_by_id(sections).keys():
+		if not placed.has(String(id)):
+			out.append(String(id))
+	out.sort()
+	return out
 
 # Build the live shop SECTIONS for the unified storefront (shop_dialog_v3): the FREE refill leads,
 # then Quick help (the Coin pouch, plus 💎 Fill-water only after FREE is unavailable), then the
@@ -546,12 +294,14 @@ static func _quick_help_section(refs: Dictionary) -> Dictionary:
 	var host: Control = refs.host
 	var gems := Save.diamonds()
 	var water := {
+		"offer_id": OFFER_WATER,
 		"title": Strings.t("shop.water.fill_label"),
 		"icon": "shop_can", "count": int(G.WATER_CAP),   # the mock's card states the AMOUNT it grants (a full can)
 		"price": str(int(G.REFILL_DIAMOND_COST)), "price_icon": "gem",
 		"affordable": gems >= int(G.REFILL_DIAMOND_COST),
 		"on_buy": func() -> void: _flow_water(refs)}
 	var pouch := {
+		"offer_id": OFFER_POUCH,
 		"title": Strings.t("shop.coin.pouch_label"),
 		"icon": "shop_pouch", "count": COIN_PACK,        # the mock's card states the AMOUNT it grants
 		"price": str(COIN_PACK_GEM_COST), "price_icon": "gem",
@@ -560,6 +310,7 @@ static func _quick_help_section(refs: Dictionary) -> Dictionary:
 	var cards: Array = [pouch]
 	if scissors_available():
 		cards.append({
+			"offer_id": OFFER_SCISSORS,
 			"title": Strings.t("shop.scissors.title"),
 			"icon": "shop_pouch",
 			"label": Strings.t("shop.scissors.label"),
@@ -576,7 +327,7 @@ static func _quick_help_section(refs: Dictionary) -> Dictionary:
 # on_buy re-checks the gate so a stale press can't over-grant.
 static func _refill_card(refs: Dictionary) -> Dictionary:
 	var st := refill_status()
-	var card := {"icon": "shop_can", "count": refill_amount()}
+	var card := {"offer_id": OFFER_REFILL, "icon": "shop_can", "count": refill_amount()}
 	if bool(st.available):
 		card["price"] = Strings.t("shop.refill.cta")
 		card["affordable"] = true
@@ -597,10 +348,16 @@ static func _premium_sections(refs: Dictionary) -> Array:
 	for i in CASH_PACKS.size():
 		var pack: Dictionary = CASH_PACKS[i]
 		packs.append({
+			"offer_id": cash_offer_id(i),
 			"icon": _pack_icon_id(i), "count": int(pack.gems), "cash": true,
 			"price": Iap.usd(String(pack.key)),
 			"on_buy": func() -> void: _confirm_cash(host, refs, i)})
 	return [{"caption": Strings.t("shop.premium.acorn_pouches_caption"), "cards": packs}]
+
+# (NO `bake_sprites` here any more. The code-drawn stall stood its goods ~420px tall and so declared its
+# own 384px polish cap for games/tools/bake_targets.gd to bake; the storefront draws no sprites at all
+# now — the goods are painted into the picture — so that set had no consumer and its eight @384 mirrors
+# were removed with it. The ids below survive because the offer CARDS still name the good they are for.)
 
 # The escalating acorn-pack art id for ladder pack i (pack_t1… — the cut-paper container ladder from
 # shop_item_icons_v1), falling back to the plain gem when the grove has more packs than tier sprites.

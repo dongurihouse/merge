@@ -1,7 +1,8 @@
 extends SceneTree
 ## Dev tool (run via engine/tools/quiet_godot.sh): screenshot the Map scene (home map) in a state.
 ##   quiet_godot.sh --path . -s res://games/grove/tools/map_shot.gd -- <mode> <out.png>
-## modes: fresh | select | maps | closeup | progress | owned | shop | settings | spirits | vault | mail
+## modes: fresh | select | maps | closeup | progress | owned | shop | shophits | settings | spirits | vault | mail
+##        `shophits` = the storefront WITH its hit-region overlay (which purchase each tap resolves to)
 ## extra args: `maps nodaily=1` (no login popup over the cards) · `select owned=1` · `closeup residents=1`
 ## BATCH IT: several captures in one launch is `make shot-batch PLAN=<file>` (this tool is batch-safe).
 
@@ -238,11 +239,19 @@ func _initialize() -> void:
 		print("MAP WATERSHOP probe: button=%s" % water_button)
 		water_button.pressed.emit()
 		await create_timer(0.6).timeout
-	elif mode == "shop" or mode == "confirm":
+	elif mode == "shop" or mode == "confirm" or mode == "shophits":
 		Save.add_diamonds(40)
 		Save.add_coins(1200)            # T40: so the coin-priced featured offers read un-dimmed
+		# `shophits` arms the storefront's HIT-REGION OVERLAY (engine/scripts/ui/shop_hit_overlay.gd) the
+		# same way `place=1` arms the layout editor — through Debug.force, the project's one authoring
+		# gate. It draws each offer's real tap region, labelled with the purchase the ENGINE's own picker
+		# resolves it to, so the mapping can be READ off the capture. Never on in any other mode.
+		if mode == "shophits":
+			load("res://engine/scripts/ui/debug.gd").force = true
 		load("res://engine/scripts/ui/shop.gd").open(scn, {"refresh": func() -> void: pass})
 		await create_timer(0.4).timeout
+		if mode == "shophits":
+			await create_timer(0.5).timeout   # the overlay probes the picker two frames after it mounts
 		if mode == "confirm":
 			# press the first cash pack card → its confirm popup
 			var overlay: Control = scn.get_child(scn.get_child_count() - 1)
