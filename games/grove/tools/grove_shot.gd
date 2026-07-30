@@ -9,6 +9,11 @@ extends SceneTree
 ##        ftue (fresh ledger → the live merge-drag hand hint) | ftuegen (merge taught → the live
 ##        generator-tap hand hint) | ftuesoil (L6 Soil-seed hand hint; phase=place for beat 2)
 ##
+## MODE=cascade takes `phase=`: run (default, frozen mid-run) | guide | dragfocus | seedguide |
+##        tagtarget | runway [hold=N] | two (two chains armed at once) | x2 (the shortest chain) |
+##        anything else (e.g. `rest`) = the armed marks at rest. `glow=dim|stronger|strongest`
+##        (shot_base) picks the contour's intensity, so one batched launch shoots every variant.
+##
 ## BYTE-DETERMINISTIC: same code + same MODE ⇒ identical PNG. The board RNG is pinned BEFORE the
 ## scene loads (board.gd's forced_rng_seed — _load_state randomizes on a fresh save, and the quest
 ## fence it then rolls decides every generator's + item line's dimming), the window size is forced
@@ -173,6 +178,27 @@ func _initialize() -> void:
 				}
 				if hold_tier > 0:
 					ready[Vector2i(6, 6)] = 100 + hold_tier
+			elif phase == "two":
+				# TWO chains armed at once, on ONE line, four rows apart so they can never join:
+				# a ×3 and a ×4, each with its own contour and its own ×n.
+				ready = {
+					Vector2i(1, 1): 101,
+					Vector2i(1, 2): 101,
+					Vector2i(1, 3): 102,
+					Vector2i(1, 4): 103,
+					Vector2i(5, 1): 101,
+					Vector2i(5, 2): 101,
+					Vector2i(5, 3): 102,
+					Vector2i(5, 4): 103,
+					Vector2i(5, 5): 104,
+				}
+			elif phase == "x2":
+				# the SHORTEST chain there is, at rest: one merge and one automatic follow-up.
+				ready = {
+					Vector2i(3, 1): 101,
+					Vector2i(3, 2): 101,
+					Vector2i(3, 3): 102,
+				}
 			else:
 				ready = {
 					Vector2i(3, 1): 101,
@@ -181,9 +207,9 @@ func _initialize() -> void:
 					Vector2i(3, 4): 103,
 					Vector2i(3, 5): 104,
 					Vector2i(6, 6): 101,
-					# phase=guide drags (6,6) toward (5,2). This run needs THREE rungs, not two: the
-					# guide only pads placements that would actually arm a cascade (CHAIN_MIN_N), so a
-					# x2 ladder here renders a bare board at exit 0 and the mode silently shows nothing.
+					# phase=guide drags (6,6) toward (5,2). Two rungs would arm now that CHAIN_MIN_N is 2,
+					# but the third is kept on purpose: the capture exists to show the guide's grammar,
+					# and a ×3 stage pad reads it back at more than the bare minimum length.
 					Vector2i(5, 1): 101,
 					Vector2i(5, 3): 102,
 					Vector2i(5, 4): 103,

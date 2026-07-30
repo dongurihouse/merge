@@ -77,6 +77,19 @@ func _settle() -> void:
 	await process_frame
 	await process_frame
 
+# Poll `cond` once a FRAME until it holds; returns whether it ever did inside `timeout`. For anything
+# driven by the Magnet's BEAT: the sweep is a chain of tree timers, so "how long until X" is not a
+# number a test can name — a fixed wait sized for one pull's slide lands inside the next one just as
+# easily (see _test_debug_pop_magnet_quick_press_waits_for_in_flight_slide). The timeout is a HANG
+# guard, not the thing being measured, so it is far longer than any beat.
+func _wait_until(cond: Callable, timeout := 3.0) -> bool:
+	var deadline := Time.get_ticks_msec() + int(timeout * 1000.0)
+	while Time.get_ticks_msec() < deadline:
+		if bool(cond.call()):
+			return true
+		await process_frame
+	return bool(cond.call())
+
 func _cell_center(scn: Node, cell: Vector2i) -> Vector2:
 	return scn._cell_pos(cell) + Vector2(scn.csz, scn.csz) * 0.5
 
@@ -1523,8 +1536,10 @@ func _test_debug_pop_magnet_quick_press_waits_for_in_flight_slide() -> void:
 	_clear_board_model(scn.board)
 	var magnet := Vector2i(4, 4)
 	ok(scn.board.build_improvement(magnet, Improvements.KIND_MAGNET), "fixture installs a Magnet under %s" % magnet)
+	_arm_merge_burst_opts(scn)
 	scn._rebuild_all()
 	await _settle()
+	var bursts := _watch_impact_bursts(scn)
 	var code: int = scn._debug_spawn_code()
 	scn.debug_pop_magnet()
 	await process_frame
@@ -1535,10 +1550,27 @@ func _test_debug_pop_magnet_quick_press_waits_for_in_flight_slide() -> void:
 	ok(scn.board.count_of(code) == 2, "the quick second press leaves its seeded pair waiting for the next Magnet beat")
 	ok(scn.get("_magnet_beat_armed") == true, "the queued debug pair keeps the Magnet beat armed")
 
-	await create_timer(0.55).timeout
-	await process_frame
-	ok(scn.board.count_of(code) == 0, "the queued debug pair merges on a later beat")
-	ok(_magnet_ghosts(scn).is_empty(), "the queued merge finishes its own slide")
+	# From here a WALL CLOCK cannot say when this is over, and the fixed 0.55s wait that used to stand
+	# here was not measuring what its label claimed. The Magnet does not stop at the queued pair: the two
+	# t2s the two presses leave are themselves a pair in its range, so a THIRD pull follows one beat
+	# behind the second, and a wait long enough for the queued slide to land drops just as easily INSIDE
+	# the next slide. Measured on this very assertion, ~4% of runs (4/85 at CHAIN_MIN_N 2, 3/85 at 3 —
+	# it is not a cascade; the Magnet path never reaches _prepare_chain). So wait for the STATES.
+	ok(await _wait_until(func() -> bool: return scn.board.count_of(code) == 0),
+		"the queued debug pair merges on a later beat")
+	ok(await _wait_until(func() -> bool: return not scn._magnet_fx_busy()),
+		"the Magnet's sweep runs itself out instead of stalling with a pull half-done")
+	# A landing is the ONLY thing that fires the impact and un-hides the produced tile, so one impact per
+	# pull is the durable proof that every slide finished rather than being rebuilt away mid-air — the
+	# queued pair's included. Three pulls: the first press's pair, the queued pair, and the two t2s those
+	# two leave behind. A slide that never lands shows up here as a missing burst, and below as a ghost
+	# still parented, a slide still pending, or a tile stuck invisible for good.
+	ok(int(bursts["n"]) == 3,
+		"the queued merge finishes its own slide — every pull lands its impact (got %d of 3)" % bursts["n"])
+	ok(_magnet_ghosts(scn).is_empty(), "no ghost is left in the air")
+	ok(scn._magnet_pending.is_empty(), "no slide is left pending")
+	ok(_hidden_pieces(scn).is_empty(),
+		"no tile is left hidden behind a slide that never landed (%s)" % [_hidden_pieces(scn).keys()])
 	scn.queue_free()
 
 # A placed Magnet with no room in its range is not a dead end: the next placed Magnet that DOES have

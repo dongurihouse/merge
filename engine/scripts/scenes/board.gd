@@ -116,8 +116,23 @@ const DRAG_LIFT_Z := HandHint.HAND_HINT_Z + 20   # FTUE: a lifted/dragged piece 
 const MERGE_TARGET_GROW := 0.30  # merge-only hit area added around each cell; move/swap keep exact-cell targeting
 const ANIM_WATCHDOG_SECS := 0.6
 const CHAIN_STEP_WATCHDOG_SECS := 2.0
-const CHAIN_MIN_N := 3
+const CHAIN_MIN_N := 2           # owner call 2026-07-29: a chain starts at ×2 (was 3). Resolves the
+                                 # spec's §11 open question. Drives the resting marks, the drag-guide
+                                 # filter, the cascade-vs-merge pad kind, and the arming gate in
+                                 # _prepare_chain. NOT the runway threshold — see RUNWAY_MIN_N.
+const RUNWAY_MIN_N := 3          # owner call 2026-07-29: the runway threshold is its OWN knob and stays
+                                 # at 3 while CHAIN_MIN_N went to 2. A chain ARMS at ×2, but a runway is
+                                 # the quiet "one piece away" telegraph, and at 2 it fires on nearly
+                                 # every board (measured over 200 randomised boards × 3 fill levels:
+                                 # mean 3.2–7.4 marks, peak 13, on 95–100 % of boards, against mean
+                                 # 0.2–0.7 on 13–44 % at 3).
 const CHAIN_PREROLL_MS := 300
+const CHAIN_PREROLL_X2_MS := 100 # owner call 2026-07-29: the ×2 pre-roll is shorter than the rest. A
+                                 # ×2 run is ONE hop and is already entirely on screen, so the
+                                 # telegraph has nothing to reveal — and at CHAIN_MIN_N = 2 it lands
+                                 # on the most ordinary merge in the game (measured input lock: 175 ms
+                                 # for a plain merge, 827 ms at ×2 with the full pre-roll). ×3 and
+                                 # longer keep CHAIN_PREROLL_MS.
 const CHAIN_STEP_MS := 250
 const CHAIN_STEP_RAMP_ENABLED := true
 const CHAIN_STEP_START_MS := 320
@@ -2559,7 +2574,7 @@ func _refresh_cascade_outline() -> void:
 	if outline == null:
 		return
 	outline.set_ladders(_armed_cascade_marks(BoardLogic.ready_ladders(board)))
-	outline.set_runways(BoardLogic.runways(board, CHAIN_MIN_N))
+	outline.set_runways(BoardLogic.runways(board, RUNWAY_MIN_N))
 
 func _show_cascade_drag_guides(from: Vector2i) -> void:
 	if not Features.on("cascade") or board == null or board.is_gen(from):
@@ -2649,7 +2664,7 @@ func _cascade_extension_pads(from: Vector2i, code: int, occupied: Dictionary) ->
 	for raw in _armed_cascade_marks(BoardLogic.ready_ladders(board)):
 		if raw is Dictionary and int((raw as Dictionary).get("line", 0)) == line:
 			components.append({"cells": _guide_run_cells(raw as Dictionary), "line": line})
-	for raw in BoardLogic.runways(board, CHAIN_MIN_N):
+	for raw in BoardLogic.runways(board, RUNWAY_MIN_N):
 		if raw is Dictionary and int((raw as Dictionary).get("line", 0)) == line:
 			components.append({"cells": _guide_run_cells(raw as Dictionary), "line": line})
 	var seen := {}
@@ -5519,15 +5534,21 @@ func _schedule_chain_step(current: Vector2i) -> void:
 	if not _chain_active or _chain_run.is_empty():
 		_finish_chain()
 		return
-	if _chain_n == 1 and not _chain_auto_step and CHAIN_PREROLL_MS > 0:
+	var preroll_ms := _chain_preroll_ms_for_n(1 + _chain_run.size())
+	if _chain_n == 1 and not _chain_auto_step and preroll_ms > 0:
 		_show_chain_preroll(current)
 		var tree := get_tree()
 		if tree != null:
-			tree.create_timer(float(CHAIN_PREROLL_MS) / 1000.0).timeout.connect(_run_chain_step.bind(current))
+			tree.create_timer(float(preroll_ms) / 1000.0).timeout.connect(_run_chain_step.bind(current))
 		else:
 			_run_chain_step.call_deferred(current)
 		return
 	_run_chain_step.call_deferred(current)
+
+# The hold before the FIRST automatic step, by the run's total length. Only ×2 is shortened; see
+# CHAIN_PREROLL_X2_MS. The step pace itself (_chain_step_ms_for_n) is untouched.
+func _chain_preroll_ms_for_n(n: int) -> int:
+	return CHAIN_PREROLL_X2_MS if n == 2 else CHAIN_PREROLL_MS
 
 func _show_chain_preroll(current: Vector2i) -> void:
 	if board == null or _chain_run.is_empty():

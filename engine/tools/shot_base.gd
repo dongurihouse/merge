@@ -173,6 +173,9 @@ static func begin(tree: SceneTree, cfg: Dictionary) -> Dictionary:
 	await _apply_size(tree, _size_from(args, cfg.get("size", SHOT_SIZE)))
 	_apply_weather(args, String(cfg.get("weather", "clear")))
 	_apply_cascade_phase(args)
+	if not _apply_cascade_glow(args):
+		finish(tree, 2)
+		return {}
 
 	var dir := ""
 	if bool(cfg.get("save", true)):
@@ -275,3 +278,16 @@ static func _apply_weather(args: Array, pinned: String) -> void:
 static func _apply_cascade_phase(args: Array) -> void:
 	var want := opt(args, "cascade_phase", str(CASCADE_PHASE))
 	CascadeOutline.forced_phase = -1.0 if want == "auto" else maxf(0.0, float(want))
+
+# The contour's INTENSITY, so one batched launch can shoot every level of it side by side instead of
+# one rebuild per variant. `glow=<level>` names one of CascadeOutline.LEVELS; anything else (and the
+# default) leaves the shipped pair, so every existing capture is byte-identical to before.
+static func _apply_cascade_glow(args: Array) -> bool:
+	var want := opt(args, "glow", "")
+	if want != "" and not CascadeOutline.LEVELS.has(want):
+		print("REFUSED: glow='%s' is not a cascade level — the capture would have shown the SHIPPED" % want)
+		print("one and been read as a variant of it.")
+		print("  valid levels: %s" % ", ".join(PackedStringArray(CascadeOutline.LEVELS.keys())))
+		return false
+	CascadeOutline.forced_level = want
+	return true

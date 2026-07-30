@@ -71,33 +71,66 @@ const RAILS := [
 
 ## …and the profile as it is DRAWN. The solved table reproduces the reference's own composite, but
 ## the reference is not this tray: in the game the band's amber (253,178,74) lands on a tray of
-## (213,163,35), so more opacity only converges on a colour barely separated from the ground —
-## MEASURED against real captures, ×1.6 on every alpha bought at most 34 channel levels and the mark
-## still read faint. Two knobs close the gap, applied ONCE to the solved table above:
+## (213,163,35), so more opacity only converges on a colour barely separated from the ground.
+## Three knobs shape it, applied ONCE to the solved table above:
 ##   ALPHA_LIFT   every rail's alpha, clamped — the band goes opaque where the profile peaked. It
 ##                multiplies the table, never the flow, so the travelling wave still modulates it.
+##                NOT an intensity knob any more: at 1.6 SIX consecutive band rails already clamp to
+##                a = 1.0 and the band's R composites at 252/255 over the tray, so more opacity buys
+##                three levels of red and nothing else (measured: 1.6 → 2.4 moves the peak
+##                band-minus-tray delta by 0.0, it only clamps a seventh rail).
 ##   CREAM_PULL   the gap rails OUTSIDE the tile edge — the ones riding the tray gutter — pulled
 ##                toward cream, so the mark separates from the tray by hue and value and not by
 ##                opacity alone. The hot line AT the tile edge (offset -1.000) is already near-cream
 ##                and it is the tile's own cut edge, so its colour is left exactly as solved; the two
 ##                rails inside it sit on the lit tile face, not on the tray, and are left too. The
-##                interior gutters take the same pull (see `lit_crack()`) — they ride tray as well.
+##                interior gutters take the same pull (see `lit_crack()`) — they ride tray as well,
+##                and ONE pull driving both is what keeps their warmth in agreement.
+##   BAND_WIDTH   how far those same rails REACH outward. The band is the only bright part of the
+##                mark and at 1.00 it is 8.1 px on a 130 px cell — 6 % of a cell — which is the real
+##                reason it reads faint in play. Widening it adds warm light without whitening
+##                anything, so it is the knob that carries most of a step up.
 const ALPHA_LIFT := 1.6
-const CREAM_PULL := 0.35
+const CREAM_PULL := 0.46
+const BAND_WIDTH := 1.45
+
+## The three intensities the owner chose between, as [cream pull, band width]. Switching the shipped
+## look is the two constants above; `glow=<name>` (engine/tools/shot_base.gd) pins one for a capture,
+## so ONE batched launch can shoot all three side by side. Peak band-minus-tray channel delta over
+## the game's own tray (213,163,35), and the band's outward reach:
+##   dim +117.9 / 8.1 px  ·  stronger +129.5 / 11.7 px  ·  strongest +139.9 / 15.3 px
+const LEVELS := {
+	"dim": [0.35, 1.00],             # what shipped before 2026-07-29 — the owner called it too dim twice
+	"stronger": [0.46, 1.45],
+	"strongest": [0.56, 1.90],       # the ceiling: past ~2.0 the band's outermost rail crosses the
+	                                 # innermost pitch-anchored haze rail and the strip self-crosses
+}
+
+## Pins the intensity for a capture, the way `forced_phase` pins the wave. Empty = the shipped pair.
+static var forced_level := ""
+
+static func cream_pull() -> float:
+	return float(Array(LEVELS[forced_level])[0]) if LEVELS.has(forced_level) else CREAM_PULL
+
+static func band_width() -> float:
+	return float(Array(LEVELS[forced_level])[1]) if LEVELS.has(forced_level) else BAND_WIDTH
 
 static var _lit_rails: Array = []
+static var _lit_pull := -1.0
 
 static func lit_rails() -> Array:
-	if not _lit_rails.is_empty():
+	var pull := cream_pull()
+	if not _lit_rails.is_empty() and is_equal_approx(pull, _lit_pull):
 		return _lit_rails
 	var out: Array = []
 	for raw in RAILS:
 		var rail: Array = raw
 		var colour: Color = rail[2]
 		if int(rail[0]) == ANCHOR_GAP and float(rail[1]) > -1.0:
-			colour = colour.lerp(Pal.CREAM, CREAM_PULL)
+			colour = colour.lerp(Pal.CREAM, pull)
 		out.append([rail[0], rail[1], colour, minf(float(rail[3]) * ALPHA_LIFT, 1.0), rail[4]])
 	_lit_rails = out
+	_lit_pull = pull
 	return _lit_rails
 
 # The chain's own tiles, lit from underneath: a warm wash that is brightest at the tile edge and
@@ -120,8 +153,11 @@ const CRACK_A := 0.88
 ## band rails, so the band and the interior read as ONE object. It is a function rather than an
 ## inline lerp at the call site so the guard in grove_cascade_tests.gd can assert on the colour the
 ## drawing actually uses — a test that recomputed the lerp would pass however the call site drifted.
+## It reads `cream_pull()`, NOT the constant: a capture that pins an intensity (`glow=dim`) moves the
+## band rails through that function, and a gutter still on the raw constant would leave the interior
+## amber against a cream ring in exactly the captures meant to compare the intensities.
 static func lit_crack() -> Color:
-	return CRACK_COLOR.lerp(Pal.CREAM, CREAM_PULL)
+	return CRACK_COLOR.lerp(Pal.CREAM, cream_pull())
 
 ## The hue every rail colour above is written against; `_tint` carries the profile's colour across
 ## to the live line as a shift from it, so a green line glows green without losing the hot core.
@@ -294,17 +330,63 @@ func _draw_chain_glow(raw_cells: Array, base: Color, strength: float, reach: flo
 		_poly(raw_quad as Array, crack, null)
 
 ## Where each rail sits, in px, outward positive. A runway passes `reach` < 1 and gets a tighter
-## halo; the gap- and corner-anchored rails do not scale, so the hot line stays ON the tile edge and
-## the inward spill stays inside the corner radius whatever the mark's strength.
+## halo; the gap- and corner-anchored rails do not scale with it, so the hot line stays ON the tile
+## edge and the inward spill stays inside the corner radius whatever the mark's strength. BAND_WIDTH
+## is the separate, mark-independent knob: it widens the tray-riding rails only — everything from the
+## tile edge inward keeps its solved offset, so a wider band never moves the hot line.
 func _rail_offsets(m: Dictionary, reach: float) -> PackedFloat32Array:
 	var offs := PackedFloat32Array()
+	var width := _band_width_for(m, reach)
 	for raw in lit_rails():
 		var rail: Array = raw
 		var anchor := int(rail[0])
 		var unit: float = float(m["pitch"]) * reach if anchor == ANCHOR_PITCH \
 			else (float(m["gap"]) if anchor == ANCHOR_GAP else float(m["corner"]))
-		offs.append(float(rail[1]) * unit)
+		var mult := float(rail[1])
+		# OUTWARD only. The rails between the contour and the tile edge (offset -1..0) sit in a gutter
+		# whose width is the board's, not this knob's — scaling them just walks them toward the tile
+		# edge and, past width ~1.4, THROUGH it: -0.702 x 1.45 = -1.018 lands inside the hot line and
+		# the strip folds. So the band grows out over the neighbouring tile, which is what light
+		# pooling from under the chain does anyway.
+		if anchor == ANCHOR_GAP and mult > 0.0:
+			mult *= width
+		offs.append(mult * unit)
 	return offs
+
+## BAND_WIDTH, capped by the geometry it is drawn into. The rails are the ROWS of one triangle strip,
+## so they have to stay strictly outward-to-inward: let the widened band's outermost rail climb past
+## the innermost pitch-anchored haze rail and the strip folds through itself. Two things make that
+## reachable — a board whose gutter is a big share of its pitch (the workbench's 40 px cells), and a
+## runway, whose `reach` shrinks the haze while the gap-anchored band deliberately does not scale.
+## Scaling the whole band down together keeps the profile's shape and the ordering. The cap never
+## bites at BAND_WIDTH = 1.0: it can only take back width this knob added, never narrow the solved
+## profile, so a board that drew correctly before draws identically now.
+func _band_width_for(m: Dictionary, reach: float) -> float:
+	var base := _band_span() * float(m["gap"])
+	if base <= 0.0:
+		return band_width()
+	var lid := _haze_floor() * float(m["pitch"]) * reach * BAND_LID
+	var cap := maxf(base, lid)
+	var want := base * band_width()
+	return band_width() if want <= cap else cap / base
+
+const BAND_LID := 0.92               # clearance kept under the innermost haze rail
+
+## The two multipliers the cap is measured between, read off RAILS so re-solving the profile carries
+## them along: how far the tray-riding band reaches, and how close the haze comes to it.
+static func _band_span() -> float:
+	var out := 0.0
+	for raw in RAILS:
+		if int(raw[0]) == ANCHOR_GAP and float(raw[1]) > 0.0:
+			out = maxf(out, float(raw[1]))
+	return out
+
+static func _haze_floor() -> float:
+	var out := INF
+	for raw in RAILS:
+		if int(raw[0]) == ANCHOR_PITCH:
+			out = minf(out, float(raw[1]))
+	return 0.0 if out == INF else out
 
 ## A rail's colour on THIS line: the profile's own colour carried across as a shift from the
 ## reference gold, so the hot core stays paler than the band and the haze deeper, while the line

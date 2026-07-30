@@ -7,6 +7,7 @@ const RNG_SEED := 20260727   # any fixed value; the point is that it does not ch
 const CascadeOutline = preload("res://engine/scripts/ui/cascade_outline.gd")
 const Contour = preload("res://engine/scripts/ui/cell_contour.gd")
 const Improvements = preload("res://engine/scripts/core/improvements.gd")
+const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 
 ## How far the interior gutters may sit from the outer band in warm shift. Not a threshold to taste:
 ## CRACK_COLOR and the band rails' mean differ by 0.0318 in RAW warm shift, and a shared pull `p`
@@ -17,9 +18,10 @@ const BAND_GUTTER_WARM_TOL := 0.04
 func _initialize() -> void:
 	begin("grove · cascade combos")
 	await process_frame
-	await _test_x2_ladder_does_not_arm_cascade()
+	await _test_x2_ladder_arms_a_cascade()
 	await _test_drag_merge_auto_runs_and_locks_input()
 	await _test_preroll_delays_first_auto_step_and_telegraphs_run()
+	await _test_x2_preroll_is_shorter_than_a_longer_run()
 	await _test_chain_step_timing_ramps()
 	await _test_chain_counter_anchors_at_run_origin()
 	await _test_chain_trigger_keeps_board_undimmed()
@@ -33,15 +35,18 @@ func _initialize() -> void:
 	await _test_drag_focuses_the_held_cascade_path()
 	await _test_drag_stage_starts_from_single_tier_neighbors()
 	await _test_runway_resting_outline_without_needed_tier_tag()
+	await _test_runway_threshold_is_independent_of_chain_min_n()
 	await _test_drag_cascade_tag_sits_on_drop_target()
 	await _test_ready_ladder_glow_excludes_duplicate_tip_source()
 	await _test_runway_drag_guide_strengths_use_real_input()
 	await _test_ready_outline_stays_between_slots_and_pieces_with_stale_generator_nodes()
 	await _test_ready_outline_and_flag_off()
+	await _test_two_chains_arm_and_draw_at_once()
 	_test_contour_covers_bends_branches_rings_and_pinches()
 	_test_contour_rounds_and_resamples_for_drawing()
 	_test_landscape_outline_uses_transposed_geometry()
 	_test_runway_glow_is_weaker_than_an_armed_ladder()
+	_test_glow_levels_stay_ordered_and_equally_warm()
 	_test_chain_gutters_carry_the_band_warmth()
 	_test_cascade_phase_pins_for_captures()
 	BoardScriptRef.forced_rng_seed = -1        # leave the static as we found it
@@ -127,6 +132,15 @@ func _wait_for_idle(b: Node, timeout: float = 2.0) -> void:
 	while (bool(b.animating) or b.chain_running()) and waited < timeout:
 		await create_timer(0.05).timeout
 		waited += 0.05
+
+# Wall-clock milliseconds from the player's drop to the run's first AUTOMATIC step. The tipping
+# merge's own slide plus the pre-roll; used as a difference so only the pre-roll survives.
+func _ms_to_first_auto_step(b: Node, timeout_ms: int = 3000) -> float:
+	var t0 := Time.get_ticks_msec()
+	_drag_merge(b, Vector2i(3, 1), Vector2i(3, 2))
+	while not bool(b.get("_chain_auto_step")) and Time.get_ticks_msec() - t0 < timeout_ms:
+		await process_frame
+	return float(Time.get_ticks_msec() - t0)
 
 func _wait_for_auto_step_in_flight(b: Node, frames: int = 90) -> bool:
 	for _i in frames:
@@ -322,19 +336,28 @@ func _segment_is_horizontal(seg: Array) -> bool:
 	return seg.size() == 2 and is_equal_approx(Vector2(seg[0]).y, Vector2(seg[1]).y) \
 		and not is_equal_approx(Vector2(seg[0]).x, Vector2(seg[1]).x)
 
-func _test_x2_ladder_does_not_arm_cascade() -> void:
-	var b := _open_board("cascade_x2_does_not_arm")
+# CHAIN_MIN_N is 2 (owner call 2026-07-29): the shortest possible run — one player merge and one
+# automatic follow-up — IS a chain. It telegraphs at rest, it arms, and it auto-steps. It pays
+# nothing: chain_reward_code starts its chest ladder at 3, and that is deliberate, not an oversight.
+func _test_x2_ladder_arms_a_cascade() -> void:
+	var b := _open_board("cascade_x2_arms")
 	await process_frame
 	_blank_fixture(b, {
 		Vector2i(3, 1): 101,
 		Vector2i(3, 2): 101,
 		Vector2i(3, 3): 102,
 	})
-	ok(_outline_ladder_count(b) == 0, "a x2-only ladder does not draw a cascade telegraph")
+	await process_frame
+	ok(_outline_ladder_count(b) == 1 and _outline_has_tag(b, "×2"), \
+		"a x2 ladder draws its own cascade telegraph (%s)" % str(_outline_label_texts(b)))
 	_drag_merge(b, Vector2i(3, 1), Vector2i(3, 2))
-	await _wait_for_idle(b)
-	ok(not b.chain_running() and b.board.item_at(Vector2i(3, 2)) == 102 and b.board.item_at(Vector2i(3, 3)) == 102, \
-		"a x2-only ladder resolves as an ordinary merge and does not arm a cascade")
+	ok(b.chain_running() and b.animating, "the x2 merge arms a chain instead of resolving as one merge")
+	await _wait_for_idle(b, 3.0)
+	ok(not b.chain_running() and b.board.item_at(Vector2i(3, 3)) == 103 \
+		and _line_of(b.board.item_at(Vector2i(3, 2))) != 1, \
+		"the x2 run auto-steps: the upgrade slides onto its partner and lands at t3")
+	ok(BoardLogic.chain_reward_code(2) == 0 and not G.is_chest(b.board.item_at(Vector2i(3, 2))), \
+		"a x2 run pays no chest — the reward ladder still starts at x3")
 	b.queue_free()
 
 func _test_drag_merge_auto_runs_and_locks_input() -> void:
@@ -377,6 +400,49 @@ func _test_preroll_delays_first_auto_step_and_telegraphs_run() -> void:
 		"pre-roll keeps the next partner in place while the exact run is telegraphed")
 	await _wait_for_idle(b, 3.0)
 	b.queue_free()
+
+# A x2 run is one hop and is already entirely on screen, so its pre-roll is shortened
+# (CHAIN_PREROLL_X2_MS); x3 and longer keep the full CHAIN_PREROLL_MS telegraph. Same 0.16s probe as
+# the test above, on the same drag path: by then the x2 has already taken its automatic step, where
+# the x3 has not.
+func _test_x2_preroll_is_shorter_than_a_longer_run() -> void:
+	ok(int(BoardScriptRef.CHAIN_PREROLL_X2_MS) > 0 \
+		and int(BoardScriptRef.CHAIN_PREROLL_X2_MS) < int(BoardScriptRef.CHAIN_PREROLL_MS), \
+		"the x2 pre-roll constant is shorter than the full one (%d vs %d ms)" % \
+		[int(BoardScriptRef.CHAIN_PREROLL_X2_MS), int(BoardScriptRef.CHAIN_PREROLL_MS)])
+	var b := _open_board("cascade_preroll_x2")
+	await process_frame
+	ok(b.has_method("_chain_preroll_ms_for_n") \
+		and int(b.call("_chain_preroll_ms_for_n", 2)) == int(BoardScriptRef.CHAIN_PREROLL_X2_MS) \
+		and int(b.call("_chain_preroll_ms_for_n", 3)) == int(BoardScriptRef.CHAIN_PREROLL_MS) \
+		and int(b.call("_chain_preroll_ms_for_n", 6)) == int(BoardScriptRef.CHAIN_PREROLL_MS), \
+		"only x2 is shortened — x3 and longer keep the full pre-roll")
+	_blank_fixture(b, {
+		Vector2i(3, 1): 101,
+		Vector2i(3, 2): 101,
+		Vector2i(3, 3): 102,
+	})
+	var t_x2: float = await _ms_to_first_auto_step(b)
+	await _wait_for_idle(b, 3.0)
+	b.queue_free()
+
+	# Same tipping merge on the same cells, one rung longer — so the DIFFERENCE is the pre-roll and
+	# nothing else, and the test does not depend on how long the player's own merge slide takes.
+	var b3 := _open_board("cascade_preroll_x3")
+	await process_frame
+	_blank_fixture(b3, {
+		Vector2i(3, 1): 101,
+		Vector2i(3, 2): 101,
+		Vector2i(3, 3): 102,
+		Vector2i(3, 4): 103,
+	})
+	var t_x3: float = await _ms_to_first_auto_step(b3)
+	var want: float = float(int(BoardScriptRef.CHAIN_PREROLL_MS) - int(BoardScriptRef.CHAIN_PREROLL_X2_MS))
+	ok(t_x2 < t_x3 and absf((t_x3 - t_x2) - want) < 90.0, \
+		"the x2 run reaches its first step %.0f ms before the x3 run does (the pre-roll gap, %.0f ms)" % \
+		[t_x3 - t_x2, want])
+	await _wait_for_idle(b3, 3.0)
+	b3.queue_free()
 
 func _test_chain_step_timing_ramps() -> void:
 	var b := _open_board("cascade_step_ramp")
@@ -747,6 +813,31 @@ func _test_runway_resting_outline_without_needed_tier_tag() -> void:
 		"an armed ladder keeps the stronger xN mark instead of the runway tag")
 	b.queue_free()
 
+# The runway threshold is RUNWAY_MIN_N (3), NOT CHAIN_MIN_N (2). A chain ARMS at x2, but a runway is
+# the quiet "one piece away" telegraph and at 2 it fires on nearly every board (mean 3.2-7.4 marks
+# against 0.2-0.7; spec §11). The fixture holds one component of each kind, so re-coupling the two
+# constants changes the drawn count and fails here.
+func _test_runway_threshold_is_independent_of_chain_min_n() -> void:
+	var b := _open_board("cascade_runway_threshold")
+	await process_frame
+	_blank_fixture(b, {
+		Vector2i(3, 1): 102,   # t2·t3·t4 — one t2 away from a x3 run
+		Vector2i(3, 2): 103,
+		Vector2i(3, 3): 104,
+		Vector2i(6, 1): 202,   # t2·t3 on another line — one t2 away from a x2 run, and no further
+		Vector2i(6, 2): 203,
+	})
+	await process_frame
+	var at_chain_min: int = BoardLogic.runways(b.board, BoardScriptRef.CHAIN_MIN_N).size()
+	var at_runway_min: int = BoardLogic.runways(b.board, BoardScriptRef.RUNWAY_MIN_N).size()
+	ok(at_chain_min == 2 and at_runway_min == 1,
+		"the fixture separates the two thresholds: %d runways at CHAIN_MIN_N, %d at RUNWAY_MIN_N" % [at_chain_min, at_runway_min])
+	ok(_outline_runway_count(b) == at_runway_min and _outline_runway_count(b) != at_chain_min,
+		"the board draws the RUNWAY_MIN_N set, not the CHAIN_MIN_N set (drew %d)" % _outline_runway_count(b))
+	ok(BoardScriptRef.RUNWAY_MIN_N > BoardScriptRef.CHAIN_MIN_N,
+		"a runway needs a longer would-be run than the arming floor (%d vs %d)" % [BoardScriptRef.RUNWAY_MIN_N, BoardScriptRef.CHAIN_MIN_N])
+	b.queue_free()
+
 func _test_drag_cascade_tag_sits_on_drop_target() -> void:
 	var b := _open_board("cascade_drag_tag_drop_target")
 	await process_frame
@@ -802,12 +893,13 @@ func _test_runway_drag_guide_strengths_use_real_input() -> void:
 	#   stage   = an empty cell; placing there builds the ladder and fires nothing
 	# Holding a t2 is the payoff: ONE cascade mark on the t2 itself, and the staging cells around
 	# it are suppressed so the eye has one place to go. t1/t5 cannot merge with anything, so they
-	# only stage. t3/t4 merge but stop short of CHAIN_MIN_N, so they stay ordinary while still
-	# showing weak build pads beside the single lower/higher neighboring tiers.
+	# only stage. At CHAIN_MIN_N = 2 the held t3 joins the t2 as a chain-maker — t3+t3 → t4 lands on
+	# the board's own t4 — so it too draws one cascade mark and suppresses its staging cells. Only
+	# the t4 still merges without running: t4+t4 → t5 and there is no t5 to catch it.
 	var want := {
 		1: {"cascade": 0, "merge": 0, "stage": 3},
 		2: {"cascade": 1, "merge": 0, "stage": 0},
-		3: {"cascade": 0, "merge": 1, "stage": 6},
+		3: {"cascade": 1, "merge": 0, "stage": 0},
 		4: {"cascade": 0, "merge": 1, "stage": 2},
 		5: {"cascade": 0, "merge": 0, "stage": 3},
 	}
@@ -868,7 +960,14 @@ func _test_ready_outline_and_flag_off() -> void:
 	ok(_outline_stack_is_visible_between_board_and_items(b), "ready outline renders above the mat and slot tiles")
 	b.board.place(Vector2i(3, 4), 0)
 	b._rebuild_all()
-	ok(_outline_ladder_count(b) == 0, "removing the upgraded rung clears the cascade outline")
+	await process_frame
+	ok(_outline_ladder_count(b) == 1 and _outline_has_tag(b, "×2"), \
+		"removing the top rung shortens the mark to ×2 rather than clearing it (CHAIN_MIN_N = 2)")
+	b.board.place(Vector2i(3, 3), 0)
+	b._rebuild_all()
+	await process_frame
+	ok(_outline_ladder_count(b) == 0, \
+		"a bare pair with nothing for the upgrade to land on clears the cascade outline")
 	b.queue_free()
 
 	Feat.FLAGS["cascade"] = false
@@ -892,6 +991,50 @@ func _test_ready_outline_and_flag_off() -> void:
 	off._on_release(off._cell_pos(Vector2i(3, 2)) + half)
 	off.queue_free()
 	Feat.FLAGS["cascade"] = original
+
+# TWO chains armed at the same time. Nothing anywhere picks a single best: `ready_ladders` appends
+# EVERY same-line component that scores, `_armed_cascade_marks` keeps them all, `_draw` loops every
+# entry and `_rebuild_tags` dedups per CELL rather than per chain. Two components of the SAME line is
+# the case that could have collapsed — `ready_ladders` walks the board with one shared `visited` map —
+# so pin that one, and pin that the result is drawn as two SEPARATE contours with their own ×n each.
+func _test_two_chains_arm_and_draw_at_once() -> void:
+	var b := _open_board("cascade_two_chains_at_once")
+	await process_frame
+	# One line, two components four rows apart so they can never join: a ×3 and a ×4.
+	_blank_fixture(b, {
+		Vector2i(1, 1): 101,
+		Vector2i(1, 2): 101,
+		Vector2i(1, 3): 102,
+		Vector2i(1, 4): 103,
+		Vector2i(5, 1): 101,
+		Vector2i(5, 2): 101,
+		Vector2i(5, 3): 102,
+		Vector2i(5, 4): 103,
+		Vector2i(5, 5): 104,
+	})
+	await process_frame      # _rebuild_tags queue_free()s the previous chips; let the frees land
+	ok(_outline_ladder_count(b) == 2,
+		"two separate same-line components each arm their own ladder (got %d)" % _outline_ladder_count(b))
+	ok(_outline_number_tag_count(b) == 2 and _outline_has_tag(b, "×3") and _outline_has_tag(b, "×4"),
+		"each armed chain carries its own ×n, sized to its own length (%s)" % str(_outline_label_texts(b)))
+	var o := _outline(b)
+	var boxes: Array = []
+	for raw in Array(o.get("ladders")):
+		var run := Array((raw as Dictionary).get("run", []))
+		ok(not run.is_empty(), "each armed entry carries the run its contour is built from")
+		boxes.append(_loop_bounds(o, run))
+	ok(boxes.size() == 2 and not (boxes[0] as Rect2).intersects(boxes[1] as Rect2),
+		"the two chains draw two separate contours, not one shape spanning both")
+	# and a second line arming beside them is a third mark, not a replacement.
+	b.board.place(Vector2i(3, 1), 201)
+	b.board.place(Vector2i(3, 2), 201)
+	b.board.place(Vector2i(3, 3), 202)
+	b.board.place(Vector2i(3, 4), 203)
+	b._rebuild_all()
+	await process_frame
+	ok(_outline_ladder_count(b) == 3 and _outline_number_tag_count(b) == 3,
+		"a third chain on another line adds a mark rather than replacing one (got %d)" % _outline_ladder_count(b))
+	b.queue_free()
 
 # The contour's ONE rule has to cover every shape a run or a component can take, so pin the shapes
 # a straight-row fixture can never show: a bend, a T, a closed ring with a hole, and the DIAGONAL
@@ -1040,6 +1183,76 @@ func _test_runway_glow_is_weaker_than_an_armed_ladder() -> void:
 	ok(half.a < full.a, "the runway's light is half as strong at every rail")
 	outline.free()
 
+# The contour's INTENSITY has three named levels and a wider BAND_WIDTH is most of the step up
+# between them, so pin the two things a wider band can break:
+#   * the rails must stay strictly outward-to-inward. They are the rows of ONE triangle strip; let
+#     the widened band's outermost rail cross the innermost pitch-anchored haze rail and the mesh
+#     folds through itself.
+#   * band and interior gutters must carry the SAME warmth. They ride the same tray, and one
+#     CREAM_PULL drives both — measured as R-B on the drawn colours, which is the property of the
+#     constants rather than of whatever happens to sit under a given pixel.
+func _test_glow_levels_stay_ordered_and_equally_warm() -> void:
+	var outline := CascadeOutline.new()
+	outline.configure(Vector2(400, 400), 40.0, Callable(self, "_landscape_outline_pos"))
+	# `_rail_offsets` reads nothing but these three lengths, so hand it the geometries that matter
+	# instead of only the one this workbench Control happens to make. The phone board and the 40 px
+	# workbench cell differ by 5× in gutter-to-pitch ratio, and the first cut of BAND_WIDTH ordered
+	# correctly on the workbench while folding the strip on the real board.
+	var geoms := {
+		"phone board": _metrics_for(129.91, 131.91),
+		"workbench": Dictionary(outline.call("_chain_geometry", [Vector2i(1, 1), Vector2i(1, 2)]))["metrics"],
+		"small cells": _metrics_for(60.0, 66.0),
+		"tablet board": _metrics_for(220.0, 222.0),
+	}
+	var before := CascadeOutline.forced_level
+	var levels: Array = CascadeOutline.LEVELS.keys()
+	levels.append("")                                       # "" = whatever is shipped
+	for raw_level in levels:
+		var level := String(raw_level)
+		CascadeOutline.forced_level = level
+		var name := level if level != "" else "shipped"
+		var m: Dictionary = {}
+		for raw_geom in geoms:
+			m = Dictionary(geoms[raw_geom])
+			for reach in [1.0, 0.78]:
+				var offs: PackedFloat32Array = outline.call("_rail_offsets", m, reach)
+				var ordered := true
+				for i in offs.size() - 1:
+					ordered = ordered and offs[i] > offs[i + 1]
+				ok(ordered, "glow '%s' keeps its rails strictly outward-to-inward on the %s at reach %.2f (%s)" \
+					% [name, String(raw_geom), reach, str(offs)])
+			# the hot line is anchored to the tile's cut edge and a wider band must never move it
+			var hot_at := _rail_index(func(rail): return int(rail[0]) == CascadeOutline.ANCHOR_GAP \
+				and is_equal_approx(float(rail[1]), -1.0))
+			var hot: PackedFloat32Array = outline.call("_rail_offsets", m, 1.0)
+			ok(hot_at >= 0 and is_equal_approx(hot[hot_at], -1.0 * float(m["gap"])), \
+				"glow '%s' leaves the hot line ON the %s's tile edge (%.3f px vs %.3f)" \
+				% [name, String(raw_geom), hot[maxi(hot_at, 0)], -1.0 * float(m["gap"])])
+		# warmth is read on the OUTERMOST fully opaque tray rail: a part-transparent one composites
+		# toward the tray's own R-B and would report the ground's warmth, not the band's.
+		var band_at := _rail_index(func(rail): return int(rail[0]) == CascadeOutline.ANCHOR_GAP \
+			and float(rail[1]) > -1.0 and float(rail[3]) * CascadeOutline.ALPHA_LIFT >= 1.0)
+		var band: Color = Array(CascadeOutline.lit_rails()[band_at])[2]
+		var gutter: Color = CascadeOutline.CRACK_COLOR.lerp(Pal.CREAM, CascadeOutline.cream_pull())
+		var warmth := absf((band.r - band.b) - (gutter.r - gutter.b)) * 255.0
+		ok(warmth <= 4.0, "glow '%s' keeps band and gutters equally warm (R-B apart by %.1f levels)" \
+			% [name, warmth])
+	CascadeOutline.forced_level = before
+	outline.free()
+
+# `_metrics()`'s own arithmetic, so a synthetic geometry is one the renderer could really be handed
+# rather than three numbers picked to disagree with each other.
+func _metrics_for(cell: float, pitch: float) -> Dictionary:
+	var gap := (pitch - cell) * 0.5 + cell * CascadeOutline.TILE_INSET_FRAC
+	return {"pitch": pitch, "gap": gap, "corner": cell * CascadeOutline.TILE_RADIUS_FRAC + gap}
+
+# The first rail (outermost first) the predicate accepts, or -1. Named by what it IS rather than by
+# an index counted back from the table's end, so re-solving the profile cannot silently retarget it.
+func _rail_index(pred: Callable) -> int:
+	for i in CascadeOutline.RAILS.size():
+		if bool(pred.call(CascadeOutline.RAILS[i])):
+			return i
+	return -1
 # The mark is ONE contour of light, so the two surfaces that ride the tray gutter — the outer band
 # rails and the interior gutters between two chain cells — must carry the same cream pull. 29869557
 # pulled the band and not the gutters and shipped amber bars crossing a cream ring; c6a0e524 closed
