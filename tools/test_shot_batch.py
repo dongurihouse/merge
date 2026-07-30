@@ -24,6 +24,8 @@ WHAT IT ASSERTS
      guard on it: the batched cascade shot must equal both its twin later in the same batch AND the
      same shot taken alone. Without the pin the two paths differ, so a regression that unpins it
      fails here rather than silently rewriting every cascade capture's bytes.
+  4. CLEAN WARM HANDOFF — a later item cannot print a SCRIPT ERROR at exit code 0. The
+     cascade-guide → mastery-reveal pair exercises the root-owned audio voice pool across reset.
 
 WHAT IT DELIBERATELY DOES NOT ASSERT. Every item of a long batch is NOT byte-identical to its cold
 single-shot twin. A mode whose fixture is still ANIMATING at the capture instant (measured:
@@ -91,7 +93,8 @@ def main() -> int:
     tmp = Path(tempfile.mkdtemp(prefix="tu_shotbatch_"))
     # widget first (it is the cheapest tool, and item 1 is the one compared against a single shot),
     # then a grove item to make the process warm and to change the global state a batch has to
-    # reset, then the SAME two again to check position independence.
+    # reset, then the SAME two again to check position independence. The final cascade→mastery
+    # pair makes audio in one Grove scene and uses it in the next, covering the root voice pool.
     plan = tmp / "plan.txt"
     plan.write_text(
         f"widget {tmp}/widget_1.png 104 104:glow\n"
@@ -99,7 +102,9 @@ def main() -> int:
         f"grove cascade {tmp}/cascade_1.png phase=runway\n"
         f"widget {tmp}/widget_2.png 104 104:glow\n"
         f"grove hud {tmp}/grove_2.png\n"
-        f"grove cascade {tmp}/cascade_2.png phase=runway\n")
+        f"grove cascade {tmp}/cascade_2.png phase=runway\n"
+        f"grove cascade {tmp}/cascade_guide.png phase=guide\n"
+        f"grove mastery {tmp}/mastery_reveal.png phase=reveal\n")
 
     batched = run(["-s", BATCH, "--", str(plan)])
     single = run(["-s", WIDGET, "--", str(tmp / "widget_single.png"), "104", "104:glow"])
@@ -110,8 +115,14 @@ def main() -> int:
         if proc.returncode != 0:
             failures.append(f"the {name} run exited {proc.returncode} — this guard proves nothing\n"
                             f"{proc.stdout[-2000:]}{proc.stderr[-2000:]}")
-    wanted = ["widget_1.png", "widget_2.png", "grove_1.png", "grove_2.png", "widget_single.png",
-              "cascade_1.png", "cascade_2.png", "cascade_single.png"]
+        combined = proc.stdout + proc.stderr
+        if "SCRIPT ERROR" in combined:
+            failures.append(
+                f"the {name} run printed a SCRIPT ERROR despite exiting zero — warm-process "
+                f"singleton state survived between capture items\n{combined[-2000:]}")
+    wanted = ["widget_1.png", "widget_2.png", "grove_1.png", "grove_2.png",
+              "cascade_1.png", "cascade_2.png", "cascade_single.png",
+              "cascade_guide.png", "mastery_reveal.png", "widget_single.png"]
     missing = [w for w in wanted if not (tmp / w).exists()]
     if missing:
         failures.append(f"missing capture(s): {missing} — nothing was rendered to compare")

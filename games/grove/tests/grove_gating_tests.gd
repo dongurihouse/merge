@@ -3,6 +3,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ## registry, and the mastery reveal clamp. Spec: docs/superpowers/specs/2026-07-29-feature-level-gating-design.md
 
 const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
+const Debug = preload("res://engine/scripts/ui/debug.gd")
 const BoardLogicRef = preload("res://engine/scripts/core/board_logic.gd")
 const Improvements = preload("res://engine/scripts/core/improvements.gd")
 const Mastery = preload("res://engine/scripts/core/mastery.gd")
@@ -18,6 +19,10 @@ func _initialize() -> void:
 	_test_table_thresholds()
 	_test_unknown_id_fails_closed()
 	_test_revealed_is_separate_from_armed()
+	_test_debug_reset_clears_every_unlock_key()
+	_test_debug_gate_rows_bind_their_explicit_ids()
+	_test_debug_gate_panel_is_forbidden_in_release_builds()
+	_test_every_table_id_has_an_exact_read_site()
 	_test_weather_gate_needs_the_level()
 	_test_magnet_seed_cannot_drop_before_its_level()
 	_test_magnet_staging_waits_before_granting()
@@ -53,6 +58,92 @@ func _initialize() -> void:
 ## Set the coin clock so G.level() reads exactly `lvl`.
 func _set_level(lvl: int) -> void:
 	Save.earn_coins(G.coins_at_level(lvl) - Save.coins_earned_lifetime())
+
+class GateDebugHost extends Control:
+	var rebuild_calls := 0
+
+	func _rebuild_all() -> void:
+		rebuild_calls += 1
+
+func _debug_button(menu: Control, label: String) -> Button:
+	for child in menu.get_children():
+		if child is Button and (child as Button).text == label:
+			return child as Button
+	return null
+
+func _test_debug_reset_clears_every_unlock_key() -> void:
+	fresh("gate_debug_reset")
+	for id in FeatureGate.ids():
+		FeatureGate.mark_revealed(String(id))
+	for id in FeatureGate.ids():
+		ok(FeatureGate.revealed(String(id)), "%s revealed before the reset" % id)
+	Debug._act_reset_gates(null)
+	for id in FeatureGate.ids():
+		ok(not FeatureGate.revealed(String(id)), "%s cleared by the debug reset" % id)
+
+## The break this catches is a chained bind reversing (host, id), or a new table
+## entry never receiving both owner actions in the debug panel.
+func _test_debug_gate_rows_bind_their_explicit_ids() -> void:
+	fresh("gate_debug_rows")
+	var menu := VBoxContainer.new()
+	var host := GateDebugHost.new()
+	Debug._feature_gate_actions(menu, host)
+	ok(menu.get_child_count() == FeatureGate.ids().size() * 2 + 1,
+		"the debug panel wires Arm + Reveal for every table id, plus one reset")
+	for id_variant in FeatureGate.ids():
+		var id := String(id_variant)
+		var arm := _debug_button(menu, "Arm %s (L%d)" % [id, FeatureGate.level_for(id)])
+		var reveal := _debug_button(menu, "Reveal %s" % id)
+		ok(arm != null and reveal != null,
+			"%s has separately aimable Arm and Reveal rows" % id)
+		var rebuilds_before := host.rebuild_calls
+		if arm != null:
+			arm.pressed.emit()
+		ok(G.level() >= FeatureGate.level_for(id) and host.rebuild_calls == rebuilds_before + 1,
+			"Arm %s lifts its own gate and refreshes a live rebuild host immediately" % id)
+		ok(not FeatureGate.revealed(id),
+			"Arm %s does not accidentally invoke its Reveal neighbor" % id)
+		if reveal != null:
+			reveal.pressed.emit()
+		ok(FeatureGate.revealed(id),
+			"Reveal %s binds the explicit id into its own ledger key" % id)
+	var reset := _debug_button(menu, "Reset feature gates")
+	if reset != null:
+		reset.pressed.emit()
+	ok(reset != null, "the gate rows include one Reset feature gates action")
+	for id_variant in FeatureGate.ids():
+		var id := String(id_variant)
+		ok(not FeatureGate.revealed(id), "the wired reset row clears %s" % id)
+	menu.free()
+	host.free()
+
+## A release export can still receive TU_DEBUG/debug arguments; the build guard
+## wins before either explicit authoring switch is allowed to mount the panel.
+func _test_debug_gate_panel_is_forbidden_in_release_builds() -> void:
+	ok(not Debug._panel_allowed(false, "macOS", false, true),
+		"a release build cannot mount debug actions even when authoring was explicitly requested")
+	ok(Debug._panel_allowed(true, "macOS", false, true),
+		"a debug build with explicit authoring may mount the panel")
+	ok(not Debug._panel_allowed(true, "headless", false, true)
+			and not Debug._panel_allowed(true, "macOS", true, true),
+		"headless and quiet guards still suppress debug-build panel chrome")
+
+## A FEATURE_LEVEL entry with no gate consumer is dead data that reads as coverage.
+## Exact call expressions keep an unrelated id string plus another gate call in the
+## same file from false-passing the scan.
+func _test_every_table_id_has_an_exact_read_site() -> void:
+	var sources := gd_files("res://engine/scripts/")
+	for id_variant in G.FEATURE_LEVEL:
+		var id := String(id_variant)
+		var armed_read := "FeatureGate.armed(\"%s\")" % id
+		var revealed_read := "FeatureGate.revealed(\"%s\")" % id
+		var found := false
+		for path in sources:
+			var text := read_text(path)
+			if text.contains(armed_read) or text.contains(revealed_read):
+				found = true
+				break
+		ok(found, "FEATURE_LEVEL[\"%s\"] has an exact live FeatureGate read site" % id)
 
 func _live_map_hand_hint(map: Node) -> Control:
 	var hints := _live_map_hand_hints(map)

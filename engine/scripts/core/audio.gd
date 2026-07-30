@@ -84,3 +84,14 @@ static func play_note(name: String, idx: int, volume_db: float = 0.0, pitch: flo
 	pl.pitch_scale = pitch
 	pl.volume_db = volume_db + randf_range(-Tune.GAIN_JITTER_DB, Tune.GAIN_JITTER_DB)
 	pl.play()
+
+## shot_batch_runner removes every root child between capture items, including
+## this helper's root-owned voice pool. Lower the matching static latch so the
+## next item rebuilds real players instead of reusing freed Object references.
+## Ordinary scene changes never call this: their root voice pool is intentionally
+## process-wide.
+static func reset_for_batch() -> void:
+	_players.clear()
+	_rr.clear()
+	_next = 0
+	_ready = false

@@ -23,6 +23,7 @@ extends SceneTree
 const Base = preload("res://engine/tools/shot_base.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
+const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
 const Claims = preload("res://engine/scripts/core/claims.gd")
 const Improvements = preload("res://engine/scripts/core/improvements.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")   # purge_progress: what the strip reads back
@@ -79,6 +80,17 @@ func _initialize() -> void:
 	Save.mark_board_tutorial_seen()   # a capture shows the BOARD, never the How-to-Play overlay
 	Save.mark_ftue_seen("merge")      # and never the FTUE hand-hint veil either — except ftue/ftuegen/
 	Save.mark_ftue_seen("gen_tap")    # ftuesoil below, which explicitly re-seed the ledger to show it live
+	# Gate visual fixtures exercise their feature chrome, not the teaches that precede it.
+	# Bank those earlier overlays before Board enters the tree so no dimming veil can make
+	# a plausible-but-obscured capture. Mastery's own reveal stays unseen only for phase=reveal.
+	if mode == "cascade":
+		FeatureGate.mark_revealed("weather")
+		FeatureGate.mark_revealed("cascade")
+	if mode == "mastery":
+		FeatureGate.mark_revealed("weather")
+		FeatureGate.mark_revealed("cascade")
+		if String(Base.opt(args, "phase", "info")) != "reveal":
+			FeatureGate.mark_revealed("mastery")
 	if mode == "ftue":
 		Save.data["ftue_seen"] = {}          # a brand-new player: the merge hand is live
 	if mode == "ftuegen":
@@ -266,6 +278,20 @@ func _initialize() -> void:
 				scn._begin_drag()
 				scn._drag_follow(scn._cell_pos(Vector2i(5, 2)) + chalf + Vector2(18.0, -24.0))
 				await create_timer(0.35).timeout
+				var guide_outline: Control = scn.get("_cascade_outline")
+				var guide_pads := 0
+				var guide_ladders := 0
+				if guide_outline != null and is_instance_valid(guide_outline):
+					guide_pads = Array(guide_outline.get("ghost_pads")).size()
+					guide_ladders = Array(guide_outline.get("drag_ladders")).size()
+				var guide_armed := FeatureGate.armed("cascade")
+				if not guide_armed or guide_pads <= 0 or guide_ladders <= 0:
+					print("REFUSED: cascade phase=guide is not a live armed guide (level=%d armed=%d pads=%d ladders=%d)." % \
+						[G.level(), int(guide_armed), guide_pads, guide_ladders])
+					Base.finish(self, 2)
+					return
+				print("CASCADE GUIDE level=%d armed=%d pads=%d ladders=%d" % \
+					[G.level(), int(guide_armed), guide_pads, guide_ladders])
 			elif phase == "seedguide":
 				var held_seed := Vector2i(6, 6)
 				scn._on_press(scn._cell_pos(held_seed) + chalf)
@@ -672,8 +698,9 @@ func _initialize() -> void:
 			# Berries), `meter=` is written straight into the save, so a THRESHOLD entry lands exactly
 			# on that rank. Seeds the meter
 			# BEFORE selecting: _select_generator is what builds the row off Mastery.rank().
+			var mastery_phase := String(Base.opt(args, "phase", "info"))
 			var ml := int(Base.opt(args, "line", "2"))
-			var mm := int(Base.opt(args, "meter", "1150"))
+			var mm := int(Base.opt(args, "meter", "40" if mastery_phase == "reveal" else "1150"))
 			var mg := Save.grove()
 			mg["pops"] = 30                    # past the FTUE so the bar reads its played state
 			mg["mastery"] = {str(ml): mm}
@@ -691,11 +718,38 @@ func _initialize() -> void:
 					return
 				mcell = Vector2i(freem[0])
 				scn.board.place_gen(G.gen_for_line(ml), mcell)
+				scn._rebuild_all()
+				await create_timer(0.2).timeout
 			scn._update_hud()
 			await create_timer(0.3).timeout
-			scn._select_generator(mcell)
-			await create_timer(0.4).timeout
-			print("MASTERY line=%d meter=%d cell=%s" % [ml, mm, str(mcell)])
+			if mastery_phase == "reveal":
+				var tap_at: Vector2 = scn._cell_pos(mcell) + Vector2(scn.csz, scn.csz) / 2.0
+				for pressed in [true, false]:
+					var tap := InputEventMouseButton.new()
+					tap.button_index = MOUSE_BUTTON_LEFT
+					tap.pressed = pressed
+					tap.position = tap_at
+					scn._on_board_input(tap)
+				await create_timer(0.32).timeout
+				var mastery_gen: Control = scn.gen_nodes.get(mcell)
+				var mastery_ring: Control = mastery_gen.get_node_or_null("MasteryRing") if mastery_gen != null else null
+				var mastery_progress := float(mastery_ring.get("progress")) if mastery_ring != null else 0.0
+				var mastery_armed := FeatureGate.armed("mastery")
+				var mastery_revealed := FeatureGate.revealed("mastery")
+				if not mastery_armed or not mastery_revealed or mastery_ring == null \
+						or mastery_progress <= 0.0 or mastery_progress >= 0.5:
+					print("REFUSED: mastery phase=reveal is not mid-sweep (level=%d armed=%d revealed=%d ring=%d progress=%.3f)." % \
+						[G.level(), int(mastery_armed), int(mastery_revealed),
+						int(mastery_ring != null), mastery_progress])
+					Base.finish(self, 2)
+					return
+				print("MASTERY REVEAL level=%d armed=%d revealed=%d ring=%d progress_milli=%d line=%d meter=%d cell=%s" % \
+					[G.level(), int(mastery_armed), int(mastery_revealed), int(mastery_ring != null),
+					int(mastery_progress * 1000.0), ml, mm, str(mcell)])
+			else:
+				scn._select_generator(mcell)
+				await create_timer(0.4).timeout
+				print("MASTERY line=%d meter=%d cell=%s" % [ml, mm, str(mcell)])
 		"genboost":
 			# T57: a LIVE boost — every generator wears the sparkle + taps-left badge, the info bar reads
 			# the boost detail (+N/tap · M left), and the boost chip is FADED (no re-buy while running).
@@ -919,6 +973,10 @@ static func _clock_seeds() -> Dictionary:
 		# gate: the SAME 25 is also earned into the WALLET (earn_coins), because G.cluster_ready gates on
 		# the level floor AND the price — L6 · 25🪙 clears the first hollow clusters' floors and costs.
 		"gate": G.coins_at_level(6),
+		# Gate-proof fixtures run at the feature's table threshold. The corresponding
+		# branches self-check their live guide/reveal state before allowing a PNG.
+		"cascade": G.coins_at_level(int(G.FEATURE_LEVEL["cascade"])),
+		"mastery": G.coins_at_level(int(G.FEATURE_LEVEL["mastery"])),
 	}
 
 ## Coin-clock seed for `level`, banked HALF-WAY to the next level. The clock is coins now

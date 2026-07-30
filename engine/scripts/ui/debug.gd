@@ -18,6 +18,7 @@ extends RefCounted
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
+const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
 const Login = preload("res://engine/scripts/core/login.gd")   # the daily calendar — debug_advance_day()
 const Features = preload("res://engine/scripts/core/features.gd")   # gates the mastery rank actions
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
@@ -59,11 +60,17 @@ static var _suppress_next_toggle := false
 ## headless suites or quiet captures — the quiet guard here also keeps the panel
 ## out of force-driven screenshots (force bypasses quiet in authoring() below).
 static func on() -> bool:
-	if DisplayServer.get_name() == "headless":
-		return false                     # logic suites never show chrome
-	if OS.get_environment("TU_QUIET") == "1":
-		return false                     # quiet captures stay clean of the panel
-	return authoring()                   # only when explicitly authoring
+	return _panel_allowed(
+		OS.is_debug_build(),
+		DisplayServer.get_name(),
+		OS.get_environment("TU_QUIET") == "1",
+		authoring())
+
+## The panel policy separated from the environment reads so the release-export
+## invariant can be asserted headlessly. A release build loses even when an owner
+## argument requests authoring; headless/quiet still keep debug builds capture-clean.
+static func _panel_allowed(debug_build: bool, display_name: String, quiet: bool, authoring_on: bool) -> bool:
+	return debug_build and display_name != "headless" and not quiet and authoring_on
 
 ## The owner LAYOUT editor: explicit only (force / TU_DEBUG / `-- debug`), ANY game.
 ## NOT auto-on in base. force is checked first so capture tools get the editor even
@@ -127,6 +134,7 @@ static func mount(host: Control) -> void:
 	_action(menu, host, "Level up", _act_level_up)
 	_action(menu, host, "Level down", _act_level_down)
 	_action(menu, host, "Advance day", _act_advance_day)
+	_feature_gate_actions(menu, host)
 	if host.has_method("debug_add_resident_to_hand"):
 		_action(menu, host, "+1 resident", _act_add_resident)
 	_weather_action(menu, host)
@@ -227,6 +235,23 @@ static func _action(menu: VBoxContainer, host: Control, label: String, fn: Calla
 	var b := _dbg_button(label, ACTION_BG)
 	b.pressed.connect(fn.bind(host))
 	menu.add_child(b)
+
+## Feature actions carry TWO parameters, unlike the panel's ordinary host-only
+## actions. Bind them explicitly in a closure: chaining Callable.bind() can reverse
+## (host, id) while still producing a valid Callable and a dead-looking button.
+static func _feature_gate_action(
+		menu: VBoxContainer, host: Control, label: String, id: String, fn: Callable) -> void:
+	var b := _dbg_button(label, ACTION_BG)
+	b.pressed.connect(func() -> void: fn.call(host, id))
+	menu.add_child(b)
+
+static func _feature_gate_actions(menu: VBoxContainer, host: Control) -> void:
+	for id_variant in FeatureGate.ids():
+		var id := String(id_variant)
+		_feature_gate_action(
+			menu, host, "Arm %s (L%d)" % [id, FeatureGate.level_for(id)], id, _act_arm_feature)
+		_feature_gate_action(menu, host, "Reveal %s" % id, id, _act_reveal_feature)
+	_action(menu, host, "Reset feature gates", _act_reset_gates)
 
 ## The WEATHER PICKER: one tap per state, Calm and Auto included. It replaces a single button that
 ## CYCLED the same list one step per tap, where reaching "star" from "auto" cost six taps and there
@@ -354,6 +379,35 @@ static func _act_unlock_map(host: Control) -> void:
 	g["unlocks"] = unl
 	Save.grove_write()
 	_reflect(host)
+
+# FEATURE GATES — reaching L18 by play is not a test procedure.
+static func _act_arm_feature(host: Control, id: String) -> void:
+	var need := FeatureGate.level_for(id)
+	var have := G.coins_at_level(need) - Save.coins_earned_lifetime()
+	if have > 0:
+		Save.earn_coins(have)          # lift the coin clock to the gate's level
+	_refresh_gate_host(host)
+
+## Board can repaint a newly armed gate in place; other hosts take the existing
+## scene-reflect path. This deliberately does not assume every mount host owns
+## Board's private rebuild seam.
+static func _refresh_gate_host(host: Control) -> void:
+	if host == null:
+		return
+	if host.has_method("_rebuild_all"):
+		host.call("_rebuild_all")
+		return
+	_reflect(host)
+
+static func _act_reveal_feature(_host: Control, id: String) -> void:
+	FeatureGate.mark_revealed(id)
+
+static func _act_reset_gates(_host: Control) -> void:
+	var seen: Dictionary = Save.data.get("ftue_seen", {})
+	for id_variant in FeatureGate.ids():
+		seen.erase(FeatureGate.LEDGER_PREFIX + String(id_variant))
+	Save.data["ftue_seen"] = seen
+	Save.save_now()
 
 ## Push the coin clock to the next level threshold (the clock is uncapped).
 static func _act_level_up(host: Control) -> void:
