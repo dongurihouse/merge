@@ -282,7 +282,7 @@ func _test_mastery_ring_hidden_until_revealed() -> void:
 	Save.mark_ftue_seen("gen_tap")
 	Save.mark_board_tutorial_seen()
 	var line := int(G.ZONE_BASE_LINES[0])
-	Save.grove()["mastery"] = {str(line): int(G.MASTERY_THRESHOLDS[0])}
+	Save.grove()["mastery"] = {str(line): int(G.MASTERY_THRESHOLDS[1])}
 	var h = board_host()
 	await process_frame
 	var rings_before := _count_nodes_named(h, "MasteryRing")
@@ -290,15 +290,62 @@ func _test_mastery_ring_hidden_until_revealed() -> void:
 	FeatureGate.mark_revealed("mastery")
 	h._refresh_mastery_chrome()
 	await process_frame
+	var gen_cell := _mastery_gen_cell(h, line)
+	_seed_mastery_trim_fixture(h, gen_cell)
 	ok(_count_nodes_named(h, "MasteryRing") > 0, "the ring attaches once revealed")
+	ok(_count_nodes_named(h, "MasteryTrim") > 0,
+		"fixture: revealed mastery has both ring and trim chrome to tear down")
+
 	fresh("reveal_mastery_reset")
 	_set_level(G.FEATURE_LEVEL["mastery"])
-	Save.grove()["mastery"] = {str(line): int(G.MASTERY_THRESHOLDS[0])}
+	Save.grove()["mastery"] = {str(line): int(G.MASTERY_THRESHOLDS[1])}
 	h._refresh_mastery_chrome()
-	await process_frame
+	await process_frame # queue_free is deferred: observe teardown only after the frame lands
 	ok(_count_nodes_named(h, "MasteryRing") == 0,
-		"refresh tears down stale mastery chrome after the reveal ledger is reset")
-	h.queue_free()
+		"reveal reset tears down the stale mastery ring after queue_free lands")
+	ok(_count_nodes_named(h, "MasteryTrim") == 0,
+		"reveal reset tears down the stale mastery trim after queue_free lands")
+
+	FeatureGate.mark_revealed("mastery")
+	h._refresh_mastery_chrome()
+	_seed_mastery_trim_fixture(h, gen_cell)
+	var old_mastery := bool(Feat.FLAGS.get("mastery", true))
+	Feat.FLAGS["mastery"] = false
+	h._refresh_mastery_chrome()
+	Feat.FLAGS["mastery"] = old_mastery
+	await process_frame # the disabled-feature guard queues both nodes
+	ok(_count_nodes_named(h, "MasteryRing") == 0,
+		"disabling mastery tears down the attached ring after queue_free lands")
+	ok(_count_nodes_named(h, "MasteryTrim") == 0,
+		"disabling mastery tears down the attached trim after queue_free lands")
+
+	h._refresh_mastery_chrome()
+	_seed_mastery_trim_fixture(h, gen_cell)
+	Save.grove()["mastery"] = {}
+	h._refresh_mastery_chrome()
+	await process_frame # the meter-absent branch also queues both nodes
+	ok(_count_nodes_named(h, "MasteryRing") == 0,
+		"removing the meter tears down the attached ring after queue_free lands")
+	ok(_count_nodes_named(h, "MasteryTrim") == 0,
+		"removing the meter tears down the attached trim after queue_free lands")
+	await drop(h)
+
+func _seed_mastery_trim_fixture(h: Node, cell: Vector2i) -> void:
+	if cell.x < 0:
+		return
+	var gn: Control = h.gen_nodes.get(cell)
+	if gn == null:
+		return
+	var old := gn.get_node_or_null("MasteryTrim")
+	if old != null and not old.is_queued_for_deletion():
+		return
+	if old != null:
+		gn.remove_child(old)
+	# The authored trim textures are optional and absent in this checkout. Install the same
+	# TextureRect chrome shape so every teardown branch must remove both owned node names.
+	var trim := TextureRect.new()
+	trim.name = "MasteryTrim"
+	gn.add_child(trim)
 
 func _count_nodes_named(n: Node, want: String) -> int:
 	var c := 0
@@ -320,6 +367,8 @@ func _test_mastery_reveal_sweeps_on_real_generator_tap() -> void:
 	Save.grove()["mastery"] = {str(line): 40}
 	var h = board_host()
 	await process_frame
+	_ensure_empty_ground_cells(h, 4)
+	await process_frame
 	var gen_cell := _mastery_gen_cell(h, line)
 	ok(gen_cell.x >= 0, "fixture: the live board has the mastery line's generator")
 	ok(_count_nodes_named(h, "MasteryRing") == 0,
@@ -332,11 +381,16 @@ func _test_mastery_reveal_sweeps_on_real_generator_tap() -> void:
 		"a real still-tap through the board input surface reveals mastery")
 	var ring: Control = h.gen_nodes.get(gen_cell).get_node_or_null("MasteryRing") if gen_cell.x >= 0 else null
 	ok(ring != null, "the same generator tap attaches its mastery ring")
-	await create_timer(0.18).timeout
+	var saw_mid_sweep := false
 	if ring != null:
-		ok(ring.progress > 0.02 and ring.progress < 0.48,
-			"the attached ring is visibly mid-sweep instead of snapping to its banked value")
-	await create_timer(0.85).timeout
+		for _i in 12:
+			await process_frame
+			if ring.progress > 0.0 and ring.progress < 0.48:
+				saw_mid_sweep = true
+				break
+	ok(saw_mid_sweep,
+		"the attached ring is visibly mid-sweep instead of snapping to its banked value")
+	await create_timer(0.95).timeout
 	if ring != null:
 		ok(absf(ring.progress - 0.5) < 0.03,
 			"the reveal sweep settles at the banked rank progress over its 0.9-second beat")
@@ -344,6 +398,21 @@ func _test_mastery_reveal_sweeps_on_real_generator_tap() -> void:
 		"revealing mastery does not accrue or consume any mastery")
 	ok(int(Save.grove().get("pops", 0)) > pops_before,
 		"the reveal runs before, without consuming, the existing generator tap")
+	var pops_after_reveal := int(Save.grove().get("pops", 0))
+	var revealed_before_second := FeatureGate.revealed("mastery")
+	if gen_cell.x >= 0:
+		_tap_board(h, h._cell_pos(gen_cell) + Vector2(h.csz, h.csz) / 2.0)
+	ok(FeatureGate.revealed("mastery") == revealed_before_second,
+		"a second real generator tap leaves the already-revealed ledger state unchanged")
+	ok(ring != null and h.gen_nodes.get(gen_cell).get_node_or_null("MasteryRing") == ring,
+		"the second tap keeps the actual revealed generator ring")
+	await process_frame
+	await process_frame
+	if ring != null:
+		ok(ring.progress > 0.48,
+			"the second tap does not restart or reset the completed reveal sweep")
+	ok(int(Save.grove().get("pops", 0)) > pops_after_reveal,
+		"the already-revealed guard preserves the second tap's normal generator pop")
 	await drop(h)
 
 func _test_mastery_reveal_skips_ineligible_real_generator_taps() -> void:
@@ -376,6 +445,44 @@ func _test_mastery_reveal_skips_ineligible_real_generator_taps() -> void:
 	ok(not FeatureGate.revealed("mastery"),
 		"a real generator tap below the mastery level does not reveal a banked meter")
 	await drop(low_h)
+
+	fresh("reveal_mastery_invalid_line")
+	_set_level(G.FEATURE_LEVEL["mastery"])
+	Save.mark_ftue_seen("merge")
+	Save.mark_ftue_seen("gen_tap")
+	Save.mark_board_tutorial_seen()
+	Save.grove()["mastery"] = {str(line): 40}
+	var invalid_h = board_host()
+	await process_frame
+	var acc_kind := String(G.ACCUMULATORS.keys()[0])
+	var acc_id := String((G.ACCUMULATORS[acc_kind] as Dictionary).get("id", ""))
+	var acc_cell := Vector2i(invalid_h.board.empty_ground_cells()[0])
+	invalid_h.board.place_gen(acc_id, acc_cell)
+	Save.grove()["bonus_clicks"] = 2
+	invalid_h._rebuild_all()
+	await process_frame
+	ok(invalid_h._gen_line(invalid_h.board.gen_id_at(acc_cell)) <= 0,
+		"fixture: the real accumulator generator resolves to an invalid mastery line")
+	_tap_board(invalid_h,
+		invalid_h._cell_pos(acc_cell) + Vector2(invalid_h.csz, invalid_h.csz) / 2.0)
+	ok(not FeatureGate.revealed("mastery"),
+		"a real invalid-line generator tap does not reveal mastery")
+	ok(_count_nodes_named(invalid_h.gen_nodes.get(acc_cell), "MasteryRing") == 0,
+		"the invalid-line generator tap attaches and sweeps no mastery ring")
+	ok(invalid_h.board.is_gen(acc_cell) and int(Save.grove().get("bonus_clicks", 0)) == 1,
+		"the invalid-line guard preserves the accumulator's normal safe tap behavior")
+	await drop(invalid_h)
+
+func _ensure_empty_ground_cells(h: Node, want: int) -> void:
+	if h.board.empty_ground_cells().size() >= want:
+		return
+	for raw_cell in h.piece_nodes.keys():
+		var cell := Vector2i(raw_cell)
+		if h.board.item_at(cell) > 0:
+			h.board.take(cell)
+		if h.board.empty_ground_cells().size() >= want:
+			break
+	h._rebuild_all()
 
 func _mastery_gen_cell(h: Node, line: int) -> Vector2i:
 	for raw_cell in h.board.gens:
