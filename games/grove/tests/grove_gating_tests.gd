@@ -22,6 +22,8 @@ func _initialize() -> void:
 	_test_debug_reset_clears_every_unlock_key()
 	_test_debug_gate_rows_bind_their_explicit_ids()
 	_test_debug_gate_panel_is_forbidden_in_release_builds()
+	await _test_debug_action_body_is_bounded_and_scrolls_to_its_last_control()
+	_test_exact_read_site_filter_rejects_comments()
 	_test_every_table_id_has_an_exact_read_site()
 	_test_weather_gate_needs_the_level()
 	_test_magnet_seed_cannot_drop_before_its_level()
@@ -65,6 +67,24 @@ class GateDebugHost extends Control:
 	func _rebuild_all() -> void:
 		rebuild_calls += 1
 
+	func debug_add_resident_to_hand() -> void:
+		pass
+
+	func debug_drop_coin() -> void:
+		pass
+
+	func debug_drop_acorn() -> void:
+		pass
+
+	func debug_pop_soil() -> void:
+		pass
+
+	func debug_pop_magnet() -> void:
+		pass
+
+	func debug_bump_mastery(_delta: int) -> void:
+		pass
+
 func _debug_button(menu: Control, label: String) -> Button:
 	for child in menu.get_children():
 		if child is Button and (child as Button).text == label:
@@ -84,7 +104,6 @@ func _test_debug_reset_clears_every_unlock_key() -> void:
 ## The break this catches is a chained bind reversing (host, id), or a new table
 ## entry never receiving both owner actions in the debug panel.
 func _test_debug_gate_rows_bind_their_explicit_ids() -> void:
-	fresh("gate_debug_rows")
 	var menu := VBoxContainer.new()
 	var host := GateDebugHost.new()
 	Debug._feature_gate_actions(menu, host)
@@ -92,6 +111,7 @@ func _test_debug_gate_rows_bind_their_explicit_ids() -> void:
 		"the debug panel wires Arm + Reveal for every table id, plus one reset")
 	for id_variant in FeatureGate.ids():
 		var id := String(id_variant)
+		fresh("gate_debug_arm_" + id)
 		var arm := _debug_button(menu, "Arm %s (L%d)" % [id, FeatureGate.level_for(id)])
 		var reveal := _debug_button(menu, "Reveal %s" % id)
 		ok(arm != null and reveal != null,
@@ -99,10 +119,10 @@ func _test_debug_gate_rows_bind_their_explicit_ids() -> void:
 		var rebuilds_before := host.rebuild_calls
 		if arm != null:
 			arm.pressed.emit()
-		ok(G.level() >= FeatureGate.level_for(id) and host.rebuild_calls == rebuilds_before + 1,
-			"Arm %s lifts its own gate and refreshes a live rebuild host immediately" % id)
+		ok(FeatureGate.armed(id) and host.rebuild_calls == rebuilds_before + 1,
+			"Arm %s satisfies its real gate on a fresh save and refreshes a live rebuild host" % id)
 		ok(not FeatureGate.revealed(id),
-			"Arm %s does not accidentally invoke its Reveal neighbor" % id)
+			"Arm %s leaves its own Reveal ledger unseen" % id)
 		if reveal != null:
 			reveal.pressed.emit()
 		ok(FeatureGate.revealed(id),
@@ -116,6 +136,45 @@ func _test_debug_gate_rows_bind_their_explicit_ids() -> void:
 		ok(not FeatureGate.revealed(id), "the wired reset row clears %s" % id)
 	menu.free()
 	host.free()
+
+## The break this catches is adding action rows directly to the draggable column
+## again: at the common 720×960 portrait size the bottom controls then fall below
+## the viewport and there is no scroll range that can bring them back.
+func _test_debug_action_body_is_bounded_and_scrolls_to_its_last_control() -> void:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(720, 960)
+	get_root().add_child(viewport)
+	var host := GateDebugHost.new()
+	host.size = Vector2(720, 960)
+	viewport.add_child(host)
+	var menu := VBoxContainer.new()
+	menu.add_theme_constant_override("separation", 4)
+	Debug._populate_action_menu(menu, host)
+	var body := Debug._action_body(host, menu)
+	host.add_child(body)
+	await process_frame
+	await process_frame
+	var scroll := body as ScrollContainer
+	ok(scroll != null,
+		"the variable debug action body is a ScrollContainer while the drag handle stays outside it")
+	if scroll != null:
+		var panel_y := Debug._default_panel_position(host).y
+		var body_bottom := panel_y + Debug.BTN_SIZE.y + 4.0 + scroll.size.y
+		var bar := scroll.get_v_scroll_bar()
+		var max_scroll := maxf(0.0, bar.max_value - bar.page) if bar != null else 0.0
+		ok(scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED
+				and body_bottom <= 960.5,
+			"the portrait action body is horizontally fixed and bounded below the viewport")
+		ok(max_scroll > 0.5,
+			"the populated portrait action body has a real positive vertical scroll range")
+		if max_scroll > 0.5:
+			scroll.scroll_vertical = int(ceilf(max_scroll))
+			await process_frame
+			var last := menu.get_child(menu.get_child_count() - 1) as Control
+			ok(last != null and last.get_global_rect().end.y <= scroll.get_global_rect().end.y + 1.0,
+				"the final control after the gate rows is reachable at the bottom of the scroll range")
+	viewport.queue_free()
+	await process_frame
 
 ## A release export can still receive TU_DEBUG/debug arguments; the build guard
 ## wins before either explicit authoring switch is allowed to mount the panel.
@@ -131,16 +190,32 @@ func _test_debug_gate_panel_is_forbidden_in_release_builds() -> void:
 ## A FEATURE_LEVEL entry with no gate consumer is dead data that reads as coverage.
 ## Exact call expressions keep an unrelated id string plus another gate call in the
 ## same file from false-passing the scan.
+func _source_has_exact_gate_read(source: String, id: String) -> bool:
+	var armed_read := "FeatureGate.armed(\"%s\")" % id
+	var revealed_read := "FeatureGate.revealed(\"%s\")" % id
+	for raw_line in source.split("\n"):
+		var code := String(raw_line).get_slice("#", 0)
+		if code.contains(armed_read) or code.contains(revealed_read):
+			return true
+	return false
+
+## The break this catches is documenting an exact call in a comment and thereby
+## making a table entry look live even after its final executable consumer is gone.
+func _test_exact_read_site_filter_rejects_comments() -> void:
+	var id := "weather"
+	ok(not _source_has_exact_gate_read("# FeatureGate.armed(\"weather\")", id),
+		"an exact FeatureGate call in a comment is not a live read site")
+	ok(_source_has_exact_gate_read("if FeatureGate.armed(\"weather\"):", id),
+		"the same exact FeatureGate call on a real code line is a live read site")
+
 func _test_every_table_id_has_an_exact_read_site() -> void:
 	var sources := gd_files("res://engine/scripts/")
 	for id_variant in G.FEATURE_LEVEL:
 		var id := String(id_variant)
-		var armed_read := "FeatureGate.armed(\"%s\")" % id
-		var revealed_read := "FeatureGate.revealed(\"%s\")" % id
 		var found := false
 		for path in sources:
 			var text := read_text(path)
-			if text.contains(armed_read) or text.contains(revealed_read):
+			if _source_has_exact_gate_read(text, id):
 				found = true
 				break
 		ok(found, "FEATURE_LEVEL[\"%s\"] has an exact live FeatureGate read site" % id)
