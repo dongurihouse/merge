@@ -19,6 +19,12 @@ extends Control
 ##     and is drawn in AMBER, DASHED, because it is not a purchase — with the disc the picture actually
 ##     draws inside it, solid. The dashed rect is bigger than that disc on purpose (the painted ✕ is under
 ##     the platform's fingertip floor) and the amber ring between them is tap area the art does not show.
+##   * an offer AT REST. When a purchase cannot be taken right now — the free refill, once it has been
+##     claimed — the screen lays its own plate over that bay and the plate SWALLOWS the tap, so the region
+##     is neither a purchase nor a dismiss. It carries `Screen.UNAVAIL_META` beside the offer id, is drawn
+##     VIOLET, and is checked before the two purchase kinds so it can never be counted as one of them. Its
+##     rect is the same shelf cell the buyable state had: what changed is what a tap there does, and the
+##     whole point of looking at this capture in that state is to see that it stopped reaching the veil.
 ##   * EVERYWHERE ELSE. The painting has no control of its own, so a tap that misses every region falls
 ##     through to the modal's veil — which dismisses the shop. That is real behaviour on this screen, so a
 ##     grid of points outside every region is pushed through the same picker and marked ×, and the legend
@@ -58,6 +64,8 @@ const OK_COL := Color(0.22, 0.85, 0.35)
 const BAD_COL := Color(1.0, 0.20, 0.18)
 const PILL_COL := Color(0.25, 0.65, 1.0)
 const CLOSE_COL := Color(1.0, 0.66, 0.12)      ## the ✕ — amber, because it dismisses rather than charges
+const HELD_COL := Color(0.78, 0.54, 1.0)       ## an offer at rest under its "unavailable" plate — violet,
+                                               ## because it neither charges nor dismisses: it eats the tap
 const ELSE_COL := Color(0.97, 0.98, 1.0)
 const LEGEND_BG := Color(0.05, 0.07, 0.10)
 const INK := Color(0.06, 0.09, 0.12)
@@ -116,6 +124,13 @@ func _probe() -> void:
 		if c.has_meta(Screen.CLOSE_META):
 			kind = "close"
 			declared = Screen.CLOSE_ID
+		elif c.has_meta(Screen.UNAVAIL_META):
+			# An offer that cannot be taken right now, under the plate the screen drew to say so. Checked
+			# BEFORE the two purchase kinds because it carries the offer meta as well — and it must never be
+			# counted as one of them, since pressing it buys nothing, by design: it swallows the tap so a
+			# press on a plate that reads "Claimed" cannot fall through to the veil and shut the shop.
+			kind = "held"
+			declared = String(c.get_meta(Screen.OFFER_META, ""))
 		elif c.has_meta(Screen.SLOT_META):
 			kind = "slot"
 			declared = String(c.get_meta(Screen.OFFER_META, ""))
@@ -259,16 +274,22 @@ func _draw() -> void:
 		var rect: Rect2 = r["rect"]
 		var local := Rect2(rect.position - global_position, rect.size)
 		var slot: bool = String(r["kind"]) == "slot"
-		var col: Color = (OK_COL if bool(r["good"]) else BAD_COL) if slot else \
-			(PILL_COL if bool(r["good"]) else BAD_COL)
+		var held: bool = String(r["kind"]) == "held"
+		var col: Color = BAD_COL
+		if bool(r["good"]):
+			col = HELD_COL if held else (OK_COL if slot else PILL_COL)
 		draw_rect(local, Color(col, 0.13), true)
-		draw_rect(local, col, false, 4.0 if slot else 2.0)
+		draw_rect(local, col, false, 4.0 if slot or held else 2.0)
 		var label := String(r["declared"])
+		if held:
+			# say what it DOES, not only which offer it is: this rect is the reason a claimed shelf no
+			# longer drops its taps onto the veil, and that is the whole change worth seeing here.
+			label = "%s · held (swallows the tap)" % label
 		if not bool(r["good"]):
 			label = "%s → %s" % [label if label != "" else "(none)", ",".join(PackedStringArray(r["resolved"]))]
 		# a slot names itself inside its own top-left corner; a price button names itself just OUTSIDE its
 		# bottom edge, so the label never prints over the price it is describing.
-		var at := local.position + (Vector2(10.0, fsz + 8.0) if slot else Vector2(0.0, local.size.y + fsz + 3.0))
+		var at := local.position + (Vector2(10.0, fsz + 8.0) if slot or held else Vector2(0.0, local.size.y + fsz + 3.0))
 		if font != null:
 			draw_string(font, at + Vector2(2, 2), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fsz, Color(INK, 0.75))
 			draw_string(font, at, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fsz, col)
@@ -324,8 +345,15 @@ func _dashed_rect(r: Rect2, col: Color, width: float, dash: float) -> void:
 	for pair in [[tl, tr], [tr, br], [br, bl], [bl, tl]]:
 		draw_dashed_line(pair[0], pair[1], col, width, dash)
 
-## The key. It names the three kinds of region AND what the rest of the screen does, because "the rest of
-## the screen" is the majority of it: the painting stops no taps of its own.
+## Whether any probed region is of this kind — so the key can name only the states this capture contains.
+func _has_kind(kind: String) -> bool:
+	for r in _regions:
+		if String(r["kind"]) == kind:
+			return true
+	return false
+
+## The key. It names the kinds of region on THIS capture AND what the rest of the screen does, because "the
+## rest of the screen" is the majority of it: the painting stops no taps of its own.
 func _draw_legend(font: Font, fsz: int) -> void:
 	if font == null:
 		return
@@ -333,9 +361,15 @@ func _draw_legend(font: Font, fsz: int) -> void:
 		[OK_COL, "fill", "shelf cell → the offer named inside it"],
 		[PILL_COL, "fill", "price plate → the same offer, on top"],
 		[CLOSE_COL, "dash", "close ✕ → dismisses (dashed = tap area, ring = the drawn disc)"],
+	]
+	# …and the held line ONLY when a held region is on screen. A key that named a state this capture does
+	# not contain would have to be read against the picture to be discounted, which is the opposite of a key.
+	if _has_kind("held"):
+		lines.append([HELD_COL, "fill", "unavailable → the plate over a claimed offer; swallows its own tap"])
+	lines.append_array([
 		[ELSE_COL, "x", "× %d probes hit no region → %s" % [
 			_elsewhere.size(), ",".join(PackedStringArray(_elsewhere_answers())) if not _elsewhere.is_empty() else "—"]],
-	]
+	])
 	var pad := 12.0
 	var step := float(fsz) + 10.0
 	var w := 0.0

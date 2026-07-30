@@ -48,6 +48,7 @@ make test-one SUITE=games/grove/tests/grove_shop_tests   # region ↔ purchase, 
 | --- | --- |
 | green rect + id | shelf cell; the id is the offer it declares AND what the picker returned |
 | blue rect + id | the price plate on top of that cell, same offer |
+| violet rect, `id · held` | the offer cannot be taken right now and wears its own plate; it SWALLOWS the tap. Its two purchase rects are gone from the picture — that is the state, not a loss |
 | amber dashed rect + ring | the close ✕: dashed = the tap region, ring = the disc the picture draws, amber between = tap area the art does not show |
 | RED rect, `declared → resolved` | the region resolves to something else. This is the failure the overlay exists to show |
 | white `×` + legend line | a probe that hit NO region, and what it hit instead (on this screen: the modal's veil, which dismisses) |
@@ -73,6 +74,17 @@ make test-one SUITE=games/grove/tests/grove_shop_tests   # region ↔ purchase, 
    screen is the modal's veil — drawing only the offers shows a screen that looks nine-tenths inert.
 8. An offer with no region is not silently dropped: it is stamped on the built screen as `shop_unplaced`
    and listed in the registry's `unplaceable` block. `grove_shop_tests.gd` fails when that set changes.
+9. **An offer that cannot be taken right now wears the ONE thing the game draws on this picture**: a wash
+   over its bay and a cut-paper plate carrying our own words (`shop_screen.gd` `_unavailable`; the copy
+   comes from the offer's own card, so every string on this screen still has one owner). The painting is
+   never repainted — the shelf under the plate still says FREE. The plate is `MOUSE_FILTER_STOP` and
+   **swallows** its tap, deliberately: the invisible disabled region it replaces did the opposite, and a
+   press on a claimed shelf therefore reached the veil and closed the whole shop. Its rect is the offer's
+   own cell, unchanged, so only the behaviour moved. Everything drawn inside it is `IGNORE`, so the
+   overlay sees exactly one rect.
+10. Seeing that state is `make shot-map MODE=shop refill=claimed` (and `refill=cooling` for the
+   "Ready in …" read the grove's 1/day cap cannot currently reach, `refill=ready` / nothing for today's
+   default). `MODE=shophits refill=claimed` is the tappability evidence.
 
 ## Adding a shop element
 
