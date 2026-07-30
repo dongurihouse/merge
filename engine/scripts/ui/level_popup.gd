@@ -56,7 +56,7 @@ const PILL_SHADOW_MIN := {"offset_x": 2.0, "offset_y": 5.0, "blur": 5.0, "alpha"
 const NUMBER_SHADOW_MIN := {"offset_x": 2.0, "offset_y": 4.0, "blur": 4.0, "alpha": 0.34}
 
 ## Every sprite this dialog polishes, with its cap — driven by BakeTargets.build_all so the bake
-## covers them and kit_bake_tests holds them baked (no first-open freeze). Same pattern as LoginUI.
+## covers them and kit_bake_freshness_tests holds them baked (no first-open freeze). Same pattern as LoginUI.
 static func bake_sprites() -> Array:
 	return ART.values()
 

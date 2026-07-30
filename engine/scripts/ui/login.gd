@@ -84,7 +84,7 @@ static func _skin_sprite(tex: Texture2D, px: float) -> Control:
 ## the same consts the draws use, so the texture bake and its guard cover the REAL runtime dialog —
 ## not the workbench daily_card mock, which draws a different, older sprite set. Without this, all of
 ## these get defringe/feather'd live on the main thread on first open (the slow-open hitch).
-## Registered in games/tools/bake_targets.gd; held baked by engine/tests/kit_bake_tests.gd.
+## Registered in games/tools/bake_targets.gd; held baked by engine/tests/kit_bake_freshness_tests.gd.
 static func bake_sprites() -> Array:
 	var out: Array = [ART_CHEST, ART_GIFT, ART_CHECK, ART_LEAF_L, ART_LEAF_R]
 	out.append_array(REWARD_ART.values())

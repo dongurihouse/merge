@@ -3,11 +3,11 @@ extends RefCounted
 ## data + the real config opts (the same transforms the game uses). Building a dialog drives
 ## Kit.clean_tex_path for each sprite it draws, so Kit._clean_cache ends up holding the exact
 ## (path, max_dim) set those dialogs polish. Both the bake tool (games/tools/bake_textures.gd) and
-## the guard test (engine/tests/kit_bake_tests.gd) call build_all() and read the cache keys, so they
-## discover the SAME asset set with no hand-maintained manifest.
+## the guard test (engine/tests/kit_bake_freshness_tests.gd) call build_all() and read the cache keys,
+## so they discover the SAME asset set with no hand-maintained manifest.
 ##
-## Add a NEW top-level dialog here and it is automatically baked AND guarded against the first-open
-## freeze — nothing else to update.
+## Add a NEW top-level dialog here and it is automatically baked AND guarded — against the first-open
+## freeze (no mirror) and against a mirror that has drifted from its source. Nothing else to update.
 
 const Kit = preload("res://games/grove/ui_kit.gd")
 const HomeChrome = preload("res://games/grove/home_chrome.gd")   # the canonical home-chrome icon set (shared with map.gd)
@@ -49,12 +49,12 @@ static func build_all(cfg: Dictionary) -> Array:
 	for spec in LevelPopup.bake_sprites():
 		Kit.clean_tex_path(Look.kit(String(spec[0])), int(spec[1]))
 	# The HUD's top-left star level badge (Look.make_star_level_badge) polishes its sprite on first draw
-	# like the dialogs; bake it so the board/map open freeze-free (kit_bake_tests holds it baked). @256
+	# like the dialogs; bake it so the board/map open freeze-free (kit_bake_freshness_tests holds it baked). @256
 	# matches the make_star_level_badge clean_tex_path cap.
 	Kit.clean_tex_path(Look.kit(Look.STAR_BADGE_ART), 256)
 	# The board/bag CELL FACES — every slot_cell draws one, so an un-baked set polishes live on the
 	# first board open. Driving clean_tex_path over the declared paths lands them in _clean_cache the
-	# same way the dialogs do, so the bake writes their mirrors and kit_bake_tests holds them baked.
+	# same way the dialogs do, so the bake writes their mirrors and kit_bake_freshness_tests holds them baked.
 	for cell_path in Kit.CELL_SPRITE_PATHS.values():
 		Kit.clean_tex_path(String(cell_path), Kit.CELL_SPRITE_CAP)
 	return out

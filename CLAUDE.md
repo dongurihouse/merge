@@ -80,3 +80,9 @@ name different sets (membership, not order).
 `test_*.sh` on disk, so a new one cannot sit unrun behind its own target.
 Engine FX motion checks include `engine/tests/fx_config_tests.gd` and
 `engine/tests/fx_flight_tests.gd`; run the latter when changing wallet or piece flight feedback.
+
+`engine/tests/kit_bake_freshness_tests.gd` re-bakes every sprite the kit dialogs polish and
+fails if a committed mirror under `games/grove/assets/baked/` differs from that fresh bake.
+It is the slowest engine suite (~10s — it re-runs the per-pixel polish the bake exists to
+avoid). It fires after an art change AND after an `.import` re-tune, since the bake's input is
+the imported decode; the fix is always `make bake-textures` then `make import`.
