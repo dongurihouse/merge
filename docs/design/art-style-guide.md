@@ -217,9 +217,15 @@ exist — and fails loudly on any empty tier cell.
 first time it's drawn (a per-pixel pass that froze dialog opens ~0.7s). The bake runs the identical
 `_clean_image()` offline into a committed `baked/<subpath>@<cap>.png` mirror (e.g. `@192` rail icons,
 256 glyphs). Baked PNGs + `.import` sidecars are committed; the source stays un-polished (idempotent).
-`engine/tests/kit_bake_tests` fails if any drawn sprite is un-baked. After changing a sprite: land the
-source → (new top-level dialog only) add a line to `BakeTargets.build_all` → `make bake-textures` →
-commit the regenerated `baked/*`.
+`engine/tests/kit_bake_freshness_tests` fails if any drawn sprite is un-baked OR if a committed mirror's
+bytes differ from a fresh bake. After changing a sprite: land the source → (new top-level dialog only) add
+a line to `BakeTargets.build_all` → `make bake-textures` → `make import` → commit the regenerated `baked/*`.
+
+The bake's input is the IMPORTED texture (`load(src).get_image()`), so a change to a source's `.import`
+params — compression above all — changes the baked pixels just as an art change does. That is how 32
+mirrors went stale: commit 9e4e23f9 moved the sources to lossy WebP and re-baked nothing, and since
+`clean_tex_path` prefers the mirror, the stale bytes were the shipped ones. Re-bake after any import
+re-tune, not just after new art; the freshness guard is what makes forgetting fail loudly.
 
 ## 9 · Intake workflow
 

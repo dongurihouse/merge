@@ -24,7 +24,7 @@ const Kit = preload("res://games/grove/ui_kit.gd")
 const BakeTargets = preload("res://games/tools/bake_targets.gd")
 const BAKED := "res://games/grove/assets/baked/"
 
-## The bake covers ~33 sprites today. A discovery that collapses (a build_all that throws, a cache
+## The bake covers 53 sprites today. A discovery that collapses (a build_all that throws, a cache
 ## key format change) would report a clean tree over nothing at all — floor it well under the real
 ## count but far above zero.
 const MIN_SPRITES := 30
