@@ -793,13 +793,13 @@ func _test_runway_resting_outline_without_needed_tier_tag() -> void:
 		Vector2i(3, 2): 103,
 		Vector2i(3, 3): 104,
 	})
-	var o := _outline(b)
-	var armed_width := float(o.call("_mark_thickness", {"kind": "armed", "n": 3})) if o != null and o.has_method("_mark_thickness") else 0.0
-	var runway_width := float(o.call("_mark_thickness", {"kind": "runway", "would_be_n": 3})) if o != null and o.has_method("_mark_thickness") else 0.0
 	ok(_outline_ladder_count(b) == 0 and _outline_runway_count(b) == 1 and _outline_label_texts(b).is_empty(),
 		"an inert runway draws only the glow, without a tN needed-tier label")
-	ok(runway_width > 0.0 and runway_width < armed_width,
-		"runway resting mark is visibly weaker than an armed ladder")
+	# "a runway is visibly weaker than an armed ladder" used to be asserted here by calling
+	# `_mark_thickness` — a width helper the drawing never called, so it measured nothing that was on
+	# screen. The weakness is a WEIGHT now (CascadeMarks.RUNWAY_WEIGHT), and the assert that reads it
+	# belongs on the marks board.gd publishes; it lands with that flip. Asserting it here today would
+	# read an empty `marks` list, because this board still writes the four legacy channels.
 	ok(_outline_stack_is_visible_between_board_and_items(b),
 		"runway outline keeps the cascade stack invariant")
 

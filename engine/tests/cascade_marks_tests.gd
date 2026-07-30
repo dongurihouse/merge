@@ -4,6 +4,7 @@ extends "res://engine/tests/test_base.gd"
 
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const CascadeMarks = preload("res://engine/scripts/core/cascade_marks.gd")
+const CascadeOutline = preload("res://engine/scripts/ui/cascade_outline.gd")
 
 func _initialize() -> void:
 	print("== cascade guide marks ==")
@@ -12,6 +13,7 @@ func _initialize() -> void:
 	_test_drag_winner_is_the_longest_not_the_first_that_qualifies()
 	_test_drag_without_a_chain_hides_every_chain_mark()
 	_test_run_emits_one_mark_covering_the_whole_remaining_run()
+	_test_renderer_takes_the_mark_list_and_reads_its_weight()
 	finish()
 
 func _blank_board() -> BoardModel:
@@ -219,6 +221,37 @@ func _test_run_emits_one_mark_covering_the_whole_remaining_run() -> void:
 		"head": Vector2i(5, 2), "run": [], "n": 3,
 	})
 	ok(last.is_empty(), "a run with nothing left to walk emits nothing")
+
+# The renderer, with no scene, no window and no board: one Control and one mark list. A frame never
+# runs here, so what is asserted is the NODE'S OWN state — and that is what pins the wiring. The list
+# is the renderer's channel, a mark that carries weight starts the travelling wave, a tagged mark
+# makes exactly one chip, and a mark with no weight starts nothing whatever its role. The strengths
+# are the mark's own: nothing below asks what the mark IS in order to decide how loud it is.
+func _test_renderer_takes_the_mark_list_and_reads_its_weight() -> void:
+	var o: Control = CascadeOutline.new()
+	o.configure(Vector2(400, 400), 40.0, func(cell: Vector2i) -> Vector2:
+		return Vector2(cell.y * 44.0, cell.x * 44.0))
+	var run := [Vector2i(1, 1), Vector2i(1, 2), Vector2i(1, 3)]
+	o.set_marks([CascadeMarks.mark("chain", run, CascadeMarks.NO_CELL, 1, 3, 1.0, 1.0, true, Vector2i(1, 3))])
+	ok(Array(o.get("marks")).size() == 1,
+		"set_marks is a mark channel of the renderer's own (got %d)" % Array(o.get("marks")).size())
+	ok(o.is_processing(), "a mark with weight drives the travelling wave")
+	ok(_tag_count(o) == 1, "one tagged mark makes one chip (got %d)" % _tag_count(o))
+	# The SAME chain mark, only weightless: loudness is read off the mark, never off its role.
+	o.set_marks([CascadeMarks.mark("chain", run, CascadeMarks.NO_CELL, 1, 3, 0.0, 1.0, false, CascadeMarks.NO_CELL)])
+	ok(not o.is_processing(), "a mark with no weight drives nothing, whatever its role")
+	o.set_marks([])
+	ok(not o.is_processing(), "an empty list stops the wave")
+	ok(not o.has_method("_mark_thickness"),
+		"the width helper the drawing never called is gone — a runway's weakness is its weight")
+	o.free()
+
+func _tag_count(o: Control) -> int:
+	var n := 0
+	for child in o.get_children():
+		if String((child as Node).name).begins_with("CascadeTag"):
+			n += 1
+	return n
 
 func _cells_match(got: Array, want: Array) -> bool:
 	if got.size() != want.size():

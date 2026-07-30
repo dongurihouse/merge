@@ -8,9 +8,6 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 const Contour = preload("res://engine/scripts/ui/cell_contour.gd")
 const TAG_Z_INDEX := 20
-const RUNWAY_WIDTH_SCALE := 0.62
-const MERGE_WIDTH_SCALE := 0.82
-const STAGE_WIDTH_SCALE := 0.72
 const PAPER_TEX_PX := 64
 const PAPER_SEED := 20260727         # fixed: `make shot` compares captures byte for byte
 const JOINT_SIDES := 12
@@ -186,10 +183,9 @@ static func paper_grain() -> ImageTexture:
 	_paper = ImageTexture.create_from_image(img)
 	return _paper
 
-@export var inset_frac := 0.10: set = _set_inset
-@export var thickness_frac := 0.035: set = _set_thickness
-@export var fill_pct := 5.0: set = _set_fill_pct
-@export var jitter_frac := 0.012: set = _set_jitter
+## The ONE mark channel. Everything below it — the four `set_*` arrays — is the old per-channel
+## model, kept alive only until board.gd publishes marks instead.
+var marks: Array = []
 
 var ladders: Array = []
 var runways: Array = []
@@ -200,11 +196,6 @@ var cell_pos_fn: Callable
 
 var _t := 0.0
 var _geom := {}          # cells key -> the built contour loops; the walk never runs per frame
-
-func _set_inset(v: float) -> void: inset_frac = v; queue_redraw()
-func _set_thickness(v: float) -> void: thickness_frac = v; queue_redraw()
-func _set_fill_pct(v: float) -> void: fill_pct = v; queue_redraw()
-func _set_jitter(v: float) -> void: jitter_frac = v; queue_redraw()
 
 func _ready() -> void:
 	name = "CascadeOutline"
@@ -221,6 +212,13 @@ func configure(board_size: Vector2, csz: float, cell_pos: Callable) -> void:
 	_rebuild_tags()
 	_sync_process()
 	queue_redraw()
+
+## The renderer's ONE mark channel. The list arrives in DRAW ORDER — first mark furthest back — and
+## every mark carries its own loudness in `weight` and `reach`, so nothing here re-derives a strength
+## from a role. What a mark MEANS decides which shape is stamped; how loud it is arrives with it.
+func set_marks(data: Array) -> void:
+	marks = data.duplicate(true)
+	_after_marks_changed()
 
 func set_ladders(data: Array) -> void:
 	ladders = data.duplicate(true)
@@ -259,8 +257,16 @@ func _after_marks_changed() -> void:
 # The wave only runs while there is a chain to run it around, and never while a capture has pinned
 # the phase — gen_sparkle.gd's idiom, with the extra "nothing to draw ⇒ no process" guard.
 func _sync_process() -> void:
-	set_process(forced_phase < 0.0 and (not _active_ladders().is_empty() \
+	set_process(forced_phase < 0.0 and (_has_live_mark() or not _active_ladders().is_empty() \
 		or (drag_ladders.is_empty() and not runways.is_empty())))
+
+## Is there anything on the list bright enough to animate? A weightless mark draws nothing, so it
+## must not hold the wave running either — the test is the WEIGHT, never the role.
+func _has_live_mark() -> bool:
+	for raw in marks:
+		if raw is Dictionary and float((raw as Dictionary).get("weight", 0.0)) > 0.0:
+			return true
+	return false
 
 func _process(delta: float) -> void:
 	_t += delta * PHASE_RATE
@@ -272,6 +278,33 @@ func _phase() -> float:
 func _draw() -> void:
 	if cell_size <= 0.0 or not cell_pos_fn.is_valid():
 		return
+	if not marks.is_empty():
+		# The list is already in the order it is meant to be seen — the builder decided what sits
+		# behind what, so there is no precedence test here to disagree with it.
+		for raw in marks:
+			if raw is Dictionary:
+				_draw_mark(raw as Dictionary)
+		return
+	_draw_legacy()
+
+## One mark, one shape. `role` picks WHICH light this is — a chain's contour glow, an occupied
+## target's bloom, an empty cell's cut well — and `weight`/`reach` alone say how loud, so a dimmed
+## chain and a loud one take the same path with a different number.
+func _draw_mark(m: Dictionary) -> void:
+	var weight := float(m.get("weight", 1.0))
+	if weight <= 0.0:
+		return
+	var colour := G.line_color(int(m.get("line", 0)))
+	match String(m.get("role", "")):
+		"chain", "runway":
+			_draw_chain_glow(Array(m.get("run", [])), colour, weight, float(m.get("reach", 1.0)))
+		"target":
+			_draw_target_bloom(Vector2i(m.get("cell", Vector2i(-1, -1))), colour, weight)
+		"stage":
+			_draw_stage_well(Vector2i(m.get("cell", Vector2i(-1, -1))), colour)
+
+# The four-channel drawing, unchanged, for as long as board.gd still writes those channels.
+func _draw_legacy() -> void:
 	if drag_ladders.is_empty():
 		for entry in runways:
 			if entry is Dictionary:
@@ -649,6 +682,24 @@ func _rebuild_tags() -> void:
 		child.queue_free()
 	if not cell_pos_fn.is_valid():
 		return
+	# ONE tag per cell, and the FIRST mark claiming a cell keeps it: the list is already in precedence
+	# order, so this loop owns no precedence of its own. Which marks are numbered is the builder's
+	# call — it sets `tag` — not a role test here.
+	if not marks.is_empty():
+		var claimed := {}
+		for raw in marks:
+			if not (raw is Dictionary):
+				continue
+			var m: Dictionary = raw
+			if not bool(m.get("tag", false)):
+				continue
+			var at := Vector2i(m.get("tag_cell", Vector2i(-1, -1)))
+			if at.x < 0 or claimed.has(at):
+				continue
+			claimed[at] = true
+			var mn := maxi(2, int(m.get("n", 2)))
+			_add_tag(at, "×%d" % mn, mn, false)
+		return
 	# ONE tag per cell, loudest wins. Drag tags name the exact occupied drop target; resting armed
 	# tags name the chain end. Empty staging pads and inert runways stay unnumbered.
 	var taken := {}
@@ -702,23 +753,6 @@ func _add_tag(cell: Vector2i, text: String, n: int, weak: bool) -> void:
 func _cell_pos(cell: Vector2i) -> Vector2:
 	return Vector2(cell_pos_fn.call(cell))
 
-func _alpha_for_n(n: int) -> float:
-	return clampf(0.42 + float(mini(n, 4) - 2) * 0.12, 0.42, 0.72)
-
-func _thickness_for_n(n: int) -> float:
-	return maxf(2.0, cell_size * thickness_frac + float(mini(n, 4) - 2) * 0.8)
-
-func _mark_thickness(entry: Dictionary) -> float:
-	var kind := String(entry.get("kind", "armed"))
-	var n := int(entry.get("n", entry.get("would_be_n", 3)))
-	# Full width is reserved for the two marks that mean "this fires": an armed ladder at rest and
-	# a `cascade` drop target. Everything else is deliberately thinner.
-	var scale := RUNWAY_WIDTH_SCALE if kind == "runway" else (MERGE_WIDTH_SCALE if kind == "merge" else (STAGE_WIDTH_SCALE if kind == "stage" else 1.0))
-	return maxf(1.4, _thickness_for_n(n) * scale)
-
 func _tag_font_size(n: int, weak := false) -> int:
 	var scale := 0.78 if weak else 1.0
 	return maxi(12 if weak else 14, int(roundf(cell_size * (0.22 + 0.018 * float(mini(n, 7) - 2)) * scale)))
-
-func _edge_key(cell: Vector2i, d: Vector2i) -> int:
-	return cell.x * 1009 + cell.y * 917 + (d.x + 2) * 37 + (d.y + 2) * 53
