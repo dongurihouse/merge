@@ -12,8 +12,8 @@ extends RefCounted
 ##
 ## PURE engine (core/ layer — no ui/, no scenes/): the ladder MATH + the claim live
 ## here; the streak/claim state persists via Save.daily(); the OWNER-TUNABLE ladder +
-## milestones + mystery pools are DATA — `res://games/<active>/login_rewards.json` (read
-## lazily below, mirroring core/strings.gd), so rewards re-tune without a code edit. The
+## milestones (+ the optional mystery pools) are DATA — `res://games/<active>/login_rewards.json`
+## (read lazily below, mirroring core/strings.gd), so rewards re-tune without a code edit. The
 ## diegetic calendar popup is ui/login.gd; the spin-reveal dialog is ui/login_mystery.gd.
 ##
 ## A reward is a small dict — any of {coins, water, gems, cosmetic} — so one ladder can
@@ -97,10 +97,13 @@ static func today_reward() -> Dictionary:
 static func is_milestone(day: int) -> bool:
 	return (_config().get("milestones", {}) as Dictionary).has(str(day))
 
-# --- mystery gift days (§18 · T46) --------------------------------------------------
-# Slots 4 and 7 of the repeating week are MYSTERY days: instead of a fixed grant the calendar
-# opens an AUTO-SPIN reveal that draws `show` DISTINCT rewards from a pool and lands on `win`
-# of them. The roll is pure (no grant); claim_mystery() pays the winners + bumps the streak.
+# --- mystery gift days (§18 · T46) — PARKED, data-gated -----------------------------
+# A weekly slot listed in the config's `mystery` block is a MYSTERY day: instead of a fixed grant
+# the calendar opens an AUTO-SPIN reveal that draws `show` DISTINCT rewards from a pool and lands
+# on `win` of them. The roll is pure (no grant); claim_mystery() pays the winners + bumps the streak.
+# NO shipping game declares a `mystery` block today (grove dropped its slot-4/slot-7 pools in T65 —
+# every day pays a fixed rung), so this machinery is INERT until a config re-adds one. Kept whole,
+# and exercised against a synthetic config in engine/tests/save_tests.gd.
 
 ## The 1-based slot a day falls on within the repeating week — (((day-1) % 7) + 1).
 static func slot_of(day: int) -> int:
@@ -172,8 +175,9 @@ static func claim_mystery(won: Array) -> bool:
 ## same day (returns false, grants nothing). Pays the full REWARD DICT
 ## (coins / water / gems / cosmetic), not just a flat coin number. The claim
 ## + streak-bump persist in one write (via Save). Returns whether a reward was granted.
-## A MYSTERY day (slot 4/7) resolves to its won rewards — the spin dialog drives the UI,
-## but headless callers (and tests) auto-resolve through the same claim_mystery() path.
+## A MYSTERY day (a slot with a pool in the config — none in the shipping grove tables) resolves
+## to its won rewards; the spin dialog drives the UI, but headless callers (and tests) auto-resolve
+## through the same claim_mystery() path.
 static func claim_today() -> bool:
 	var d := Save.daily()
 	if bool(d.get("claimed", false)):
@@ -226,8 +230,8 @@ static func day_value(day: int) -> int:
 
 ## DEBUG-ONLY: fast-forward to the next day so a tester can keep claiming. Claims today (if
 ## still unclaimed) to advance the streak, then reopens the claim for the next day — the streak
-## is kept intact (no soft-decay). Lets a tester walk the whole ladder, hitting mystery days
-## repeatedly. The calendar gates the button behind OS.is_debug_build(); never ships in release.
+## is kept intact (no soft-decay). Lets a tester walk the whole ladder in one sitting. The calendar
+## gates the button behind OS.is_debug_build(); never ships in release.
 static func debug_advance_day() -> void:
 	var d := Save.daily()
 	if not bool(d.get("claimed", false)):

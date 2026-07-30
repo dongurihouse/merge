@@ -1,36 +1,18 @@
 {
-	"_note": "Daily-login reward tables (Core §18), read by engine/scripts/core/login.gd via Game.active() — data-tunable, no code edit. Faucet discipline: mostly COINS; WATER stays a modest top-up (every water entry, ladder + mystery pools, <= water_safe_max, asserted by save_tests); PREMIUM (gems) is the weekly capstone + milestones. Placeholder values (mirror the old grove_data consts) — balancing is the BACKLOG 'Mystery reward pools' Tuning item.",
+	"_note": "Daily-login reward tables (Core §18), read by engine/scripts/core/login.gd via Game.active() — data-tunable, no code edit. Every day pays a FIXED reward: the mystery pools were REMOVED (2026-07-29), so slots 4 and 7 pay their ladder rungs outright — slot 4 the mid-week can top-up plus a coin gift, slot 7 the weekly capstone. The spin-reveal dialog (engine/scripts/ui/login_mystery.gd) and the Login.is_mystery/roll_mystery/claim_mystery API stay in the tree, PARKED and data-gated: re-add a `mystery` block here (slot → {show, win, pool}) and those days open the reveal again. Faucet discipline: mostly COINS; WATER stays a modest top-up (every water entry <= water_safe_max, asserted by save_tests); PREMIUM (gems) is the weekly capstone + milestones. Balancing is the BACKLOG 'Mystery reward pools' Tuning item.",
 
 	"ladder": [
 		{"coins": 50},
 		{"water": 8},
 		{"coins": 100},
-		{"water": 12},
+		{"coins": 60, "water": 12},
 		{"coins": 150},
 		{"gems": 1, "coins": 60},
-		{"coins": 200, "gems": 1}
+		{"coins": 250, "gems": 2}
 	],
 
 	"milestones": {
 		"30": {"gems": 15, "coins": 300}
-	},
-
-	"mystery": {
-		"4": {"show": 3, "win": 1, "pool": [
-			{"coins": 120},
-			{"water": 12},
-			{"coins": 60, "water": 6},
-			{"gems": 1},
-			{"coins": 150}
-		]},
-		"7": {"show": 5, "win": 2, "pool": [
-			{"coins": 200},
-			{"gems": 2},
-			{"coins": 100, "gems": 1},
-			{"water": 14},
-			{"coins": 300},
-			{"gems": 3}
-		]}
 	},
 
 	"water_safe_max": 15

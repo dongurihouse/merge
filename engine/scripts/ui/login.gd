@@ -2,8 +2,9 @@ extends RefCounted
 ## THE DAILY LOGIN CALENDAR surface — the diegetic forgiving-streak popup (Core §18 + §13), built to the
 ## `daily_gifts_1080x1920` mock: the shared cream sheet framing a 3×2 grid of tall pastel day cells plus a
 ## WIDE capstone banner for the week's last slot. Claimed days wear the green ✓ disc, today's rung a gold
-## rimmed amber cell with a green CLAIM pill, a mystery day a lavender cell with a lock glyph, and plain
-## future days a sage/sky cell showing the reward icon + its amount.
+## rimmed amber cell with a green CLAIM pill, and plain future days a sage/sky cell showing the reward icon
+## + its amount. A hidden-reward cell (a still-locked milestone, or a MYSTERY day if a game's reward config
+## declares one — grove's does not) wears the gift/chest marker instead of the reward face.
 ##
 ## The FRAME is the shared kit sheet (games/grove/ui_kit.gd → Kit.dialog_frame, the same
 ## one mail/residents use); the CELLS are built here, the way residents.gd builds its own mock-true cards.
@@ -56,7 +57,7 @@ const REWARD_ART := {
 	"water": "kit/daily_reward_water.png",
 }
 const ART_CHEST := "kit/daily_reward_chest.png"   # day-7 capstone / future milestone
-const ART_GIFT := "kit/daily_reward_gift.png"     # slot-4 mystery day (the wrapped box)
+const ART_GIFT := "kit/daily_reward_gift.png"     # the wrapped box — a slot-4 mystery day (parked; no live config declares one)
 const ART_CHECK := "kit/daily_reward_check.png"   # a claimed day's ✓ badge
 const ART_LEAF_L := "kit/daily_chest_leaf_l.png"  # day-7 chest decal — cut-paper oak sprig, left
 const ART_LEAF_R := "kit/daily_chest_leaf_r.png"  # day-7 chest decal — cut-paper oak sprig, right
@@ -154,7 +155,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	rb.fn.call()
 
 	# DEBUG fast-forward — never in a release build (OS.is_debug_build gate). Jumps to the next day so
-	# a tester can keep claiming and hit the mystery days repeatedly. Added to the overlay (not cc) so
+	# a tester can walk the whole weekly ladder in one sitting. Added to the overlay (not cc) so
 	# it survives the rebuild; gated behind the daily_debug flag for an easy off-switch.
 	if OS.is_debug_build() and Features.on("daily_debug"):
 		var ff := Button.new()
@@ -206,10 +207,11 @@ static func _days(host: Control, rb: Dictionary, opts: Dictionary) -> Array:
 			"reward": Login.reward_for(day),
 			"state": st,
 		}
-		# the "?" chest marks a MYSTERY day (slots 4 & 7, any state) or a still-locked future milestone.
+		# the chest marker hides a reward: a MYSTERY day (any state — PARKED, no live config declares one)
+		# or a still-locked future milestone.
 		if Login.is_mystery(day):
 			d["mystery"] = true
-			# slot 4 (day 4 of each week) reads as a wrapped GIFT BOX rather than the shared chest.
+			# a slot-4 mystery day would read as a wrapped GIFT BOX rather than the shared chest.
 			if Login.slot_of(day) == 4:
 				d["mystery_icon"] = ART_GIFT
 		elif Login.is_milestone(day) and st == "future":
@@ -356,7 +358,10 @@ static func _day_cell(Kit: GDScript, d: Dictionary, cw: float, ch_px: float) -> 
 	return panel
 
 ## Lay the reward ICON (centre at REWARD_ICON_FRAC) + its AMOUNT (at REWARD_AMOUNT_FRAC) over `inner`.
-## `mystery_src` (non-empty) picks the mystery icon (gift/chest) instead of the reward currencies.
+## A single-currency rung gets one big number; a MULTI-currency rung gets one number per icon, each under
+## its own icon (both live on the same fixed amount line, so no card's number floats).
+## `mystery_src` (non-empty) picks the mystery icon (gift/chest) instead of the reward currencies — a
+## hidden reward shows no number.
 static func _add_reward_face(Kit: GDScript, inner: Control, reward: Dictionary, cw: float, mystery_src: Dictionary) -> void:
 	var mystery := not mystery_src.is_empty()
 	var art: Control
@@ -375,22 +380,67 @@ static func _add_reward_face(Kit: GDScript, inner: Control, reward: Dictionary, 
 	ah.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ah.add_child(art)
 	inner.add_child(ah)
-	var amount := "" if mystery else _amount_text(reward)
-	if amount != "":
-		var amt := Label.new()
+	if mystery:
+		return                                       # a hidden reward shows no number at all
+	var ids := _reward_ids(reward)
+	if ids.size() == 1:
+		var amount := _amount_text(reward)
+		if amount == "":
+			return
+		var amt := _amount_label(Kit, amount, cw * 0.21)
 		amt.name = "DailyAmount"
-		amt.text = amount
-		amt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		amt.anchor_left = 0.0; amt.anchor_right = 1.0
-		amt.anchor_top = REWARD_AMOUNT_FRAC; amt.anchor_bottom = REWARD_AMOUNT_FRAC
-		amt.offset_top = REWARD_AMOUNT_DROP_PX; amt.offset_bottom = REWARD_AMOUNT_DROP_PX
-		amt.grow_vertical = Control.GROW_DIRECTION_BOTH
-		amt.add_theme_font_override("font", Kit.bold_font())
-		amt.add_theme_font_size_override("font_size", maxi(10, int(cw * 0.21)))
-		amt.add_theme_color_override("font_color", Pal.INK)
-		amt.add_theme_constant_override("outline_size", 0)
-		amt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_pin_amount(amt)
 		inner.add_child(amt)
+	elif ids.size() > 1:
+		# A MULTI-currency rung (the mid-week coins+can gift, the coins+acorn rung): ONE number per icon,
+		# each sitting under its own icon. The mock left these bare, but a rung whose reward is FIXED has
+		# to say what it pays — a bare pair reads as "some gift", which is the mystery face we retired.
+		# The columns mirror _reward_art's row exactly (same per-icon box width, same separation), so the
+		# numbers line up with the art above them; the type is a step smaller so two fit side by side.
+		var px := cw * REWARD_ICON_PX
+		var row := HBoxContainer.new()
+		row.name = "DailyAmountRow"
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", int(-px * 0.06))
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for id in ids:
+			var col := _amount_label(Kit, _amount_for(reward, String(id)), cw * 0.17)
+			col.custom_minimum_size = Vector2(px * 0.54, 0)
+			row.add_child(col)
+		var rh := CenterContainer.new()
+		rh.name = "DailyAmountHost"
+		rh.anchor_left = 0.0; rh.anchor_right = 1.0
+		_pin_amount(rh)
+		rh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rh.add_child(row)
+		inner.add_child(rh)
+
+## Pin a control to the cell's fixed AMOUNT line (so every card's number sits on the same row).
+static func _pin_amount(c: Control) -> void:
+	c.anchor_top = REWARD_AMOUNT_FRAC; c.anchor_bottom = REWARD_AMOUNT_FRAC
+	c.offset_top = REWARD_AMOUNT_DROP_PX; c.offset_bottom = REWARD_AMOUNT_DROP_PX
+	c.grow_vertical = Control.GROW_DIRECTION_BOTH
+
+## One amount number in the card's type (bold ink, centred, no outline). `px` is the font size in pixels.
+static func _amount_label(Kit: GDScript, text: String, px: float) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_font_override("font", Kit.bold_font())
+	l.add_theme_font_size_override("font_size", maxi(10, int(px)))
+	l.add_theme_color_override("font_color", Pal.INK)
+	l.add_theme_constant_override("outline_size", 0)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
+## The number a single reward id pays (the per-icon amount behind _amount_text's single-currency case).
+static func _amount_for(reward: Dictionary, id: String) -> String:
+	match id:
+		"gem": return str(int(reward.get("gems", 0)))
+		"coin": return str(int(reward.get("coins", 0)))
+		"water": return str(int(reward.get("water", 0)))
+	return ""
 
 static func _capstone(Kit: GDScript, d: Dictionary, w: float, h: float) -> Control:
 	# Day 7 is a single GOLDEN cut-paper card (the code-drawn face), with the standalone chest + oak sprigs +
