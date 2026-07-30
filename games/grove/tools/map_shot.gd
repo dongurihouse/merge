@@ -2,7 +2,8 @@ extends SceneTree
 ## Dev tool (run via engine/tools/quiet_godot.sh): screenshot the Map scene (home map) in a state.
 ##   quiet_godot.sh --path . -s res://games/grove/tools/map_shot.gd -- <mode> <out.png>
 ## modes: fresh | select | maps | closeup | progress | owned | shop | shophits | settings | spirits | vault | mail
-##        `shophits` = the storefront WITH its hit-region overlay (which purchase each tap resolves to)
+##        `shophits` = the storefront WITH the hit-region overlay this tool composes over it (which
+##        purchase each tap resolves to) — engine/tools/shop_hit_overlay.gd, docs/design/shop-hit-regions.md
 ## extra args: `maps nodaily=1` (no login popup over the cards) · `select owned=1` · `closeup residents=1`
 ## BATCH IT: several captures in one launch is `make shot-batch PLAN=<file>` (this tool is batch-safe).
 
@@ -242,13 +243,24 @@ func _initialize() -> void:
 	elif mode == "shop" or mode == "confirm" or mode == "shophits":
 		Save.add_diamonds(40)
 		Save.add_coins(1200)            # T40: so the coin-priced featured offers read un-dimmed
-		# `shophits` arms the storefront's HIT-REGION OVERLAY (engine/scripts/ui/shop_hit_overlay.gd) the
-		# same way `place=1` arms the layout editor — through Debug.force, the project's one authoring
-		# gate. It draws each offer's real tap region, labelled with the purchase the ENGINE's own picker
-		# resolves it to, so the mapping can be READ off the capture. Never on in any other mode.
+		var ShopUI: GDScript = load("res://engine/scripts/ui/shop.gd")
+		ShopUI.open(scn, {"refresh": func() -> void: pass})
+		# `shophits` = THIS TOOL composes the HIT-REGION OVERLAY over the storefront that just opened. The
+		# overlay (engine/tools/shop_hit_overlay.gd) is a tool, not game chrome: it is excluded from the
+		# shipped pack and nothing in the game names it, so there is no flag to arm — mounting IS the
+		# arming. It draws each offer's real tap region, labelled with the purchase the ENGINE's own
+		# picker resolves it to, so the mapping can be READ off the capture. The loop this serves end to
+		# end is docs/design/shop-hit-regions.md. Mounted in the SAME frame the shop opened, so the probe
+		# lands where it always did.
 		if mode == "shophits":
-			load("res://engine/scripts/ui/debug.gd").force = true
-		load("res://engine/scripts/ui/shop.gd").open(scn, {"refresh": func() -> void: pass})
+			var ShopScreen: GDScript = load("res://engine/scripts/ui/shop_screen.gd")
+			var shop_modal: Control = scn.find_child(ShopUI.OVERLAY_NAME, true, false) as Control
+			var storefront: Control = null
+			if shop_modal != null:
+				storefront = shop_modal.find_child(ShopScreen.ROOT_NODE, true, false) as Control
+			var hits: Control = load("res://engine/tools/shop_hit_overlay.gd").mount(shop_modal, storefront)
+			# a capture that quietly lost its overlay would look like a plain `shop` shot — say so instead.
+			print("MAP SHOPHITS overlay=%s modal=%s screen=%s" % [hits, shop_modal, storefront])
 		await create_timer(0.4).timeout
 		if mode == "shophits":
 			await create_timer(0.5).timeout   # the overlay probes the picker two frames after it mounts

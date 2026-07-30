@@ -9,8 +9,11 @@ const Kit = preload("res://games/grove/ui_kit.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")   # the two card/art shadow shapes
 const ShopScreen = preload("res://engine/scripts/ui/shop_screen.gd")      # the storefront painting + its hit-region names
-const HitOverlay = preload("res://engine/scripts/ui/shop_hit_overlay.gd")
-const DebugUI = preload("res://engine/scripts/ui/debug.gd")
+## The hit-region overlay is a CAPTURE TOOL, outside the shipped pack (engine/tools/** is excluded) and
+## named by no shipped script — engine/tests/layering_tests.gd fails if that changes. This suite composes
+## it exactly the way games/grove/tools/map_shot.gd `shophits` does, so the assertions below cover the
+## picture that capture produces. Loop: docs/design/shop-hit-regions.md.
+const HitOverlay = preload("res://engine/tools/shop_hit_overlay.gd")
 const Design = preload("res://engine/scripts/core/design.gd")   # THE design-viewport owner — never re-type the canvas
 
 func _initialize() -> void:
@@ -1346,9 +1349,10 @@ func _test_close_region() -> void:
 	live.queue_free()
 
 # ── the HIT-REGION OVERLAY (deliverable 3) ─────────────────────────────────────────────────────────
-## The overlay must be ABSENT from an ordinary run and PRESENT (and honest) under the authoring gate.
-## "Honest" is the whole point: it reports what the ENGINE's picker returns for points inside each
-## region, so a region drawn over the wrong purchase shows up as a mismatch instead of a tidy label.
+## The overlay must be ABSENT from an ordinary run — the storefront cannot mount it, because nothing in
+## the game knows it exists — and PRESENT (and honest) when the CAPTURE composes it. "Honest" is the whole
+## point: it reports what the ENGINE's picker returns for points inside each region, so a region drawn over
+## the wrong purchase shows up as a mismatch instead of a tidy label.
 func _test_hit_overlay_is_gated_and_honest() -> void:
 	fresh("hit_overlay_gate")
 	var plain := Control.new()
@@ -1361,14 +1365,20 @@ func _test_hit_overlay_is_gated_and_honest() -> void:
 	plain.queue_free()
 
 	fresh("hit_overlay_honest")
-	DebugUI.force = true                     # the capture tool's own gate (map_shot MODE=shophits)
 	var host := Control.new()
 	host.set_anchors_preset(Control.PRESET_FULL_RECT)
 	get_root().add_child(host)
 	ShopS.open(host, {})
+	# …and the capture tool's own composition, step for step (map_shot.gd MODE=shophits): find the modal
+	# the storefront opened in, find the storefront inside it, mount the overlay over the pair.
+	var modal: Control = host.find_child(ShopS.OVERLAY_NAME, true, false) as Control
+	var storefront: Control = null
+	if modal != null:
+		storefront = modal.find_child(ShopScreen.ROOT_NODE, true, false) as Control
+	var mounted: Control = HitOverlay.mount(modal, storefront)
 	await create_timer(0.3).timeout
 	var ov: Control = host.find_child(HitOverlay.OVERLAY_NAME, true, false) as Control
-	ok(ov != null, "the authoring gate mounts the hit overlay over the storefront")
+	ok(ov != null and ov == mounted, "the capture tool's own mount puts the hit overlay over the storefront")
 	if ov != null:
 		var regions: Array = ov.call("regions_for_test")
 		var by_kind := {}
@@ -1417,4 +1427,3 @@ func _test_hit_overlay_is_gated_and_honest() -> void:
 		ok(answers == ["veil · dismisses"],
 			"…and every one of them resolves to the modal's dismiss veil (%s)" % ",".join(PackedStringArray(answers)))
 	host.queue_free()
-	DebugUI.force = false                    # never leave the gate armed for a later suite

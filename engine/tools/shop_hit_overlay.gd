@@ -24,18 +24,24 @@ extends Control
 ##     grid of points outside every region is pushed through the same picker and marked ×, and the legend
 ##     names what they hit. Drawing only the offers would have shown a screen that is nine-tenths inert.
 ##
-## GATED like every other debug surface in this project: `Debug.authoring()` only (engine/scripts/ui/debug.gd
-## — `Debug.force`, `TU_DEBUG=1`, or `-- debug`). It is therefore absent from a normal run, from every
-## headless suite (DisplayServer is "headless") and from an ordinary quiet capture (TU_QUIET=1). The
-## capture that WANTS it sets the gate deliberately: `make shot-map MODE=shophits`.
+## IT IS A TOOL, AND ITS LOCATION IS ITS GATE. It lives under engine/tools/, which export_presets.cfg
+## excludes from the shipped pack (`engine/tools/**`), and NO shipped script names it — the game cannot
+## mount it, gated or not. It was authoring-gated chrome inside engine/scripts/ui/ until 2026-07-30 (owner:
+## "remove, it was for me to know where click would land, but keep the code"), and a gate is a promise
+## where absence from the pack is a fact. engine/tests/layering_tests.gd fails if shipped code ever names
+## this file again.
+##
+## WHO MOUNTS IT: the capture tool, which composes it over the storefront it just opened —
+## games/grove/tools/map_shot.gd `shophits` (`make shot-map MODE=shophits`) and games/grove/tests/
+## grove_shop_tests.gd. Both live in directories the export excludes too. The workflow this serves
+## end to end is docs/design/shop-hit-regions.md.
 
-const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Screen = preload("res://engine/scripts/ui/shop_screen.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
 const OVERLAY_NAME := "ShopHitOverlay"
-const SELF_PATH := "res://engine/scripts/ui/shop_hit_overlay.gd"
+const SELF_PATH := "res://engine/tools/shop_hit_overlay.gd"
 
 ## How many points inside each region are probed through the engine's picker. Centre plus the four
 ## corners of a rect inset by PROBE_INSET of the region — a single centre probe would pass a region whose
@@ -61,10 +67,12 @@ var _regions: Array = []     ## [{rect, declared, resolved, kind, good, drawn}]
 var _elsewhere: Array = []   ## [{pos, hit}] — probe points inside NO region, and what the picker returned
 var _probed := false
 
-## Mount the overlay over an open storefront. A NO-OP unless the authoring gate is on, so the live game,
-## the suites and ordinary captures never see it. Returns the overlay (or null when gated off).
+## Mount the overlay over an open storefront: `host` is the modal the screen sits in (its veil is what the
+## off-region probes land on), `screen` the built storefront. Called by the capture tool AFTER the shop has
+## opened — mounting IS the arming, there is no flag to set. Returns the overlay, or null if either node is
+## missing (a caller that could not find the storefront must see that, not a silent no-op).
 static func mount(host: Control, screen: Control) -> Control:
-	if host == null or screen == null or not Debug.authoring():
+	if host == null or screen == null:
 		return null
 	if host.has_node(OVERLAY_NAME):
 		return host.get_node(OVERLAY_NAME) as Control

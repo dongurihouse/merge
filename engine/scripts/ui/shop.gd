@@ -31,7 +31,6 @@ const Tune = preload("res://engine/scripts/core/tuning.gd").Shop   # the engine'
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Screen = preload("res://engine/scripts/ui/shop_screen.gd")         # THE storefront: the mock's own painting + its hit regions
-const HitOverlay = preload("res://engine/scripts/ui/shop_hit_overlay.gd")  # the debug-gated hit-region overlay
 const OVERLAY_NAME := "ShopOverlay"
 const CONFIRM_NAME := "ShopCashConfirmOverlay"   ## the cash confirm raised over an open shop
 
@@ -220,8 +219,6 @@ static func _open(host: Control, opts: Dictionary) -> void:
 		var screen: Control = build_body(host.get_viewport_rect().size, _sections(refs),
 			{"on_close": modal["dismiss"]})
 		cc.add_child(screen)
-		# the hit-region overlay: authoring-gated debug chrome, never a normal run (see shop_hit_overlay.gd)
-		HitOverlay.mount(overlay, screen)
 		if rb.first:
 			FX.pop_in(screen)
 			rb.first = false
@@ -233,8 +230,10 @@ static func _open(host: Control, opts: Dictionary) -> void:
 # it does. The screen is handed the same offer dictionaries the sage-card grid and the code-drawn stall
 # both were, so a re-layout cannot re-wire a tier.
 
-## The per-offer identity every region carries, so the debug hit overlay can name what a region resolves
-## to and the suites can assert region ↔ purchase. One id per live offer, stable across a rebuild: the
+## The per-offer identity every region carries, so the suites can assert region ↔ purchase and the capture
+## tool's hit-region overlay can name what a region resolves to (docs/design/shop-hit-regions.md — the
+## overlay itself ships with nothing; these few bytes of meta are what make it re-runnable). One id per
+## live offer, stable across a rebuild: the
 ## free refill, the two quick-help offers, the scissors, and `cash_<i>` per ladder tier. The SAME ids are
 ## the keys of the region registry — an offer with no id there has no shelf on the painting.
 const OFFER_REFILL := "refill"

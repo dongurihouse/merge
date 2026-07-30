@@ -10,6 +10,9 @@ the picture (storefront_market_stall.regions.json), authored by a human from thi
     PYTHONPATH=. python3 games/grove/tools/measure_shop_screen.py
     PYTHONPATH=. python3 games/grove/tools/measure_shop_screen.py --check   # + diff against the registry
 
+This is step 1 of the mock -> regions -> overlay loop; the whole loop, and the rules that keep it
+honest, are docs/design/shop-hit-regions.md.
+
 WHAT IT FINDS, and how (every threshold is a colour rule over the painting's own palette):
 
   green buttons   the eight action-green price plates. G clearly over both R and B.

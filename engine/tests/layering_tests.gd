@@ -47,6 +47,7 @@ func _initialize() -> void:
 	_check_modal_z()
 	_check_no_z_above_modal_top()
 	_check_engine_never_reaches_into_games()
+	_check_shipped_never_names_an_excluded_dir()
 	await _check_level_badge_layout()
 	finish()
 
@@ -154,6 +155,70 @@ func _check_engine_never_reaches_into_games() -> void:
 			"no script under engine/scripts/ names a res://games/ path (%d offender(s))" % offenders.size())
 	else:
 		ok(true, "engine/scripts/ -> res://games/ scan ran (staged: %d reported, not failing)" % offenders.size())
+
+# THE SHIPPED PACK MUST BE SELF-CONTAINED. export_presets.cfg drops whole directories from the build
+# (`exclude_filter`) — the tests and the dev tools. A shipped script that names a file in one of them is a
+# load that cannot resolve on device: silent in the editor, silent in every headless suite, broken only in
+# the export. Nothing enforced this until the shop's hit-region overlay moved out of engine/scripts/ui/
+# into engine/tools/ (2026-07-30) precisely SO it would stop shipping — the owner's reason for keeping the
+# code ("in case we want to change it, or introduce a new shop element") is exactly the day someone
+# re-wires it into the runtime by hand. A tool composes it now; see docs/design/shop-hit-regions.md.
+#
+# The rule is derived from the preset, not typed here, so a new excluded directory is covered the day it
+# is added. Only excluded directories that CONTAIN .gd files are scanned for: an excluded asset directory
+# (games/grove/assets/**) is a different mechanism — art is mounted at runtime as a separate pack through
+# Game.art(), and shipped scripts name those paths legitimately.
+const EXPORT_PRESETS := "res://export_presets.cfg"
+
+func _check_shipped_never_names_an_excluded_dir() -> void:
+	var excluded := _excluded_dirs()
+	ok(not excluded.is_empty(), "export_presets.cfg declares excluded directories (%d)" % excluded.size())
+	var code_excluded := PackedStringArray()
+	for dir in excluded:
+		if gd_files(dir).size() > 0:
+			code_excluded.append(dir)
+	ok(code_excluded.size() >= 2, \
+		"…of which these hold scripts, so nothing shipped may name them: %s" % ", ".join(code_excluded))
+	var offenders := PackedStringArray()
+	for p in _shipped_gd_files(excluded):
+		var line_no := 0
+		for raw_line in read_text(p).split("\n"):
+			line_no += 1
+			var line: String = raw_line.split("#")[0]   # a path named in prose is not a dependency
+			for dir in code_excluded:
+				if line.find(dir) != -1:
+					offenders.append("%s:%d  %s" % [p.trim_prefix("res://"), line_no, dir])
+	ok(offenders.is_empty(), \
+		"no shipped script names a directory the export excludes (%d offender(s))%s" % \
+		[offenders.size(), ("" if offenders.is_empty() else " — " + ", ".join(offenders))])
+
+# The `<dir>/**` entries of the preset's exclude_filter, as res:// directory prefixes.
+func _excluded_dirs() -> PackedStringArray:
+	var out := PackedStringArray()
+	for raw_line in read_text(EXPORT_PRESETS).split("\n"):
+		var line := raw_line.strip_edges()
+		if not line.begins_with("exclude_filter="):
+			continue
+		for entry in line.trim_prefix("exclude_filter=").trim_prefix("\"").trim_suffix("\"").split(","):
+			var e := String(entry).strip_edges()
+			if e.ends_with("/**"):
+				out.append("res://" + e.trim_suffix("**"))
+		break
+	return out
+
+# Every .gd file the export SHIPS: the walk starts at the project root, so a new shipped directory is
+# covered without being named here, and skips exactly what the preset already drops.
+func _shipped_gd_files(excluded: PackedStringArray) -> PackedStringArray:
+	var out := PackedStringArray()
+	for p in gd_files("res://"):
+		var shipped := true
+		for dir in excluded:
+			if p.begins_with(dir):
+				shipped = false
+				break
+		if shipped:
+			out.append(p)
+	return out
 
 func _check_level_badge_layout() -> void:
 	var host := Control.new()

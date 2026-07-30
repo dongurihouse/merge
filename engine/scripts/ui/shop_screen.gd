@@ -25,9 +25,11 @@ extends RefCounted
 ## ORDER IS LOAD-BEARING. The eight cells go down first and tile without overlapping; the eight price
 ## rects go down after them, on top. That is what lets a price button that hangs below its own shelf
 ## (the $0.99 and $4.99 plates both do, by 24 px) keep its own taps while the POPULAR ribbon's tip above
-## the same seam belongs to the pack it points at. The debug overlay (make shot-map MODE=shophits) probes
-## the ENGINE's own picker inside every region and reddens any disagreement, so the ordering is a checked
-## claim rather than a comment.
+## the same seam belongs to the pack it points at. The hit-region overlay (`make shot-map MODE=shophits`)
+## probes the ENGINE's own picker inside every region and reddens any disagreement, so the ordering is a
+## checked claim rather than a comment. That overlay is a CAPTURE TOOL and ships with nothing — it is
+## composed over the built screen by the capture, off the metas below. The mock → regions → overlay loop,
+## end to end, is docs/design/shop-hit-regions.md.
 ##
 ## WHAT THE PICTURE CANNOT SELL. The art is fixed, so it presents exactly the eight offers it draws. Any
 ## live offer with no region — today the 💎 water fill that appears once the free refill is spent, and the

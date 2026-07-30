@@ -49,6 +49,17 @@ the mock's on its screen is not evidence — it was done five times running befo
 Which mock, which rect of it, and how much of the ground beside it is REAL is judgement, and lives in
 `games/grove/tools/mock_targets.json`; the scripts never guess.
 
+## Changing the shop screen — the hit regions are measured
+
+The shop screen IS the concept painting with transparent hit rects over it. **Before touching the
+storefront art, its regions, or adding a shop element**, read `docs/design/shop-hit-regions.md`: it is the
+mock → measure → registry → overlay loop (`measure_shop_screen.py`, the regions JSON, then
+`make shot-map MODE=shophits` to SEE which purchase each tap resolves to, per the engine's own picker).
+The overlay is a capture tool (`engine/tools/shop_hit_overlay.gd`) and ships with nothing — the export
+excludes `engine/tools/**`, and `engine/tests/layering_tests.gd` fails if shipped code ever names it. The
+metas it reads (`shop_slot` / `shop_offer` / `shop_close` / `shop_close_drawn`) DO stay in the game; they
+are what makes the loop re-runnable.
+
 ## Testing — run `make test-fast` first
 
 After **every change**, run the fast inner-loop check before anything else:
