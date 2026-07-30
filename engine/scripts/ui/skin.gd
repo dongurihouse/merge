@@ -161,39 +161,108 @@ static func _lay_silhouette_shadow(badge: Control, art: TextureRect, sp: Diction
 	badge.add_child(shr)
 	badge.move_child(shr, 0)
 
-## The HUD's top-left LEVEL badge: the cut-paper gold STAR base (ui/kit/level_star_badge.png) with the
-## level number in WHITE over it. A single reusable base (no tiers — the number is rendered live, never
-## baked). Same node contract as make_level_badge (root "LevelBadge", art "lv_badge_art", number "lv_num",
-## the shared silhouette shadow at child 0) so the HUD's refresh + painted-offset alignment work unchanged.
-const STAR_BADGE_ART := "kit/level_star_badge.png"
-const STAR_BADGE_PAINTED_SPAN := 0.90     # the painted star's span as a fraction of its square canvas
+## --- the HUD's paper MEDAL level badge ------------------------------------------------------
+## The top-left LEVEL badge is a cut-paper medal that grows grander as the player levels up:
+##   t1  cream disc + gold ring + green ribbon tails
+##   t2  cream disc + coral scalloped ring + blue ribbon
+##   t3  cream disc + gold scalloped ring + banner + star + coral tails
+## THE TIER MAP IS DERIVED, NOT INVENTED. The 30-tier ladder above is banded (10 tiers of 1 level,
+## 10 of 3, 10 of 6); the medal wears ONE tier per BAND, so its thresholds are that ladder's own
+## joints — L1-10 · L11-40 · L41+. The numbers live in data/level_badges.json under "medal", the
+## single place a designer retunes them (see medal_tier_index / MEDAL_SPECS_FALLBACK).
+##
+## Each tier carries its own geometry, because the number belongs on the DISC and the disc is not
+## the middle of the art: t1's tails hang below it, t2's ribbon covers its bottom, t3's banner and
+## star lie across it. Centring the number on the art's own centre puts it 9 / 5.5 / 6.5 px low at
+## the shipped 116 px slot — a quarter of the disc's radius, and the eye catches it.
+##   art           the texture, relative to assets/ui/
+##   circle_cy     the DISC's centre as a fraction of the texture canvas HEIGHT (measured with the
+##                 widest-row rule; the colour well is truncated by the ribbon and fused with the
+##                 banner, so its bbox centre is not the circle's — see the paper-medal study)
+##   painted_span  the painted art's HEIGHT as a fraction of that canvas, so `px` sizes the MEDAL
+##                 and not its transparent gutter (the contract the star base had as 0.90)
+const MEDAL_ART_DIR := "kit/"
+## The Label centres its LINE BOX (ascent+descent), not the visible ink, so the digits land ABOVE
+## that centre and the number reads high. MEASURED on the game's own face, which is NOT the one the
+## study assumed: games/grove/game.gd ships FONT := "", so the face is the engine's SystemFont
+## fallback ("Arial Rounded MT Bold" on macOS, weight 700) emboldened 0.6 by Kit.bold_font(), not
+## Open Sans SemiBold and not Arial Bold. Read off the real renderer at the three shipped sizes
+## (games/grove/tools/medal_badge_shot.gd's bias plate, a Label at an INTEGER rect so nothing else
+## is in the way): ink centre − rect centre = −1.0 px at font 49, −1.0 at 39, −1.5 at 31.
+##
+## IT IS A PIXEL COUNT, NOT A FRACTION OF THE FONT SIZE, and that is the measurement talking: the
+## term is dominated by integer rasterisation (ascent/descent/line height are whole pixels), so it
+## does not scale — −1.0 px covers 49 AND 39. The extra half pixel at 31 is the renderer snapping a
+## half-pixel baseline, which appears whenever the face's line height at that size is odd; it is
+## inside the ±0.5 px draw-origin quantisation that no constant can remove.
+const MEDAL_NUM_INK_BIAS_PX := 1.0        # px pushed DOWN, cancelling the ink's rise above the line box
+## Used only when data/level_badges.json carries no "medal" block (a stripped data dir): one tier,
+## the plain medal, centred on its own disc. Never the shipping path.
+const MEDAL_SPECS_FALLBACK := [{"min_level": 1, "art": "level_medal_t1.png",
+	"circle_cy": 0.4273, "painted_span": 0.9492}]
+
+## The medal tiers, in ascending min_level order, straight from data/level_badges.json "medal".
+static func medal_specs() -> Array:
+	var m: Variant = _level_badge_cfg().get("medal", null)
+	if m is Dictionary:
+		var tiers: Variant = (m as Dictionary).get("tiers", null)
+		if tiers is Array and not (tiers as Array).is_empty():
+			return tiers as Array
+	return MEDAL_SPECS_FALLBACK
+
+## Which MEDAL a Level wears (0-based): the last tier whose min_level the Level has reached.
+static func medal_tier_index(level: int) -> int:
+	var specs := medal_specs()
+	var lvl := maxi(1, level)
+	var idx := 0
+	for i in specs.size():
+		if lvl >= int((specs[i] as Dictionary).get("min_level", 1)):
+			idx = i
+	return idx
+
+static func medal_spec(level: int) -> Dictionary:
+	var specs := medal_specs()
+	return specs[clampi(medal_tier_index(level), 0, specs.size() - 1)] as Dictionary
+
+## The HUD's top-left LEVEL badge: the paper MEDAL for this Level's tier with the level number in
+## Pal.INK over its disc. Same node contract as make_level_badge (root "LevelBadge", art
+## "lv_badge_art", number "lv_num", the shared silhouette shadow at child 0) so the HUD's refresh +
+## painted-offset alignment work unchanged. The number is rendered live, never baked.
 static func make_star_level_badge(level: int, px: float, num_font: int = -1, cfg_override: Dictionary = {}) -> Control:
 	var Kit = Game.kit_script()
 	var cfg: Dictionary = cfg_override if not cfg_override.is_empty() else Kit.load_config(Kit.CONFIG_PATH)
+	var spec := medal_spec(level)
 	var badge := Control.new()
 	badge.name = "LevelBadge"
 	badge.custom_minimum_size = Vector2(px, px)
 	badge.size = Vector2(px, px)
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var tex: Texture2D = Kit.clean_tex_path(kit(STAR_BADGE_ART), 256)
+	var span := maxf(0.01, float(spec.get("painted_span", 1.0)))
+	var art_px := px / span
+	var art_y := -(art_px - px) * 0.5
+	var tex: Texture2D = Kit.clean_tex_path(kit(MEDAL_ART_DIR + String(spec.get("art", ""))), 256)
 	if tex != null:
 		var art := TextureRect.new()
 		art.name = "lv_badge_art"
 		art.texture = tex
-		# expand_mode BEFORE size (min-size cache): scale the art up so the painted star (which sits in a
-		# transparent gutter) fills the px slot, honoring the HUD's shared visible-edge margin.
+		# expand_mode BEFORE size (min-size cache): scale the art up so the painted medal (which sits
+		# in a transparent gutter) fills the px slot, honoring the HUD's shared visible-edge margin.
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		var art_px := px / STAR_BADGE_PAINTED_SPAN
 		art.size = Vector2(art_px, art_px)
-		art.position = Vector2(-(art_px - px) * 0.5, -(art_px - px) * 0.5)
+		art.position = Vector2(-(art_px - px) * 0.5, art_y)
 		art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		badge.add_child(art)
 
-	# the level number, centered — the SAME ink the currency pills use for their amount (Pal.INK,
-	# no outline) so the top-left badge and the wallet numbers read as one system.
+	# the level number, on the DISC — the SAME ink the currency pills use for their amount (Pal.INK,
+	# no outline) so the top-left badge and the wallet numbers read as one system. The Label is
+	# full-rect + centred, then pushed to the disc: the art rect is square and STRETCH_KEEP_ASPECT_
+	# CENTERED into a square, so the canvas maps 1:1 onto it and the disc sits at
+	# art_y + circle_cy * art_px. Both offsets move together, which slides the line box without
+	# resizing it.
+	var fsize := num_font if num_font > 0 else int(px * 0.42)
 	var num := Label.new()
 	num.name = "lv_num"
 	num.text = str(level)
@@ -201,16 +270,29 @@ static func make_star_level_badge(level: int, px: float, num_font: int = -1, cfg
 	num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	num.add_theme_font_override("font", Kit.bold_font())
-	num.add_theme_font_size_override("font_size", num_font if num_font > 0 else int(px * 0.42))
+	num.add_theme_font_size_override("font_size", fsize)
 	num.add_theme_color_override("font_color", Pal.INK)
 	num.add_theme_constant_override("outline_size", 0)
 	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var dy := medal_num_offset(spec, px, fsize)
+	num.offset_top = dy
+	num.offset_bottom = dy
 	badge.add_child(num)
 
 	var art2 := badge.get_node_or_null("lv_badge_art") as TextureRect
 	if art2 != null and art2.texture != null:
 		_lay_silhouette_shadow(badge, art2, shadow_params(cfg))
 	return badge
+
+## How far the number's Label slides DOWN from the badge's own centre to sit on the disc: the disc
+## centre in badge coordinates, minus the badge centre, plus the font's line-box-vs-ink bias.
+## Named (not inlined) so a test can read the shipped number instead of recomputing the expression.
+static func medal_num_offset(spec: Dictionary, px: float, _font_size: int = -1) -> float:
+	var span := maxf(0.01, float(spec.get("painted_span", 1.0)))
+	var art_px := px / span
+	var art_y := -(art_px - px) * 0.5
+	var disc_y := art_y + float(spec.get("circle_cy", 0.5)) * art_px
+	return disc_y - px * 0.5 + MEDAL_NUM_INK_BIAS_PX
 
 class _RimOverlay extends Control:
 	var radius: float = Tune.RADIUS_CARD

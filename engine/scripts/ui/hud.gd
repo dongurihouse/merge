@@ -218,7 +218,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	left.offset_right = left_edge + left_w
 	# the rebuildable badge bits, shared with `refresh` via a dict (closures capture it by reference)
 	var badge_state := {"avatar": avatar, "level": avatar.get_node_or_null("lv_num") as Label,
-		"tier": Look.level_badge_index(lvl0)}
+		"tier": Look.medal_tier_index(lvl0)}
 	lrow.add_child(avatar)
 	left.add_child(lv_panel)
 
@@ -245,7 +245,10 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		_set_or_tick(coins, Save.coins())
 		_set_or_tick(gems, Save.diamonds())
 		var lvl := G.level()
-		var tier := Look.level_badge_index(lvl)
+		# the MEDAL's own 3-tier map, not the 30-tier ladder: the badge only changes art on a medal
+		# tier flip, so keying the rebuild to the ladder would throw the emblem away 27 times for
+		# nothing (and drop the tap wiring + painted-offset placement each time).
+		var tier := Look.medal_tier_index(lvl)
 		if tier != int(badge_state["tier"]):
 			# tier flipped -> rebuild the emblem (a tier changes the SET of parts, not just one frame)
 			var old: Control = badge_state["avatar"]

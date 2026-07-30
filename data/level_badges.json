@@ -5,5 +5,14 @@
     { "tiers": 10, "levels_per_tier": 1 },
     { "tiers": 10, "levels_per_tier": 3 },
     { "tiers": 10, "levels_per_tier": 6 }
-  ]
+  ],
+
+  "medal": {
+    "_doc": "The HUD's top-left paper MEDAL badge (Look.make_star_level_badge) — a THREE-tier family, and the only place its Level->tier thresholds live. THE THRESHOLDS ARE DERIVED FROM `bands` ABOVE, not invented: that ladder is three bands of ten tiers, so the medal wears one tier per BAND and its joints are the ladder's own — L1-10 (band 1, one tier per level), L11-40 (band 2, every 3 levels), L41+ (band 3 and beyond). The approved mocks were labelled Lv2 / Lv24 / Lv85, which are ladder tiers 1 / 14 / 27 — the 1st, 2nd and 3rd band, matching. RETUNE HERE: `min_level` is the first Level that wears each medal, and engine/tests/level_badge_medal_tests.gd asserts these still equal the band starts, so a deliberate retune fails loudly instead of silently drifting from the ladder. `circle_cy` is the DISC's centre as a fraction of the texture canvas height (measured with the widest-row rule on the shipped 256 bake — the number rides the disc, not the art's bbox, which t1's tails, t2's ribbon and t3's banner all pull off centre). `painted_span` is the painted art's height as a fraction of that canvas, so the badge's px slot sizes the medal and not its transparent gutter.",
+    "tiers": [
+      { "min_level": 1,  "art": "level_medal_t1.png", "circle_cy": 0.4273, "painted_span": 0.9492 },
+      { "min_level": 11, "art": "level_medal_t2.png", "circle_cy": 0.4572, "painted_span": 0.9531 },
+      { "min_level": 41, "art": "level_medal_t3.png", "circle_cy": 0.4522, "painted_span": 0.9531 }
+    ]
+  }
 }
