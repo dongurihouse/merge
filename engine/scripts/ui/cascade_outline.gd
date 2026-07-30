@@ -84,8 +84,8 @@ const RAILS := [
 ##                opacity alone. The hot line AT the tile edge (offset -1.000) is already near-cream
 ##                and it is the tile's own cut edge, so its colour is left exactly as solved; the two
 ##                rails inside it sit on the lit tile face, not on the tray, and are left too. The
-##                interior gutters take the same pull (see CRACK_COLOR) — they ride tray as well, and
-##                ONE constant driving both is what keeps their warmth in agreement.
+##                interior gutters take the same pull (see `lit_crack()`) — they ride tray as well,
+##                and ONE pull driving both is what keeps their warmth in agreement.
 ##   BAND_WIDTH   how far those same rails REACH outward. The band is the only bright part of the
 ##                mark and at 1.00 it is 8.1 px on a 130 px cell — 6 % of a cell — which is the real
 ##                reason it reads faint in play. Widening it adds warm light without whitening
@@ -143,10 +143,22 @@ const FACE_CORE_A := 0.19
 # The tray gutters BETWEEN two chain cells, which read as light coming up from under the blob. Held
 # steady on purpose: arc length along the contour is discontinuous across the shape's medial axis,
 # so driving the interior with it stamps a hard seam down the middle. Solved on the same tray as the
-# band and drawn with the same CREAM_PULL — an unpulled interior reads as amber bars crossing a cream
-# ring (measured on the top gutter: 149.0 against the band's 104.3).
+# band; the drawing reads `lit_crack()` and never this raw value, so the interior carries the band's
+# CREAM_PULL — an unpulled interior reads as amber bars crossing a cream ring (measured on the top
+# gutter: 149.0 against the band's 104.3).
 const CRACK_COLOR := Color(1.000, 0.757, 0.337)
 const CRACK_A := 0.88
+
+## The gutter colour AS DRAWN: CRACK_COLOR under the same cream pull `lit_rails()` puts on the outer
+## band rails, so the band and the interior read as ONE object. It is a function rather than an
+## inline lerp at the call site so the guard in grove_cascade_tests.gd can assert on the colour the
+## drawing actually uses — a test that recomputed the lerp would pass however the call site drifted.
+## It reads `cream_pull()`, NOT the constant: a capture that pins an intensity (`glow=dim`) moves the
+## band rails through that function, and a gutter still on the raw constant would leave the interior
+## amber against a cream ring in exactly the captures meant to compare the intensities.
+static func lit_crack() -> Color:
+	return CRACK_COLOR.lerp(Pal.CREAM, cream_pull())
+
 ## The hue every rail colour above is written against; `_tint` carries the profile's colour across
 ## to the live line as a shift from it, so a green line glows green without losing the hot core.
 const GOLD := Color(1.000, 0.757, 0.337)
@@ -313,7 +325,7 @@ func _draw_chain_glow(raw_cells: Array, base: Color, strength: float, reach: flo
 		_draw_contour_strip(raw_loop as Dictionary, offs, glow, strength, phase)
 	for raw_face in geom["faces"]:
 		_draw_tile_lift(raw_face as Dictionary, glow, strength)
-	var crack := _tint(glow, CRACK_COLOR.lerp(Pal.CREAM, cream_pull()), CRACK_A * strength)
+	var crack := _tint(glow, lit_crack(), CRACK_A * strength)
 	for raw_quad in geom["gutters"]:
 		_poly(raw_quad as Array, crack, null)
 

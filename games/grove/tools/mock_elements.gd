@@ -41,9 +41,12 @@ const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")
 const Paper = preload("res://engine/scripts/ui/paper_button.gd")   # the shared paper-button surface treatment
 const EdgeTab = preload("res://engine/scripts/ui/edge_tab.gd")     # …and the screen-edge tab geometry (bleed + flare)
 const ActionBar = preload("res://engine/scripts/ui/action_bar.gd") # the board's bottom-row builders (the info tray)
+const UnlockBar = preload("res://engine/scripts/ui/unlock_bar.gd") # the board's NEXT UNLOCK strip + its bar
+const ShopUI = preload("res://engine/scripts/ui/shop.gd")          # the storefront's offer-card builder
+const Design = preload("res://engine/scripts/core/design.gd")      # THE design viewport — never re-type 1080x1920
 
 ## Every element name a region may name. An unknown one REFUSES the run rather than rendering a blank.
-const NAMES := ["nav", "wallet", "well", "tray"]
+const NAMES := ["nav", "wallet", "well", "tray", "unlock", "progress", "shop_card"]
 
 ## The cut-paper knobs that are LENGTHS in px, and so must be rescaled with the face (see the header).
 ## Knobs that are fractions, percentages, counts or colours are deliberately absent.
@@ -84,14 +87,20 @@ static func build(element: String, args: Dictionary, face_w: float, mods: Dictio
 		"wallet": return _build_wallet(args, face_w, mods)
 		"well": return _build_well(args, face_w, mods)
 		"tray": return _build_tray(args, face_w, mods)
+		"unlock": return _build_unlock(args, face_w, mods)
+		"progress": return _build_progress(args, face_w, mods)
+		"shop_card": return _build_shop_card(args, face_w, mods)
 	push_error("mock_elements: no adapter named '%s' (have: %s)" % [element, ", ".join(NAMES)])
 	return {}
 
 
 ## Does this element accept a forced face colour? `fill=` is the rig's way of removing the fill as a
 ## variable, and an adapter that cannot honour it must say so rather than quietly ignoring it.
+## `progress` is absent on purpose: a progress bar has no single "face colour". Its two faces are the
+## well's floor and the capsule's card, and forcing one of them would remove the wrong variable — the
+## thing under test IS the pair. The region hands both in from the mock instead (see `args`).
 static func takes_fill(element: String) -> bool:
-	return element in ["nav", "wallet", "well", "tray"]
+	return element in ["nav", "wallet", "well", "tray", "unlock", "shop_card"]
 
 
 # --- shared -------------------------------------------------------------------------------
@@ -427,3 +436,172 @@ static func _build_wallet(args: Dictionary, face_w: float, mods: Dictionary) -> 
 	var h := maxf(float(o.get("pill_h", 100.0)), pill.custom_minimum_size.y)
 	pill.size = Vector2(w, h)
 	return {"node": pill, "drawn_w": w, "face_w": w, "face_h": h, "face_dx": 0.0}
+
+
+# --- the board's NEXT UNLOCK strip -----------------------------------------------------------
+
+## The whole band — the shipping engine/scripts/ui/unlock_bar.gd control, built at the mock's own box and
+## driven through its own setters, so what stands on the field is the strip the board draws.
+##
+## SCALE (rule 3). Everything the band's look is made of is derived from its own HEIGHT — the corner, the
+## badge, the two type sizes, the bar box, the whole shared material AND its drop-shadow reach are all
+## fractions of it (`UnlockBar.surface_cp`) — so handing it the mock's own face height scales it
+## coherently and there is nothing left to rescale by hand. That is a property of unlock_bar.gd, not a
+## general one: `well` and `tray` both take absolute config px and need `scale_cp`.
+##
+## `args`: face_h (the mock's own band height) · level (the number under NEXT UNLOCK) · frac (the fill
+## the mock happens to draw).
+## Mods: `:frac=N` a different fill · `:ready` the affordable/gold state · `:fill=#RRGGBB` · the shared
+## `:cp=` (applied to the band's own composed knob set, so an unknown one is REFUSED as everywhere else).
+static func _build_unlock(args: Dictionary, face_w: float, mods: Dictionary) -> Dictionary:
+	var Kit := _kit()
+	if Kit == null:
+		return {}
+	var face_h := float(args.get("face_h", face_w * 0.127))
+	var bar := UnlockBar.new()
+	bar.name = "MockUnlockBar"
+	bar.size = Vector2(face_w, face_h)
+	bar.relayout()      # `resized` does not fire for a band sized by hand outside a container
+	bar.set_next_level(int(args.get("level", 3)))
+	if mods.has("ready"):
+		bar.set_ready(true)
+	bar.set_progress(clampf(float(mods.get("frac", args.get("frac", 0.67))), 0.0, 1.0))
+	var surface := bar.find_child(UnlockBar.DECKLE_SURFACE_NODE, true, false) as Control
+	if surface == null:
+		push_error("mock_elements: the unlock strip built no cut-paper surface")
+		return {}
+	# the band's OWN composed knob set — so a `cp=` mod is checked against exactly the knobs the board
+	# ships, and an unknown one is refused rather than rendering the baseline under the tuning's label.
+	var cp := UnlockBar.surface_cp(Kit, Game.kit_config(), face_h)
+	if not _report(patch({}, cp, mods, face_w)):
+		return {}
+	var fill: Color = Color(String(mods["fill"])) if mods.has("fill") else surface.paper_color
+	surface.configure(cp, fill, null, Kit.cut_paper_tile())
+	surface.corner = float(cp["corner"])
+	return {"node": bar, "drawn_w": face_w, "face_w": face_w, "face_h": face_h, "face_dx": 0.0}
+
+
+## JUST THE BAR — the well and its capsule, standing on a flat field of the BAND's cream (which is what
+## the mock's own bar lies on: this element is drawn INSET into another sheet, so rule 16 applies and the
+## field is that sheet, not the sky).
+##
+## Built through `UnlockBar.bar_opts`, the same static the strip itself calls, so the rig cannot drift
+## from the shipping bar by an opt. `_progress_layout_paper` runs off `resized`, and this bar never enters
+## a tree at its final size before the capture, so the layout callable is fired by hand.
+##
+## `args`: face_h (the mock's own bar height) · frac. Mods: `:frac=N` · `:ready` · the shared `:opt=`.
+## `:cp=` is REFUSED: the bar's cut-paper knobs live inside its `paper` sub-dict, so a `cp=` written here
+## would land on nothing and the cell would render the BASELINE under the tuning's own label (rule 4).
+static func _build_progress(args: Dictionary, face_w: float, mods: Dictionary) -> Dictionary:
+	var Kit := _kit()
+	if Kit == null:
+		return {}
+	if mods.has("cp"):
+		print("REFUSED: a progress bar's cut-paper knobs are inside its `paper` sub-dict, so `cp=` would")
+		print("be silently ignored and the cell would render the BASELINE under the tuning's own label.")
+		print("  this element's own mods: frac=N, ready, opt=K=V")
+		return {}
+	var box := Vector2(face_w, float(args.get("face_h", face_w * 0.09)))
+	var o: Dictionary = UnlockBar.bar_opts(Kit, Game.kit_config(), box, mods.has("ready"))
+	if not _report(patch(o, {}, mods, face_w)):
+		return {}
+	var frac := clampf(float(mods.get("frac", args.get("frac", 0.67))), 0.0, 1.0)
+	var bar: Control = Kit.progress_bar(frac, o)
+	bar.size = box
+	Kit.progress_bar_set_frac(bar, frac)     # fires the layout callable: nothing has resized this bar yet
+	return {"node": bar, "drawn_w": box.x, "face_w": box.x, "face_h": box.y, "face_dx": 0.0}
+
+
+# --- the SHOP's offer card ------------------------------------------------------------------
+
+## ONE shop offer card, built through the storefront's own `Shop.build_body` on `Shop.shop_layout` — the
+## same pair the live shop and the UI workbench both call — so what stands on the field is the card the
+## storefront draws. This is only riggable at all because the card's ground is the dialog's own cream
+## SHEET, which the mock paints flat (rule 16: ask what the mock's copy is lying on; measured with the
+## rule-9 diagnostic the sheet beside a card reads 3.1-5.2 against a limit of 12).
+##
+## SCALE (rule 3). The card's cut-paper knobs are absolute px authored for the LAYOUT width the storefront
+## gives it, so they are rescaled by the mock's face width over that width (`Shop.grid_inner_w` /
+## `Shop.card_layout_w`, the shipping derivations). The dialog's content_scale drops out of that ratio on
+## purpose: it scales the sheet and its knob px together, so the proportion the rig must preserve is
+## scale-free — and a `cscale` left in would shrink the corner twice.
+##
+## SIZE FROM THE MOCK (rule 2). A card's ASPECT is the shop grid's layout choice, not the material's
+## (ours is 0.26 W on a wide row, the painting's 0.221), so the region hands in the mock's own `face_h`
+## and the card is forced to that box after it is built.
+##
+## `args`: wide (the full-row Free-refill lead) · title (a titled Quick-help card) · face_h · icon ·
+## count · price. Mods: `:blank` hides the card's CONTENTS · `:fill=#RRGGBB` · the shared `:cp=`.
+## `:opt=` is REFUSED: the card is not built from a top-level opts dict, so a knob written there would
+## change nothing and the cell would render the BASELINE under the tuning's own label (rule 4).
+##
+## USE `:blank` FOR ANY EDGE OR SHADOW MEASUREMENT. mock_profile.py finds the element's own edge by
+## walking away from a face colour probed 11px inside it, and a card's art and its white-on-green price
+## pill both come within a few px of the sheet's edge — the same trap the wallet pill's numeral set.
+static func _build_shop_card(args: Dictionary, face_w: float, mods: Dictionary) -> Dictionary:
+	var Kit := _kit()
+	if Kit == null:
+		return {}
+	if mods.has("opt"):
+		print("REFUSED: the 'shop_card' element is not built from a top-level opts dict, so `opt=` would")
+		print("be silently ignored and the cell would render the BASELINE under the tuning's own label.")
+		print("  this element's own mods: blank, fill=#RRGGBB, cp=K=V")
+		return {}
+	var cfg: Dictionary = Game.kit_config()
+	var wide := bool(args.get("wide", false))
+	var lay: Dictionary = ShopUI.shop_layout(cfg)
+	var gap: float = float(lay.get("grid_gap", ShopUI.GRID_GAP))
+	var inner: float = ShopUI.grid_inner_w(Kit, cfg, Design.size().x)
+	var native_w: float = maxf(1.0, ShopUI.card_layout_w(inner, gap, wide))
+	var box := Vector2(face_w, float(args.get("face_h", face_w * (0.26 if wide else 0.54))))
+
+	var cp: Dictionary = scale_cp((lay.get("cp", {}) as Dictionary).duplicate(), face_w / native_w)
+	if not _report(patch({}, cp, mods, face_w)):
+		return {}
+	lay = lay.duplicate()
+	lay["cp"] = cp
+	lay["corner"] = float(cp.get("corner", lay.get("corner", ShopUI.CARD_CORNER)))
+
+	var d := {"icon": String(args.get("icon", "shop_can")), "count": int(args.get("count", 100)),
+		"price": String(args.get("price", "Free"))}
+	if String(args.get("title", "")) != "":
+		d["title"] = String(args["title"])
+	# A LONE offer takes the WIDE proportions by design (`_offer_grid`: "a lone offer gets the Welcome
+	# bundle's full-row proportions"), so a half-width card cannot be built one at a time — it is built as
+	# the PAIR the storefront lays out and the first of the two is taken.
+	var grid_w := face_w if wide else face_w * 2.0 + gap
+	var cards: Array = [d] if wide else [d, d.duplicate()]
+	if wide:
+		d["wide"] = true
+	var body: Control = ShopUI.build_body(Kit, grid_w, [{"caption": "", "cards": cards}], lay)
+	var card := body.find_child("ShopOfferCard", true, false) as Control
+	if card == null:
+		push_error("mock_elements: the storefront built no ShopOfferCard")
+		return {}
+	var surface := card.find_child(ShopUI.CARD_SURFACE_NODE, false, false) as Control
+	if surface == null:
+		push_error("mock_elements: the offer card built no cut-paper surface (%s)" % ShopUI.CARD_SURFACE_NODE)
+		return {}
+	if mods.has("blank"):
+		var content := card.find_child("ShopOfferCardBody", false, false) as Control
+		if content == null:
+			print("REFUSED: `blank` found no ShopOfferCardBody to hide — the cell would render the card's")
+			print("art and price pill under a label that says it has neither.")
+			return {}
+		content.visible = false
+	# OUT OF THE GRID, so the box is ours to write: a Container re-fits its children every layout pass and
+	# would put the card straight back at the grid's own width (the `tray` note is the same hazard).
+	var host := Control.new()
+	host.name = "MockShopCardHost"
+	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.custom_minimum_size = box
+	host.size = box
+	(card.get_parent() as Node).remove_child(card)
+	body.queue_free()
+	card.custom_minimum_size = box
+	card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	host.add_child(card)
+	if mods.has("fill"):
+		surface.paper_color = Color(String(mods["fill"]))
+		surface.queue_redraw()
+	return {"node": host, "drawn_w": box.x, "face_w": box.x, "face_h": box.y, "face_dx": 0.0}

@@ -109,18 +109,60 @@ func _initialize() -> void:
 	ok(float(plan["core"]) < float(ramp["d_in"]),
 		"the opaque core is inset past the ramp's inner lip (%.2f < %.2f)" % [plan["core"], ramp["d_in"]])
 
-	# 4d) OPT-IN. A torn surface must draw exactly what it always drew, so the feather is off unless the
-	# knob set asks for it; the nav tab — the one smooth surface — asks.
+	# 4c-ii) THE CONTENT-INSET CONTRACT. `content_inset()` is what the map cards, the mail card and the
+	# settings rows seat their content by, so the three things that eat the sheet at its edge each owe it a
+	# term: the corner arc, the tear, and the antialias band's INNER half (the ramp is centred on the
+	# outline, so the paper is see-through for half a band reading in). Written with literals, never with
+	# the panel's own fields — a bound spelled in terms of the thing under test passes any re-tuning of it.
+	var ins: Control = load(Kit.CUT_PAPER).new()
+	root.add_child(ins)
+	ins.corner = 32.0
+	ins.deckle_amp = 0.0
+	ins.edge_feather = 0.0
+	ok(is_equal_approx(ins.content_inset(), 16.0), "a bare 32px corner insets content by 16 (%.2f)" % ins.content_inset())
+	ins.deckle_amp = 5.0
+	ok(is_equal_approx(ins.content_inset(), 21.0), "…plus the whole tear it has to clear (%.2f)" % ins.content_inset())
+	ins.deckle_amp = 0.0
+	ins.edge_feather = 2.0
+	ok(is_equal_approx(ins.content_inset(), 17.0),
+		"…and a SMOOTH sheet clears half its feather band instead of the tear (%.2f)" % ins.content_inset())
+	# the trade is the point: dropping a 5px tear for a 2px feather moves content out by 4px, not 5.
+	ins.deckle_amp = 5.0
+	ins.edge_feather = 0.0
+	var torn_inset: float = ins.content_inset()
+	ins.deckle_amp = 0.0
+	ins.edge_feather = CP.SMOOTH_FEATHER_PX
+	ok(torn_inset - ins.content_inset() < 5.0 and torn_inset > ins.content_inset(),
+		"the smooth contract seats content further out than the torn one, but by LESS than the tear (%.2f px)"
+			% [torn_inset - ins.content_inset()])
+	# the feather width is ONE number for the whole game — the material module re-exports it, never re-types it.
+	var PaperMat := load("res://engine/scripts/ui/paper_button.gd")
+	ok(is_equal_approx(PaperMat.EDGE_FEATHER_PX, CP.SMOOTH_FEATHER_PX),
+		"the paper material's feather IS the panel's own SMOOTH_FEATHER_PX (%.2f)" % CP.SMOOTH_FEATHER_PX)
+
+	# 4d) THE SHARED EDGE IS THE SMOOTH ONE. The feather used to be opt-in, for one row, because every other
+	# paper surface in the game was torn and a tear hides the stairs. The whole UI is a clean cut now, so the
+	# two knobs move together in the SCHEMA: a component that says nothing gets amp 0 AND the feather. This
+	# is the anti-regression pin — a shared default that zeroed one without the other ships a staircase.
 	var EdgeTab := load("res://engine/scripts/ui/edge_tab.gd")
 	var plain: Control = load(Kit.CUT_PAPER).new()
 	root.add_child(plain)
 	plain.configure(Kit.cut_paper_opts_from_config({}, "action_button", Kit.ACTION_BUTTON_CP_DEFAULTS), Color.WHITE)
-	ok(is_equal_approx(plain.edge_feather, 0.0), "a shared cut-paper surface feathers nothing by default")
+	ok(is_equal_approx(plain.deckle_amp, 0.0) and plain.edge_feather > 0.0,
+		"a shared cut-paper surface is SMOOTH and antialiased by default (feather %.2fpx)" % plain.edge_feather)
+	ok(is_equal_approx(plain.edge_feather, CP.SMOOTH_FEATHER_PX),
+		"…at the ONE measured band width, taken from the panel rather than re-typed (%.2f)" % plain.edge_feather)
 	var tab: Control = load(Kit.CUT_PAPER).new()
 	root.add_child(tab)
 	tab.configure(EdgeTab.tab_cp(200.0, 166.0, 220.0), Color.WHITE)
 	ok(tab.edge_feather > 0.0, "the nav tab asks for the feather (%.2fpx)" % tab.edge_feather)
 	ok(is_equal_approx(tab.deckle_amp, 0.0), "…precisely because its edge is smooth, with no tear to hide the stairs")
+	# …and the machinery is KEPT, not deleted: a surface that deliberately wants a torn edge back still gets
+	# one, so this is a change of default and not a lost capability.
+	var torn: Control = load(Kit.CUT_PAPER).new()
+	root.add_child(torn)
+	torn.configure({"deckle_amp": 5.0, "deckle_freq": 0.05}, Color.WHITE)
+	ok(is_equal_approx(torn.deckle_amp, 5.0), "a surface that asks for a tear still gets one (%.2f)" % torn.deckle_amp)
 
 	# 4e) THE SHARED PAPER-BUTTON MATERIAL (engine/scripts/ui/paper_button.gd). The nav tabs, the board's
 	# Home + Bag wells, its info tray, its almanac chip and the place-picker's back button are all the same
@@ -176,18 +218,23 @@ func _initialize() -> void:
 	ok(is_equal_approx(EdgeTab.bleed_px(34.0, 41.0), 75.0),
 		"on a phone it is the safe-area inset AS WELL (%.1f)" % EdgeTab.bleed_px(34.0, 41.0))
 
-	# THE UNTREATED CALLER IS UNTOUCHED. Any action button that does not ask for the material renders
-	# exactly what it always did: a torn deckle, a warm rim, and none of the cast shadow / bevel / feather.
-	# This is the scoping guard — the defaults on cut_paper.gd stay inert.
+	# THE UNTREATED CALLER SHARES THE EDGE AND NOTHING ELSE. The smooth antialiased cut is the whole UI's
+	# material now, so an action button that never asks for the treatment still gets it — that is the point
+	# of the change. What stays OPT-IN is everything that makes a tile read as RAISED: the directional cast
+	# shadow, the lit hairline, and the dropped rim. This is the scoping guard for those three; a shared
+	# default that leaked the halo or the bevel out across the UI would fail here.
 	var untouched: Dictionary = Kit.action_button_opts_from_config({})
 	var plainb := Kit.action_button("map", Vector2(FACE, FACE), Callable(), untouched.duplicate(true))
 	root.add_child(plainb)
 	var pp := plainb.find_child("ActionButtonDeckleSurface", true, false) as Control
-	ok(pp != null and pp.deckle_amp > 0.0 and pp.rim_width > 0.0,
-		"an untreated action button keeps its torn edge and its warm rim")
-	ok(pp != null and is_equal_approx(pp.halo_reach, 0.0) and is_equal_approx(pp.bevel_px, 0.0)
-			and is_equal_approx(pp.edge_feather, 0.0),
-		"…and carries none of the material: no cast shadow, no hairline, no feather")
+	ok(pp != null and is_equal_approx(pp.deckle_amp, 0.0) and pp.edge_feather > 0.0,
+		"an untreated action button shares the SMOOTH antialiased edge (feather %.2fpx)"
+			% [0.0 if pp == null else pp.edge_feather])
+	ok(pp != null and pp.rim_width > 0.0,
+		"…and keeps the shared warm cut-edge rim, which the treatment is what drops (%.2f)"
+			% [0.0 if pp == null else pp.rim_width])
+	ok(pp != null and is_equal_approx(pp.halo_reach, 0.0) and is_equal_approx(pp.bevel_px, 0.0),
+		"…and none of the RAISED-tile material: no directional cast shadow, no lit hairline")
 
 	# THE TREATED CALLER — built through the same one call board.gd / map.gd make.
 	var treated: Dictionary = Kit.action_button_opts_from_config({})

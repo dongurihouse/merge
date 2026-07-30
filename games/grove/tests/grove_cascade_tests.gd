@@ -9,6 +9,12 @@ const Contour = preload("res://engine/scripts/ui/cell_contour.gd")
 const Improvements = preload("res://engine/scripts/core/improvements.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 
+## How far the interior gutters may sit from the outer band in warm shift. Not a threshold to taste:
+## CRACK_COLOR and the band rails' mean differ by 0.0318 in RAW warm shift, and a shared pull `p`
+## toward cream scales that gap to 0.0318 * (1 - p) — so 0.04 holds for ANY shared pull value, while
+## dropping the pull from one side alone puts the delta at 0.218, ~5x over.
+const BAND_GUTTER_WARM_TOL := 0.04
+
 func _initialize() -> void:
 	begin("grove · cascade combos")
 	await process_frame
@@ -41,6 +47,7 @@ func _initialize() -> void:
 	_test_landscape_outline_uses_transposed_geometry()
 	_test_runway_glow_is_weaker_than_an_armed_ladder()
 	_test_glow_levels_stay_ordered_and_equally_warm()
+	_test_chain_gutters_carry_the_band_warmth()
 	_test_cascade_phase_pins_for_captures()
 	BoardScriptRef.forced_rng_seed = -1        # leave the static as we found it
 	finish()
@@ -1246,6 +1253,58 @@ func _rail_index(pred: Callable) -> int:
 		if bool(pred.call(CascadeOutline.RAILS[i])):
 			return i
 	return -1
+# The mark is ONE contour of light, so the two surfaces that ride the tray gutter — the outer band
+# rails and the interior gutters between two chain cells — must carry the same cream pull. 29869557
+# pulled the band and not the gutters and shipped amber bars crossing a cream ring; c6a0e524 closed
+# it, and nothing asserted the two agree, so either constant could re-split them silently. The axis
+# is warm shift because that is the axis the regression moved.
+func _test_chain_gutters_carry_the_band_warmth() -> void:
+	# The band is selected by GEOMETRY off the DERIVED table — "an ANCHOR_GAP rail outside the tile
+	# edge" is the definition of "rides the tray gutter", and it is what lit_rails() keys the pull on.
+	# Selecting off the derived table is what makes this bite: if lit_rails() stops pulling, the
+	# geometry fields are untouched, so the SAME rails are picked and seen un-pulled, and B fails.
+	# Both tables are selected by that predicate independently, so nothing here assumes lit_rails()
+	# emits one row per RAILS row in order — only that it leaves a rail's anchor and offset alone.
+	var derived := _gap_band_warmth(CascadeOutline.lit_rails())
+	var raw := _gap_band_warmth(CascadeOutline.RAILS)
+	# A: without this, a table refactor that empties the selection makes the means NaN and the two
+	# asserts below could pass on nothing at all.
+	ok(derived.size() >= 2, "the outer gap band is a real selection of rails (%d)" % derived.size())
+	var band := _mean_of(derived)
+	var band_raw := _mean_of(raw)
+	# B: the pull actually reaches the table the drawing reads. Catches it being dropped from BOTH
+	# sides, which C alone would pass — so B also pins that the pull exists at all, and it is the
+	# assert to revisit (not C) if the approved look ever goes back to an unpulled amber band.
+	ok(band < band_raw, "the cream pull reaches the DRAWN band: warm shift %.3f against the raw table's %.3f" \
+		% [band, band_raw])
+	# C: and the interior sits on the same warmth as that band.
+	var gutter := _warm_shift(CascadeOutline.lit_crack())
+	ok(absf(gutter - band) <= BAND_GUTTER_WARM_TOL,
+		"the interior gutters carry the band's warmth: |%.3f - %.3f| = %.3f <= %.2f" \
+		% [gutter, band, absf(gutter - band), BAND_GUTTER_WARM_TOL])
+
+# The warm shift of every rail in `table` that rides the tray gutter outside the tile edge. Takes the
+# raw table or the derived one — the rows share their geometry fields, and only the colour differs.
+func _gap_band_warmth(table: Array) -> Array:
+	var out: Array = []
+	for row in table:
+		var rail: Array = row
+		if int(rail[0]) == CascadeOutline.ANCHOR_GAP and float(rail[1]) > -1.0:
+			out.append(_warm_shift(rail[2]))
+	return out
+
+# How far a colour leans warm. Luma is the wrong axis for a translucent wash — it flips sign with the
+# surface underneath — and hue leaning amber against cream is what the eye read as two objects.
+func _warm_shift(c: Color) -> float:
+	return c.r - c.b
+
+func _mean_of(values: Array) -> float:
+	if values.is_empty():
+		return NAN
+	var sum := 0.0
+	for v in values:
+		sum += float(v)
+	return sum / float(values.size())
 
 # The travelling light is pinnable, because `make shot` compares captures byte for byte and a warm
 # batch process has run a different number of frames than a fresh one.

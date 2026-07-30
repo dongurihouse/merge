@@ -1,7 +1,8 @@
 extends SceneTree
 ## Dev tool (run via engine/tools/quiet_godot.sh): screenshot the Map scene (home map) in a state.
 ##   quiet_godot.sh --path . -s res://games/grove/tools/map_shot.gd -- <mode> <out.png>
-## modes: fresh | select | maps | closeup | progress | owned | shop | settings | spirits | vault
+## modes: fresh | select | maps | closeup | progress | owned | shop | settings | spirits | vault | mail
+## extra args: `maps nodaily=1` (no login popup over the cards) · `select owned=1` · `closeup residents=1`
 ## BATCH IT: several captures in one launch is `make shot-batch PLAN=<file>` (this tool is batch-safe).
 
 const Base = preload("res://engine/tools/shot_base.gd")
@@ -55,6 +56,14 @@ func _initialize() -> void:
 				ulm[String((clm[i] as Dictionary).id)] = true
 			gm["unlocks"] = ulm
 			Save.grove_write()
+			# By DEFAULT this capture keeps the daily-login popup that auto-pops over the gallery — it is a
+			# real state, and one sheet of dialog paper in front of a page of card paper is the single most
+			# useful frame for reviewing the shared paper edge. `nodaily=1` marks today claimed instead (the
+			# same thing `hub` does) so the CARDS can be read unobstructed. Seeding the unlocks above is
+			# what arms the popup at all, so both halves live here.
+			for wa in args:
+				if String(wa) == "nodaily=1":
+					load("res://engine/scripts/core/login.gd").claim_today()
 		"hub":
 			# the bare hub chrome for UI review — wallet + bottom nav + side rail + level badge,
 			# no overlays. Unlock the hub spots, seed the reference wallet (🪙132 💎87) and a mid

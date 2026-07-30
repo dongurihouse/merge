@@ -27,6 +27,10 @@ const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 # is still the nav row's own call site, so the pill borrows that from there.
 const Paper = preload("res://engine/scripts/ui/paper_button.gd")
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")
+# The panel every one of those surfaces is DRAWN by, for its constants only — the knob schema's feather
+# default is the panel's own measured band width, not a number re-typed here. Instantiation still goes
+# through `load(CUT_PAPER)` at the call sites (a script path, so the workbench can hot-reload the panel).
+const CutPaperEdge = preload("res://engine/scripts/ui/cut_paper.gd")
 
 # Nine-patch margins for the shared mail kit (sourced from the real recipe in inbox.gd).
 const CARD_TEX := Vector2(30, 30)
@@ -95,7 +99,10 @@ const CURRENCY_TINT_DEFAULTS := {"water": "sky", "coin": "gold", "gem": "coral",
 # against its own shadow rather than against the paper. `dy` and `blur` are fractions of the font size.
 const CURRENCY_NUM_SHADOW := {"dy": 0.06, "a": 0.34, "blur": 0.10}
 # The shared cut-paper edge defaults for the action button (same knob SET as button/frame; own corner).
-const ACTION_BUTTON_CP_DEFAULTS := {"deckle": true, "corner": 20, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+# No `deckle_amp` / `edge_feather` here on purpose: the SMOOTH cut is the schema's default now
+# (CUT_PAPER_KNOBS), so a component that says nothing gets it, and a component that overrode the tear
+# would be reintroducing one. Same for every other *_CP_DEFAULTS below.
+const ACTION_BUTTON_CP_DEFAULTS := {"deckle": true, "corner": 20, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 
 const BUTTON_PATCH := Vector4(34, 24, 34, 24)
 const BOARD_PATCH := Vector4(34, 34, 34, 34)
@@ -2426,7 +2433,12 @@ const ROW_SAGE_EDGE := Color("#BFD09E")   # a deeper sage for the torn cut-edge 
 const CUT_PAPER_KNOBS := [
 	{"key": "deckle",      "kind": "toggle", "label": "Cut-paper edge", "default": true},
 	{"key": "corner",      "kind": "slider", "label": "Corner",      "min": 0, "max": 60, "default": 16},
-	{"key": "deckle_amp",  "kind": "slider", "label": "Deckle amp",  "min": 0, "max": 20, "default": 5},
+	# THE TEAR, DEFAULTING TO NONE. Every paper surface in the game used to carry a deckled perimeter; the
+	# whole UI is a SMOOTH cut now, so the schema's default is 0 and a component gets the smooth edge by
+	# saying nothing at all. The machinery stays: a surface that wants a torn edge back sets this and
+	# renders exactly what it always did — but it is then opting out of the material, not inheriting it,
+	# and `engine/tests/smooth_paper_tests.gd` will say so.
+	{"key": "deckle_amp",  "kind": "slider", "label": "Deckle amp",  "min": 0, "max": 20, "default": 0},
 	{"key": "deckle_freq", "kind": "slider", "label": "Deckle freq", "min": 1, "max": 20, "default": 5, "freq": true},
 	{"key": "rim_width",   "kind": "slider", "label": "Rim width",   "min": 0, "max": 8,  "default": 2},
 	{"key": "rim_color",   "kind": "color",  "label": "Rim color",   "default": "E7D6BC"},
@@ -2450,8 +2462,10 @@ const CUT_PAPER_KNOBS := [
 	{"key": "flare",           "kind": "slider", "label": "Tab flare %",     "min": 0, "max": 30,  "default": 0, "freq": true},
 	# EDGE FEATHER (CutPaperPanel._draw_feathered_face): antialiasing for the drawn silhouette, in px.
 	# `draw_colored_polygon` computes no coverage, so a SMOOTH sheet's arc rasterizes as a stair-stepped
-	# binary edge; a torn one hides it. 0 = off, which is every surface that keeps its deckle.
-	{"key": "edge_feather",    "kind": "slider", "label": "Edge feather px", "min": 0, "max": 4,   "default": 0},
+	# binary edge. It defaults to the ONE measured band width (CutPaper.SMOOTH_FEATHER_PX) rather than to
+	# a number typed here, because it is the other half of `deckle_amp`'s default above: zeroing the tear
+	# without this renders the staircase the tear was hiding. 0 = off, honest only on a torn surface.
+	{"key": "edge_feather",    "kind": "slider", "label": "Edge feather px", "min": 0, "max": 4,   "default": CutPaperEdge.SMOOTH_FEATHER_PX},
 ]
 
 ## Read the shared cut-paper knob set from a component's config `block` into a NORMALIZED opts dict
@@ -2538,7 +2552,10 @@ const TORN_CELL_KNOBS := [
 	{"key": "well_fill",       "kind": "color",  "label": "Well color",     "default": "A6C486"},
 	{"key": "inner_inset",     "kind": "slider", "label": "Well inset",     "min": 2,  "max": 40,  "default": 14},
 	{"key": "inner_corner",    "kind": "slider", "label": "Well corner",    "min": 0,  "max": 50,  "default": 16},
-	{"key": "inner_amp",       "kind": "slider", "label": "Well deckle amp", "min": 0, "max": 20,  "default": 4},
+	# the well's own tear, defaulting to NONE like every other cut edge in the game. The well is the one
+	# cut-paper surface whose opts are a LITERAL dict rather than the shared knob set (see `torn_cell`), so
+	# its smooth default and its feather have to be spelled out there instead of inherited from the schema.
+	{"key": "inner_amp",       "kind": "slider", "label": "Well deckle amp", "min": 0, "max": 20,  "default": 0},
 	{"key": "inner_freq",      "kind": "slider", "label": "Well deckle freq", "min": 1, "max": 20, "default": 6, "freq": true},
 	{"key": "inner_rim",       "kind": "slider", "label": "Well rim width",  "min": 0,  "max": 8,   "default": 2},
 	# the inner well's cut edge as a whole: OFF = a clean smooth well (no deckle wobble, no rim)
@@ -2585,7 +2602,7 @@ const LOCK_ICON_PATHS := {
 ## plus this component's own inner-well + inner-shadow + fill knobs.
 static func torn_cell_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var d: Dictionary = cfg.get("torn_cell", {}) if cfg is Dictionary else {}
-	var o := {"outer": cut_paper_opts_from_config(cfg, "torn_cell", {"corner": 18, "deckle_amp": 5, "deckle_freq": 6})}
+	var o := {"outer": cut_paper_opts_from_config(cfg, "torn_cell", {"corner": 18, "deckle_freq": 6})}
 	for knob in TORN_CELL_KNOBS:
 		var k: String = knob["key"]
 		var raw: Variant = d.get(k, knob["default"])
@@ -2666,14 +2683,18 @@ static func torn_cell(opts: Dictionary) -> Control:
 	var iw := maxf(1.0, w - inset * 2.0)
 	var ih := maxf(1.0, h - inset * 2.0)
 	var well_fill: Color = opts.get("well_fill", Color("#A6C486"))
-	# Well edge OFF → a clean smooth well: no deckle wobble, no rim (the corner radius stays).
+	# Well edge OFF → no rim, and no tear even if one was dialled in (the corner radius stays).
+	# THIS DICT IS HAND-BUILT, not the shared knob set — the well's knobs are the cell's own `inner_*`
+	# family — so the two halves of the smooth cut have to be written here: a 0 tear by default AND the
+	# shared feather band, or the well's arc rasterizes as a staircase inside the card.
 	var inner_edge := bool(opts.get("inner_edge", true))
 	var inner_cp := {
 		"deckle": true, "corner": float(opts.get("inner_corner", 16.0)),
-		"deckle_amp": float(opts.get("inner_amp", 4.0)) if inner_edge else 0.0,
+		"deckle_amp": float(opts.get("inner_amp", 0.0)) if inner_edge else 0.0,
 		"deckle_freq": float(opts.get("inner_freq", 0.06)),
 		"rim_width": float(opts.get("inner_rim", 2.0)) if inner_edge else 0.0,
 		"edge_shadow": false,
+		"edge_feather": CutPaperEdge.SMOOTH_FEATHER_PX,
 	}
 	var inner: Control = load(CUT_PAPER).new()
 	inner.name = "TornCellWell"
@@ -2765,16 +2786,46 @@ static func _paper_role_tile(surface: Dictionary) -> Texture2D:
 ## Per-component fallback defaults for the shared cut-paper edge (used as `overrides` for the reader; the
 ## saved config wins over these, and the schema default wins when a component omits a key). Only the values
 ## that differ from the schema need listing — the SET of knobs is fixed once in CUT_PAPER_KNOBS.
-const ROW_CP_DEFAULTS := {"corner": 20, "deckle_amp": 3, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
-const FRAME_CP_DEFAULTS := {"deckle": false, "corner": 22, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
-const BUTTON_CP_DEFAULTS := {"deckle": true, "corner": 16, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+const ROW_CP_DEFAULTS := {"corner": 20, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+const FRAME_CP_DEFAULTS := {"deckle": false, "corner": 22, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+const BUTTON_CP_DEFAULTS := {"deckle": true, "corner": 16, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 # The wallet pill wears the SAME shared cut-paper edge; `corner` seeds the capsule roundness to the old
 # pill_h * 0.35 look (35 at the default 100px height) so an untuned pill is visually unchanged.
-const PILL_CP_DEFAULTS := {"deckle": true, "corner": 35, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
-# The MAIL / reward-row card wears the SAME shared cut-paper edge, in its own tint + content. A finer tear at
-# card scale (amp 4) than the big frame page. `tint` (the paper fill) lives on the card's own config block.
-const MAIL_CP_DEFAULTS := {"deckle": true, "corner": 18, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+const PILL_CP_DEFAULTS := {"deckle": true, "corner": 35, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+# The MAIL / reward-row card wears the SAME shared cut-paper edge, in its own tint + content, at its own
+# corner. `tint` (the paper fill) lives on the card's own config block.
+const MAIL_CP_DEFAULTS := {"deckle": true, "corner": 18, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 const MAIL_TINT_DEFAULT := Pal.CREAM   # the reward card's default paper fill
+# The SHOP's offer card wears the SAME shared cut-paper edge as every other paper card in a dialog (the
+# mail rows, the daily calendar's day cells). It used to be a baked nine-patch PNG with a torn edge PAINTED
+# into it (assets/ui/dialogs/shop/card_{wide,tall,pouch}.png), which no shared knob could reach: when the
+# whole UI's edge went from a torn deckle to a smooth antialiased cut, the shop's outer sheet followed and
+# its cards did not. Reading the edge from here is what makes the shop inherit the material — and every
+# future change to it — with no shop-specific work.
+#
+# `corner` IS RE-DERIVED for the drawn sheet, and it moved: 18 was the baked art's painted radius, read off
+# a nine-patch whose cap fraction decided what a corner actually looked like. Measured on the mock
+# (_concepts/dialogs/shop_dialog_v3_unified_storefront.png, 941px canvas) by fitting a circle to each card's
+# top-left arc against its own subpixel left edge, the painting uses ONE absolute radius for every card
+# rather than a fraction of its width — the two best-conditioned fits, the wide Free-refill row and a tall
+# Quick-help card, both land on r = 20 mock px (rms 1.3-1.5px; the three landscape pouches fit 17-31 because
+# their art runs into the corner and the top tangent trades off against the radius, so they are a range, not
+# a number). 20px on the mock's 796px-wide card is 19.0px on our 758px-wide one, which at the shop dialog's
+# 0.8824 content scale is 21.6 LAYOUT px. Hence 22, and the shipped value in ui_kit_settings.json with it.
+# `rim_width` is 0: the mock draws no border round a card. Its cut edge reads as a LIT lip on the top
+# (measured +11 luma on the pixel above the face) and a dark foot below, which is a bevel's job, not a rim's.
+# Everything else — the tear (0), the antialias band, the drop shadow's reach and strength — is inherited
+# from the schema, which is the ONE place the material is decided (see CUT_PAPER_KNOBS above). The schema's
+# shadow_reach of 10px is also what the mock measures: its card's foot runs 0.37 darkening at 2px and is
+# gone by 10, its right side 0.26 gone by 8, and its LIT left and top sides carry none at all.
+const SHOP_CARD_CP_DEFAULTS := {"corner": 22, "rim_width": 0}
+const SHOP_CARD_FILL := Color("#E4DEBD")   # the mock's sage offer-card face (Shop.SAGE — sampled from it)
+
+## The SHOP offer card's shared cut-paper edge, read from the `shop` config block (the same block the
+## workbench's Shop element saves its layout knobs into, so its Cut-paper edge section tunes this). The
+## engine's shop.gd reaches it through Game.kit_script(), exactly as login.gd reaches daily_card_face.
+static func shop_card_cp_from_config(cfg: Dictionary) -> Dictionary:
+	return cut_paper_opts_from_config(cfg, "shop", SHOP_CARD_CP_DEFAULTS)
 
 ## Read the mail / reward-row card's shared edge + its own tint from `cfg` (the workbench passes live
 ## _params; the game passes the saved config) into the opts mail_card / mail_dialog forward to the builder.
@@ -3690,10 +3741,10 @@ static func _daily_reward(reward: Dictionary, px: float = 40.0, shadow: bool = f
 		icon_id = "star"
 	return daily_icon(icon_id, px, shadow)
 
-# The daily card wears the SAME shared cut-paper edge as every other paper component — a finer tear at
-# card scale (amp 4). corner is derived from the card WIDTH per-call (a small cell and the wide capstone
-# read with the same rounded proportion), so it is intentionally omitted here.
-const DAILY_CARD_CP_DEFAULTS := {"deckle": true, "corner": 22, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+# The daily card wears the SAME shared cut-paper edge as every other paper component. corner is derived
+# from the card WIDTH per-call (a small cell and the wide capstone read with the same rounded proportion),
+# so it is intentionally omitted here.
+const DAILY_CARD_CP_DEFAULTS := {"deckle": true, "corner": 22, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 # The two tones the daily face uses, straight from the shared paper roles — no new palette.
 const DAILY_CREAM_FILL := Pal.CREAM   # = PAPER_SURFACES["cream"] — days 1-6 + the today top layer
 const DAILY_GOLD_FILL := Pal.GOLD     # = PAPER_SURFACES["gold"]  — the today under-layer + day 7
@@ -4032,10 +4083,18 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 		bar_sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(bar_sh)
 	var art_cap := int(opts.get("art_cap", 512))
-	var track_tex: Texture2D = clean_tex_path(Look.kit(String(opts.get("track_art", "kit/prog_track.png"))), art_cap) if use_art else null
-	var fill_tex: Texture2D = clean_tex_path(Look.kit(String(opts.get("fill_art", "kit/prog_fill.png"))), art_cap) if use_art else null
+	# THE CUT-PAPER WELL (engine/scripts/ui/paper_progress.gd). Present → the bar is drawn as a well sunk
+	# into the sheet under it with a raised capsule lying in it, instead of the nine-slice art capsules or
+	# the flat StyleBoxFlat pair. ABSENT is the default and every other caller leaves it absent, so the
+	# level dialog, the residents banks and the workbench preview render exactly what they always did.
+	var paper: Dictionary = opts.get("paper", {}) as Dictionary
+	var track_tex: Texture2D = clean_tex_path(Look.kit(String(opts.get("track_art", "kit/prog_track.png"))), art_cap) if use_art and paper.is_empty() else null
+	var fill_tex: Texture2D = clean_tex_path(Look.kit(String(opts.get("fill_art", "kit/prog_fill.png"))), art_cap) if use_art and paper.is_empty() else null
 	var fill_shadow_params: Dictionary = opts.get("fill_shadow_params", {}) as Dictionary
-	if track_tex != null and fill_tex != null:
+	if not paper.is_empty():
+		_progress_build_paper(holder, base_name, paper, h, fill_color if fill_color.a > 0.0 else Pal.LEAF,
+			fill_w_scale, fill_h_scale, fill_dx, fill_dy, f)
+	elif track_tex != null and fill_tex != null:
 		# ART mode — track & fill are NINE-SLICE capsules. A 9-slice pill's rounded caps only stay round
 		# when the node is drawn at least as tall as the cap (margin = radius); squashing it shorter ovals
 		# them out. So we draw the caps at their NATIVE texture height on an inner "stage", then uniformly
@@ -4213,6 +4272,111 @@ static func _progress_layout_flat(holder_ref: WeakRef, fill_clip_ref: WeakRef, f
 		fsh.position = fill_pos
 		fsh.size = Vector2(fw, fill_h)
 		_configure_progress_shadow(fsh, fill_h * 0.5, fill_shadow_params, 1.0)
+
+## THE CUT-PAPER WELL — the third face Kit.progress_bar can wear, and the only one drawn from the game's
+## own paper material rather than from a baked capsule pair. The material (every colour and reach below)
+## is engine/scripts/ui/paper_progress.gd; this is only how the nodes are stacked:
+##
+##   Track           a CutPaperPanel capsule — the well's FLOOR, with the lip's dark crease as its rim
+##   FillClip        clipped to the track's box, so the capsule's cast shadow lands on the FLOOR and
+##                   never on the sheet the well is cut into
+##     └ Fill        a second CutPaperPanel capsule, the raised green card, wearing the scene's own
+##                   directional shadow (paper_progress hands it Paper.surface_cp)
+##   InsetShadow     LAST, so the lip's inner shadow falls across the fill too — which is what the mock
+##                   draws: its fill's top edge is measurably darker than its bottom one
+##
+## The fill is SIZED to the visible run rather than clipped to it, because a code-drawn capsule can just
+## be short: that gives its head a real round cap (and therefore a real cast shadow) at every fraction,
+## which a clipped nine-slice cannot have.
+static func _progress_build_paper(holder: Control, base_name: String, paper: Dictionary, h: float,
+		fill_color: Color, fill_w_scale: float, fill_h_scale: float, fill_dx: float, fill_dy: float,
+		f: float) -> void:
+	var tile := cut_paper_tile()
+	var feather := float(paper.get("feather", 2.0))
+	# both shapes here are capsules — corner radius half their own height, the game's largest. cut_paper
+	# holds every arc to a fixed sagitta (CutPaperPanel.ARC_TOL_PX), so the caps need nothing asked of them.
+	var track: Control = load(CUT_PAPER).new()
+	track.name = _progress_name(base_name, "Track")
+	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	track.configure({"deckle_amp": 0.0, "rim_width": float(paper.get("crease_w", 3.0)),
+		"edge_feather": feather, "edge_shadow": false, "corner": h * 0.5},
+		paper.get("well_fill", Pal.CREAM), paper.get("crease", Pal.BARK), tile)
+	holder.add_child(track)              # `edge_shadow: false`: a SUNK well casts nothing downward
+
+	var clip := Control.new()
+	clip.name = _progress_name(base_name, "FillClip")
+	clip.clip_contents = true
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(clip)
+
+	var fill: Control = load(CUT_PAPER).new()
+	fill.name = _progress_name(base_name, "Fill")
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fill_cp: Dictionary = (paper.get("fill_cp", {}) as Dictionary).duplicate()
+	fill_cp.merge({"deckle_amp": 0.0, "rim_width": float(paper.get("fill_rim_w", 2.0)),
+		"edge_feather": feather, "shadow_reach": 0.0}, true)
+	# `shadow_reach: 0` and NOT `edge_shadow: false`. The DIRECTIONAL halo that came in with fill_cp IS
+	# this capsule's shadow, and cut_paper's straight-down drop shadow on top of it would cast a second
+	# one — but `edge_shadow` maps to `draw_shadow`, which gates BOTH (cut_paper.gd `_draw_edge_halo`
+	# returns early on it). Spelled that way the capsule cast nothing at all: probed off its head on the
+	# rig it read 0.070 at 1px and 0.006 at 2, against the mock's 0.292 · 0.242 · 0.204 · 0.172 · 0.113
+	# · 0.059 out to 7px — the fill was printed into the well instead of lying in it, under a comment
+	# claiming the halo was doing the work. The drop shadow has its OWN `shadow_reach > 0` guard, so
+	# zeroing the reach silences it and leaves the halo drawing.
+	fill.configure(fill_cp, fill_color, paper.get("fill_rim", fill_color.darkened(0.185)), tile)
+	clip.add_child(fill)
+
+	var inset: Control = load(INSET_SHADOW).new()
+	inset.name = _progress_name(base_name, "InsetShadow")
+	holder.add_child(inset)
+
+	var lay := _progress_layout_paper.bind(weakref(holder), weakref(track), weakref(clip),
+		weakref(fill), weakref(inset), paper, fill_w_scale, fill_h_scale, fill_dx, fill_dy, f)
+	holder.resized.connect(lay)
+	holder.ready.connect(lay)
+	holder.set_meta("relayout", lay)
+
+
+static func _progress_layout_paper(holder_ref: WeakRef, track_ref: WeakRef, clip_ref: WeakRef,
+		fill_ref: WeakRef, inset_ref: WeakRef, paper: Dictionary, fill_w_scale: float,
+		fill_h_scale: float, fill_dx: float, fill_dy: float, f: float) -> void:
+	var hld := holder_ref.get_ref() as Control
+	var trk := track_ref.get_ref() as Control
+	var clip := clip_ref.get_ref() as Control
+	var fl := fill_ref.get_ref() as Control
+	var ins := inset_ref.get_ref() as Control
+	if hld == null or trk == null or clip == null or fl == null or ins == null:
+		return
+	var disp := hld.size
+	if disp.x <= 0.0 or disp.y <= 0.0:
+		return
+	var corner := disp.y * float(paper.get("corner_frac", 0.5))
+	trk.position = Vector2.ZERO
+	trk.size = disp
+	trk.corner = corner
+	clip.position = Vector2.ZERO
+	clip.size = disp
+	var inset_x := float(paper.get("fill_inset_x", 1.5))
+	var fill_h := maxf(1.0, disp.y * fill_h_scale)
+	var run := maxf(1.0, (disp.x - inset_x * 2.0) * fill_w_scale)
+	var cur_f: float = clampf(float(hld.get_meta("frac", f)), 0.0, 1.0)
+	# floored at the capsule's own height: below that the head and the tail cap are the same arc, so a
+	# shorter fill is not a capsule at all but a lens, and it would pop into one as the tween crossed the
+	# floor. At 0% that leaves a round green nub sitting in the well beside a "0%" read-out.
+	#
+	# THE MOCK DOES NOT SETTLE THIS — it draws one bar at 67% and says nothing about an empty one, and an
+	# earlier note here claimed the nub was "what the mock draws". It is a design call: the nub reads as
+	# the bar's own start marker, and the alternative (nothing at all below one capsule-length) trades it
+	# for a fill that appears out of empty track. Left as the nub because the previous slate bar showed
+	# one too, so no shipped behaviour changes here; flagged for the owner rather than settled quietly.
+	fl.position = Vector2(inset_x + fill_dx, (disp.y - fill_h) * 0.5 + fill_dy)
+	fl.size = Vector2(maxf(fill_h, run * cur_f), fill_h)
+	fl.corner = fill_h * float(paper.get("corner_frac", 0.5))
+	ins.position = Vector2.ZERO
+	ins.size = disp
+	ins.configure(corner, float(paper.get("inset_reach", 5.0)), float(paper.get("inset_alpha", 0.5)),
+		paper.get("inset_tint", Pal.BARK), float(paper.get("inset_falloff", 3.0)))
+
 
 static func _progress_place_knob(knob_ref: WeakRef, holder_ref: WeakRef, f: float, h: float) -> void:
 	var k := knob_ref.get_ref() as Control

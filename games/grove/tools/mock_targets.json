@@ -30,6 +30,34 @@
   ],
 
   "mocks": {
+    "shop_dialog_v3": {
+      "png": "res://games/grove/assets/_concepts/dialogs/shop_dialog_v3_unified_storefront.png",
+      "size": [941, 1672],
+      "note": [
+        "THE UNIFIED STOREFRONT the shop was drawn from (shop.gd names it throughout): one scrolling cream",
+        "sheet carrying a wide Free-refill row, a titled Quick-help pair and the landscape acorn pouches.",
+        "Its cards are SMOOTH-cornered sage sheets \u2014 the painting never drew a torn edge at all, which is",
+        "worth stating plainly: the baked nine-patch card art that shipped for years added a tear this mock",
+        "does not have.",
+        "",
+        "ITS FIELD IS THE DIALOG'S OWN CREAM SHEET, not sky. A card lies INSIDE that sheet, so rule 16",
+        "applies and every darkening beside one is measured against its paper. With the rule-9 diagnostic",
+        "(mock_profile.flat_range) the vertical strips of bare sheet either side of the cards read 2.8 to",
+        "5.2 against a limit of 12 \u2014 genuinely flat. The strips BETWEEN rows are not (58.6: they swallow the",
+        "neighbouring cards' own edges) and neither is the sheet's bottom margin (175: the sheet's own edge),",
+        "so the honest ground this mock gives runs SIDEWAYS.",
+        "",
+        "ITS LIGHT IS THE SAME UPPER-LEFT ONE as every other mock here. Beside the wide card the LEFT side",
+        "carries no darkening at all (0.008 at 1px, the paper's own grain) and the TOP reads BRIGHTER than",
+        "the sheet (+11 luma, a lit cut edge), while the RIGHT runs 0.26 at 2px and is gone by 8px and the",
+        "FOOT runs 0.37 and is gone by 10px.",
+        "",
+        "ONLY THE WIDE CARD IS REGISTERED. The half-width cards have 26px of clean sheet to their LEFT but",
+        "only 16 to their right before the sibling card's face, of which that card's own shadow takes about",
+        "8 \u2014 too little to report the SHADOW side on, which is the side that matters (rule 7). They differ",
+        "from the wide card in BOX and nothing else: same builder, same knobs, same fill."
+      ]
+    },
     "meadow_board": {
       "png": "res://games/grove/assets/_concepts/screens/palette_a_meadow_sky_board.png",
       "size": [931, 1690],
@@ -68,10 +96,24 @@
         [140, 20, 60, 116], [442, 22, 24, 112], [694, 22, 26, 112],
         [1062, 120, 18, 104], [200, 150, 300, 90], [0, 150, 120, 110]
       ]
+    },
+    "next_unlock": {
+      "png": "res://games/grove/assets/_concepts/screens/board_next_unlock_v1_1080x1920.png",
+      "size": [1080, 1920],
+      "note": "the NEXT UNLOCK strip's own mock, at OUR canvas size (so its px are ours 1:1). Same scene light as meadow_board — measured, its band's shadow side reads 0.383 against that mock's nav tabs' 0.388 — but a different sky tint, so the two mocks' regions can never share a sheet."
     }
   },
 
   "regions": {
+    "shop_card": {
+      "mock": "shop_dialog_v3",
+      "element": "shop_card",
+      "args": {"wide": true, "face_h": 176, "icon": "shop_can", "count": 100, "price": "Free"},
+      "face": [71, 269, 796, 176],
+      "clean": [45, 251, 848, 224],
+      "field": [[44, 285, 21, 130], [876, 285, 19, 130]],
+      "note": "THE WIDE FREE-REFILL ROW \u2014 the storefront's lead offer, and the only card on this mock with real ground on all four sides: 26px of bare sheet to its LEFT (the sheet's own inner edge is 29px away), 30px to its RIGHT, 21px above before the FREE REFILL header's ink and 35px below before QUICK HELP's. `face` is the sage sheet ONLY \u2014 its foot's shadow starts on the very next row (0.37 darkening at 2px) and has to sit outside the rect. The mock's card is 796x176 where ours lays out at 0.26 of its width, so the aspect is the shop grid's layout choice and not the material's; hence face_h, as with `well` and `unlock`. MEASURE THE SHEET WITH `:blank`: the card's art and its white-on-green price pill both come within a few px of the edge, and the profiler probes the face 11px in \u2014 the same trap the wallet pill's numeral set."
+    },
     "nav_home": {
       "mock": "meadow_board",
       "element": "nav",
@@ -131,6 +173,27 @@
       "clean": [688, 6, 243, 144],
       "field": [[158, 8, 58, 116], [300, 2, 160, 20], [920, 30, 10, 100]],
       "note": "the RIGHTMOST wallet pill — 20px of real sky to its RIGHT before the canvas edge, which is the only pill edge in the row where the shadow side falls on plain sky. Its LEFT gets only 4px: the coin pill's face ends 11px away and its own right-side shadow runs ~10px into that gap, so there is barely any clean ground on this side at all — measured with `clean` opened to 8px, the profile turned back UPWARDS at 6-8px, which was the neighbour's shadow, not this pill's. The mock draws an acorn; the game's id for that currency is `gem`."
+    },
+
+    "unlock_band": {
+      "mock": "next_unlock",
+      "element": "unlock",
+      "args": {"face_h": 131, "level": 3, "frac": 0.67},
+      "face": [26, 173, 1028, 131],
+      "clean": [0, 166, 1080, 150],
+      "field": [[0, 180, 18, 110], [1066, 180, 14, 110]],
+      "encloses": ["unlock_track"],
+      "note": "the NEXT UNLOCK band — one smooth rounded sheet FLOATING on the sky (it touches no screen edge, so no bleed and no flare). Its useful ground is SIDEWAYS: 26px of clean sky to its LEFT and 26px to its RIGHT, both running to the canvas edge, which is exactly the lit/shadow pair the shared material was fitted against. Neither vertical profile may be read far — the wallet pills' own shadows close in 7px above it and the giver cards begin 12px below — so `clean` stops there. It ENCLOSES unlock_track: the mock draws the bar's well INTO this sheet, so that one is not a neighbour and its field is this sheet's cream, not the sky. No native_px: unlike `well` and `tray` this element derives EVERY length from its own height (UnlockBar.surface_cp), so the mock's box scales it whole."
+    },
+
+    "unlock_track": {
+      "mock": "next_unlock",
+      "element": "progress",
+      "args": {"face_h": 48, "frac": 0.67},
+      "face": [417, 219, 524, 48],
+      "clean": [403, 178, 550, 124],
+      "field": [[430, 180, 200, 32], [430, 275, 200, 24]],
+      "note": "the BAR — a recessed cream well with a green capsule lying in it. It does NOT sit on sky: the mock cuts it into the band's own cream (251,236,218), so rule 16 applies and this region cannot share a sheet with unlock_band (the field tolerance refuses it anyway). Ground is generous vertically (41px of clean band above, 35px below) and tight along the bar: the LEVEL 3 line ends 19px to its left and the 67% read-out starts 16px to its right, so `clean` opens 14px and 12px. What the sideways profile measures here is the LIP, not a cast shadow — a well is sunk, it throws nothing outward — and the fill's own head shadow lives INSIDE the element, where mock_profile.py's `--probe` is the honest instrument."
     }
   }
 }

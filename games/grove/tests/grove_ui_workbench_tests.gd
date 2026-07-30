@@ -13,6 +13,7 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")
+const CutPaperEdge = preload("res://engine/scripts/ui/cut_paper.gd")   # for SMOOTH_FEATHER_PX, the one band width
 
 func _initialize() -> void:
 	begin("grove · ui workbench")
@@ -21,6 +22,7 @@ func _initialize() -> void:
 	_live_rim_color_edit_reaches_shared_buttons()
 	_white_role_builds_with_white_tile()
 	_shared_frame_uses_soft_cream_tile()
+	_cutpaper_inspector_opens_on_the_schema_default()
 	_daily_card_face_tones()
 	_daily_card_uses_face_only_for_daily()
 	_mail_claim_all_footer_is_transparent()
@@ -37,6 +39,7 @@ func _initialize() -> void:
 	_quest_card_shadow_blur_shape_and_card_cast()
 	_shared_shadow_spread_outruns_offset()
 	_torn_cell_page_hides_knobs_the_face_ignores()
+	_shop_page_carries_the_shared_edge_once()
 	_dialog_cells_cast_independently_of_the_board()
 	_one_progress_style_drives_level_board_and_workbench()
 	_gold_pill_backer_tracks_face_width()
@@ -521,6 +524,40 @@ func _torn_cell_page_hides_knobs_the_face_ignores() -> void:
 	with_sh.free()
 	no_sh.free()
 
+func _shop_page_carries_the_shared_edge_once() -> void:
+	# THE SHOP'S OFFER CARD IS THE SHARED CUT-PAPER SHEET now, not a baked nine-patch, so its edge has to be
+	# tunable here like every other paper surface — that is half of what makes "the shop follows the material
+	# automatically" true rather than aspirational. And exactly ONCE: `corner` is a member of the shared knob
+	# set, so the standalone Corner slider the page used to carry would be a second control writing the same
+	# config key, where the last one built silently wins.
+	var view := UIWorkbenchView.new()
+	view._selected = "shop"
+	view._sidebar_body = VBoxContainer.new()
+	view._element_sidebar("shop")
+	var labels := _row_labels(view._sidebar_body)
+	ok(labels.has("Cut-paper edge (shared)"), "the Shop page carries the shared cut-paper edge section")
+	for knob in ["Corner", "Deckle Amp", "Edge Feather", "Shadow Reach"]:
+		ok(labels.has(knob), "…including its %s row" % knob)
+	var corners := 0
+	for l in labels:
+		if l == "Corner":
+			corners += 1
+	ok(corners == 1, "…and the card corner has exactly ONE slider writing shop.corner (%d)" % corners)
+	# the page's own layout knobs are untouched — this section was added beside them, not instead of them
+	for knob in ["Icon Size", "Card Pad", "Grid Gap"]:
+		ok(labels.has(knob), "…and the Shop page keeps its %s knob" % knob)
+	# …and the page OPENS ON WHAT THE GAME RENDERS. `_cut_paper_section` seeds an unsaved knob from the
+	# SCHEMA default, so a component that overrides one (the shop's rim is 0 where the schema's is 2) would
+	# otherwise show — and, on the next Save, WRITE — a value the game never drew. Read off the live params,
+	# after the section has had its chance to seed them.
+	var block: Dictionary = view._params["shop"]
+	for pair in [["corner", 22.0], ["rim_width", 0.0]]:
+		ok(is_equal_approx(float(block.get(String(pair[0]), -1.0)), float(pair[1])),
+			"the Shop page opens on the card's OWN %s, not the schema's (%.1f)"
+				% [String(pair[0]), float(block.get(String(pair[0]), -1.0))])
+	view._sidebar_body.free()
+	view.free()
+
 ## Every visible row label in a built sidebar (rows are HBox(Label, control) or a bare Label).
 func _row_labels(body: Node) -> Array[String]:
 	var out: Array[String] = []
@@ -809,7 +846,7 @@ func _deckle_amp_of(btn: Button) -> float:
 	return float(d.deckle_amp) if d != null else -1.0
 
 func _live_cutpaper_edit_reaches_shared_buttons() -> void:
-	Kit.clear_config_cache()   # start from the saved-on-disk config (button deckle_amp == 5)
+	Kit.clear_config_cache()   # start from the saved-on-disk config (button deckle_amp == 0 — a smooth cut)
 	var view := UIWorkbenchView.new()   # _init() populates _params from the built-in defaults
 	view._selected = "button"
 	# a distinctive amplitude that can't be mistaken for the saved default (5) or the schema fallback
@@ -832,6 +869,32 @@ func _live_cutpaper_edit_reaches_shared_buttons() -> void:
 	b.free()
 	view.free()
 	Kit.clear_config_cache()   # don't leak the preview config into sibling suites
+
+## THE INSPECTOR OPENS ON WHAT THE GAME RENDERS. A shared-edge slider whose key a block has never saved
+## used to seed itself from the slider's FLOOR, which for `edge_feather` is 0 — so opening the inspector on
+## such a block showed an unfeathered (stair-stepped) edge under the block's own name, and a Save wrote
+## that 0 into the shipped config. `_cut_paper_section` seeds from the SCHEMA default instead. Checked on a
+## block that genuinely lacks the key, and on the two values that matter: the feather is present and the
+## tear is not.
+func _cutpaper_inspector_opens_on_the_schema_default() -> void:
+	var view := UIWorkbenchView.new()
+	var target := "toggle_card"
+	(view._params[target] as Dictionary).erase("edge_feather")   # a block that has never saved it
+	(view._params[target] as Dictionary).erase("deckle_amp")
+	view._selected = "settings"
+	view._sidebar_body = VBoxContainer.new()                     # the section appends its rows here
+	view._cut_paper_section(target)
+	var seeded: Dictionary = view._params[target]
+	ok(seeded.has("edge_feather") and float(seeded["edge_feather"]) > 0.0,
+		"an unsaved edge_feather seeds from the schema, not the slider floor (%.2f)"
+			% float(seeded.get("edge_feather", -1.0)))
+	ok(is_equal_approx(float(seeded["edge_feather"]), CutPaperEdge.SMOOTH_FEATHER_PX),
+		"…at the panel's own measured band width (%.2f)" % float(seeded.get("edge_feather", -1.0)))
+	ok(seeded.has("deckle_amp") and is_equal_approx(float(seeded["deckle_amp"]), 0.0),
+		"…and the tear seeds at nothing, so a Save cannot re-tear a block by opening it (%.2f)"
+			% float(seeded.get("deckle_amp", -1.0)))
+	view._sidebar_body.free()
+	view.free()
 
 ## Corner is part of the SHARED edge set now: a live Corner edit must reach a no-`cp` shared button, not
 ## only the live green tile (before the fix `corner` was test-only and defaulted to a hardcoded 16).

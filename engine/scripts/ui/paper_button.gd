@@ -34,14 +34,11 @@ const CutPaper = preload("res://engine/scripts/ui/cut_paper.gd")   # for the sha
 # fill, rim, halo and bevel are untouched.
 const DECKLE_AMP := 0.0
 # …and the price of losing the tear: `draw_colored_polygon` antialiases nothing, so with the deckle gone
-# the corner arc rasterizes as a hard binary STAIRCASE. Measured across a nav tile's top-left arc — the
-# pixels whose value lands between the ground and the fill — ours ran 0.00 per row (a pure binary step)
-# against the mock's 1.68 on its own 931px canvas, i.e. ~1.95 at our 1080. A card's defining quality is a
-# clean cut edge, so the treatment asks for the shared feather at that width. The ramp is CENTRED on the
-# outline, so the silhouette neither moves nor grows — half the band of coverage lands either side of it,
-# which is what the rasterizer would have written. Rendered back: 1.22 per row at 2.0px. Wider still
-# (2.5 measured 1.39) stops reading as a cut and starts reading as a soft glow.
-const EDGE_FEATHER_PX := 2.0
+# the corner arc rasterizes as a hard binary STAIRCASE. A card's defining quality is a clean cut edge, so
+# the treatment asks for the shared feather — and the WIDTH is not this module's to own, because every
+# smooth surface in the game needs the same band. It lives beside the knob it is inseparable from
+# (CutPaper.SMOOTH_FEATHER_PX), which carries the measurement; this is the name the callers here use.
+const EDGE_FEATHER_PX := CutPaper.SMOOTH_FEATHER_PX
 
 # THE CAST SHADOW — the thing that makes the sheet sit ON the art rather than be printed into it.
 #
