@@ -5,6 +5,9 @@ extends SceneTree
 ##        `shophits` = the storefront WITH the hit-region overlay this tool composes over it (which
 ##        purchase each tap resolves to) — engine/tools/shop_hit_overlay.gd, docs/design/shop-hit-regions.md
 ## extra args: `maps nodaily=1` (no login popup over the cards) · `select owned=1` · `closeup residents=1`
+##        `shop|shophits|confirm refill=ready|claimed|cooling` — the top-left free-refill faucet's state.
+##        `claimed` claims it for real (the grove's 1/day cap → "Back tomorrow"); `cooling` seeds the
+##        cooldown read a cap above 1 would give ("Ready in 30m"). Default `ready` = the untouched save.
 ## BATCH IT: several captures in one launch is `make shot-batch PLAN=<file>` (this tool is batch-safe).
 
 const Base = preload("res://engine/tools/shot_base.gd")
@@ -243,6 +246,28 @@ func _initialize() -> void:
 	elif mode == "shop" or mode == "confirm" or mode == "shophits":
 		Save.add_diamonds(40)
 		Save.add_coins(1200)            # T40: so the coin-priced featured offers read un-dimmed
+		# THE FREE REFILL'S FAUCET STATE, seeded so all three reads of the top-left shelf are reproducible
+		# rather than one-offs. Default (`refill=ready`, or the arg absent) is the untouched fresh save the
+		# capture always used, so every existing shop capture is unchanged.
+		#   claimed — the real thing: take the claim through Claims, exactly as a tap on the shelf does. The
+		#             grove's cap is 1/day (grove_data CLAIMS), so the status this lands in is `capped` and
+		#             the plate reads "Back tomorrow". This IS what a player sees after claiming.
+		#   cooling — the `cooldown` read ("Ready in %dm"), which the LIVE grove cannot currently produce:
+		#             at cap 1 the first claim also exhausts the day, so the status goes straight to capped.
+		#             The branch and its string are real and would fire the moment the cap is raised above
+		#             1, so the state is seeded HERE, by hand, the only way it can be: claim it (which
+		#             stamps `last` = now, arming the 30-minute cooldown) and then hand today's allowance
+		#             back. That is precisely the ledger row a cap of 2 would leave behind.
+		for wa in args:
+			var want := String(wa).get_slice("=", 1) if String(wa).begins_with("refill=") else ""
+			if want == "claimed" or want == "cooling":
+				load("res://engine/scripts/core/claims.gd").claim("refill_water")
+				if want == "cooling":
+					Save._claim_row("refill_water")["used"] = 0
+					Save.grove_write()
+				var st: Dictionary = load("res://engine/scripts/ui/shop.gd").refill_status()
+				print("MAP SHOP refill seeded=%s -> available=%s kind=%s minutes=%d"
+					% [want, st.get("available"), st.get("kind"), int(st.get("minutes", 0))])
 		var ShopUI: GDScript = load("res://engine/scripts/ui/shop.gd")
 		ShopUI.open(scn, {"refresh": func() -> void: pass})
 		# `shophits` = THIS TOOL composes the HIT-REGION OVERLAY over the storefront that just opened. The

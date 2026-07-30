@@ -188,6 +188,7 @@
     "refill": {
       "back_tomorrow": "Back tomorrow",
       "caption": "Free refill",
+      "claimed": "Claimed",
       "cta": "Free",
       "ready_in": "Ready in %dm"
     },

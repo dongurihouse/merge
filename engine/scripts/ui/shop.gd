@@ -324,6 +324,18 @@ static func _quick_help_section(refs: Dictionary) -> Dictionary:
 # The free-refill card: a full 💧 can + a green "Free" CTA when offerable; when cooling/capped the CTA
 # drops and the cozy timer reads as plain text inside the card (a faucet at rest, not a greyed wall).
 # on_buy re-checks the gate so a stale press can't over-grant.
+#
+# THE STOREFRONT IS A PAINTING, and the painting says FREE whatever the faucet is doing (owner, 2026-07-30:
+# "the free should be unavailable once claimed, let's put up an overlay, with our own label on top to make
+# it looks like its claimed" / "just put a overlay or a huge button ontop without changing the underlying
+# image"). Before this, a claimed faucet dropped its `on_buy` and the shelf went silently inert under art
+# that still advertised it — and a tap there fell through to the modal's veil and CLOSED THE SHOP. So an
+# unavailable offer now says so in three keys the storefront renders as OUR OWN chrome over the art:
+#   `unavailable`        — draw the plate, and swallow the shelf's taps (shop_screen.gd owns the drawing);
+#   `unavailable_label`  — the headline: what happened to it. THIS is the word the owner asked for;
+#   `note`               — the sub-line: when it comes back. The two strings this screen already had.
+# The keys are generic on purpose: any offer that goes unbuyable can wear the same plate (the 💎 water fill
+# has no shelf on this picture and is deliberately NOT wired here — registry `unplaceable`).
 static func _refill_card(refs: Dictionary) -> Dictionary:
 	var st := refill_status()
 	var card := {"offer_id": OFFER_REFILL, "icon": "shop_can", "count": refill_amount()}
@@ -336,6 +348,8 @@ static func _refill_card(refs: Dictionary) -> Dictionary:
 	else:
 		card["note"] = Strings.t("shop.refill.back_tomorrow") if String(st.kind) == "capped" \
 			else Strings.t("shop.refill.ready_in") % int(st.minutes)
+		card["unavailable"] = true
+		card["unavailable_label"] = Strings.t("shop.refill.claimed")
 	return card
 
 # PREMIUM section — the cash → 💎 Acorn-pouch ladder. Plain cards (the merchandising ribbons, the

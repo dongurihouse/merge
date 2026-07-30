@@ -814,6 +814,10 @@ func _initialize() -> void:
 	for n in screen.find_children("*", "Control", true, false):
 		if (n as Node).get_script() == cp_script:
 			drawn += 1
+	# (The ONE deliberate exception is the plate an UNAVAILABLE offer wears, and it is not an exception
+	# here: this fixture is a fresh save, so the free refill is ready and nothing is held. The claimed
+	# storefront's counts — one sheet, two Labels, still one texture, all of them inside that plate — are
+	# asserted state by state in `_test_claimed_refill`.)
 	ok(drawn == 0, "no cut-paper sheet is drawn over the painting (%d)" % drawn)
 	ok(screen.find_children("*", "Label", true, false).is_empty(),
 		"…and no text is typeset over it — every word on this screen is the picture's own")
@@ -870,6 +874,10 @@ func _initialize() -> void:
 
 	# ── the region ↔ purchase OVERLAY (the owner's read-out) ────────────────────────────────────────
 	await _test_hit_overlay_is_gated_and_honest()
+
+	# ── the FREE REFILL once it is spent: our own plate over a painting that still says FREE ────────
+	await _test_claimed_refill()
+	await _test_claimed_refill_overlay()
 
 	finish()
 
@@ -1426,4 +1434,319 @@ func _test_hit_overlay_is_gated_and_honest() -> void:
 		ok(elsewhere.size() > 0, "…the overlay also probes where there is NO region (%d points)" % elsewhere.size())
 		ok(answers == ["veil · dismisses"],
 			"…and every one of them resolves to the modal's dismiss veil (%s)" % ",".join(PackedStringArray(answers)))
+	host.queue_free()
+
+# ── the FREE REFILL once it has been claimed ───────────────────────────────────────────────────────
+## THE PAINTING CANNOT CHANGE. Its top-left shelf shows a watering can, a "100" tag and a green FREE
+## button in baked pixels, and it shows them whether or not the daily faucet still has anything in it.
+## Before 2026-07-30 a claimed refill simply dropped its `on_buy`: the shelf went inert under art that
+## still advertised it, and — because the painting stops no taps of its own — a press there fell through
+## the invisible disabled region onto the modal's veil and CLOSED THE SHOP. The owner asked for "an
+## overlay, with our own label on top to make it looks like its claimed", and this drives the three states
+## that shelf can be in, through the real storefront, and asserts:
+##
+##   * READY  — nothing is drawn over the bay at all, and the two purchase regions are live. This is the
+##              half that keeps the change honest: the storefront a player usually sees is untouched.
+##   * COOLING / CAPPED — one plate, over the refill's OWN cell rect, carrying the headline plus the state
+##              string for THAT state (the two differ, so a swapped branch fails here);
+##   * and that the plate SWALLOWS its tap — the shop is still open afterwards, and nothing was granted.
+##              Its control is the tap right after it, on a point that belongs to no region at all: that
+##              one MUST dismiss. Without the pair, "still open" would pass on a screen whose veil was
+##              simply dead.
+##
+## Every other offer's two regions and the ✕ are compared, rect for rect, against the READY state — this
+## treatment must not move or re-wire one pixel of the rest of the screen. Control geometry is float32, so
+## the comparison is is_equal_approx.
+func _test_claimed_refill() -> void:
+	_ready_geo = {}
+	for state in ["ready", "cooling", "capped"]:
+		await _drive_refill_state(state)
+
+## The READY state's region geometry, banked by the first pass of `_test_claimed_refill` and compared
+## against by the other two. A member rather than a threaded return value: this runs across three
+## coroutine passes, each of which frees its own host, and a value that has to survive that round trip is
+## one more thing that can come back empty for reasons that have nothing to do with the screen.
+var _ready_geo := {}
+
+## Seed one faucet state on the live save. `capped` is the real thing — the same claim a tap on the shelf
+## takes, and at the grove's 1/day cap it is where a player actually lands. `cooling` is the OTHER
+## unavailable read (`shop.refill.ready_in`), which cap 1 cannot currently produce: the first claim also
+## exhausts the day. Its branch and its string are live code that fires the moment the cap is raised, so
+## the state is seeded the only way it can be — claim it (stamping `last` = now, which arms the 30-minute
+## cooldown), then hand today's allowance back. That is exactly the ledger row a cap of 2 would leave.
+func _seed_refill(state: String) -> void:
+	if state == "ready":
+		return
+	Claims.claim("refill_water")
+	if state == "cooling":
+		Save._claim_row("refill_water")["used"] = 0
+		Save.grove_write()
+
+func _drive_refill_state(state: String) -> void:
+	fresh("refill_%s" % state)
+	Save.add_diamonds(500)
+	Save.set_water(0)
+	_seed_refill(state)
+	var st: Dictionary = ShopS.refill_status()
+	# `cooling` is this suite's name for the seeded state; `cooldown` is what the faucet calls it.
+	var want_kind := "cooldown" if state == "cooling" else state
+	ok(String(st.kind) == want_kind, "[%s] the faucet reads `%s` (%s)" % [state, want_kind, String(st.kind)])
+
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host)
+	ShopS.open(host, {})
+	await create_timer(0.25).timeout
+	var modal: Control = host.find_child(ShopS.OVERLAY_NAME, true, false) as Control
+	var screen: Control = modal.find_child(ShopScreen.ROOT_NODE, true, false) as Control if modal != null else null
+	ok(screen != null, "[%s] the storefront is up" % state)
+	if screen == null:
+		host.queue_free()
+		return
+
+	var plate: Control = _unavailable_region(screen, ShopS.OFFER_REFILL)
+	var cell: Control = _any_region(screen, ShopS.OFFER_REFILL, ShopScreen.SLOT_META)
+	var price: Control = _any_region(screen, ShopS.OFFER_REFILL, "shop_buy")
+	ok(cell != null and price != null, "[%s] the refill still has BOTH its measured regions" % state)
+
+	if state == "ready":
+		# THE UNTOUCHED SCREEN. Nothing of ours is on the painting, and both of the refill's regions take
+		# taps exactly as they always did.
+		ok(plate == null, "[ready] nothing is drawn over the free refill's bay")
+		ok(screen.find_children("*", "Control", true, false).all(func(c: Control) -> bool:
+			return not c.has_meta(ShopScreen.UNAVAIL_META)),
+			"[ready] …no unavailable plate anywhere on the storefront")
+		ok(cell != null and not cell.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			and not (cell as Button).disabled, "[ready] the refill's shelf cell is live")
+		ok(price != null and not price.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			and not (price as Button).disabled, "[ready] …and so is its price plate")
+	else:
+		ok(plate != null, "[%s] the claimed bay wears our own plate" % state)
+
+	# WHAT IS DRAWN ON THE PAINTING, counted for every state. The storefront's law is that the game draws
+	# nothing on the art; this treatment buys ONE exception and must not quietly buy a second. Ready: the
+	# untouched screen. Held: exactly one cut-paper sheet and two lines of type, and both of them inside the
+	# plate — never loose on the picture — with the picture still the only texture on the screen.
+	var painted := _painted_on(screen)
+	var want_cp := 0 if state == "ready" else 1
+	var want_text := 0 if state == "ready" else 2
+	ok(int(painted.cp) == want_cp, "[%s] %d cut-paper sheet(s) over the painting" % [state, int(painted.cp)])
+	ok(int(painted.labels) == want_text, "[%s] …and %d line(s) of our own type" % [state, int(painted.labels)])
+	ok(int(painted.textures) == 1, "[%s] …with the picture still the only texture (%d)" % [state, int(painted.textures)])
+	ok(int(painted.loose) == 0, "[%s] …and none of it loose on the art, outside the plate (%d)" % [state, int(painted.loose)])
+
+	var geo := _storefront_geometry(screen)
+	if state == "ready":
+		_ready_geo = geo
+	else:
+		_compare_other_offers(state, _ready_geo, geo)
+
+	if plate != null and cell != null and price != null:
+		# GEOMETRY, read off the built tree rather than recomputed: the plate covers the refill's own shelf
+		# cell — the same rect the buyable state hit-tests — so what changed is what a tap DOES, not where.
+		var pr := plate.get_global_rect()
+		var cr: Rect2 = cell.get_global_rect()
+		ok(pr.position.is_equal_approx(cr.position) and pr.size.is_equal_approx(cr.size),
+			"[%s] …over exactly the refill's own cell rect (%s vs %s)" % [state, str(pr), str(cr)])
+		ok(plate.mouse_filter == Control.MOUSE_FILTER_STOP,
+			"[%s] …and it takes the taps that rect used to drop" % state)
+		ok(String(plate.get_meta(ShopScreen.OFFER_META, "")) == ShopS.OFFER_REFILL,
+			"[%s] …stamped with the offer it is holding" % state)
+		# the invisible regions underneath must stay inert: two things competing for one tap is the bug
+		# this plate exists to end.
+		ok((cell as Button).disabled and cell.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+			"[%s] …the shelf cell under it is inert" % state)
+		ok((price as Button).disabled and price.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+			"[%s] …and so is the price plate under it" % state)
+
+		# THE COPY. The headline is the word the owner asked for; the sub-line is the state's own string,
+		# and the two states' strings differ — a branch that picked the wrong one fails right here.
+		var want_note := Strings.t("shop.refill.back_tomorrow") if state == "capped" \
+			else Strings.t("shop.refill.ready_in") % int(st.minutes)
+		var lines := _plate_lines(plate)
+		ok(lines == [Strings.t("shop.refill.claimed"), want_note],
+			"[%s] …and it reads `%s` (%s)" % [state, want_note, ",".join(PackedStringArray(lines))])
+		ok(Strings.t("shop.refill.back_tomorrow") != Strings.t("shop.refill.ready_in") % int(st.minutes),
+			"[%s] …a string the OTHER unavailable state does not use" % state)
+
+		# THE TAP, through the real input path. It must buy nothing, claim nothing, and — the point — leave
+		# the shop standing.
+		var water_before := Save.water()
+		var gems_before := Save.diamonds()
+		_push_tap(pr.get_center())
+		await process_frame
+		await process_frame
+		ok(Save.water() == water_before and Save.diamonds() == gems_before,
+			"[%s] a tap on the plate grants nothing (%d💧 %d💎)" % [state, Save.water(), Save.diamonds()])
+		ok(is_instance_valid(modal) and modal.is_inside_tree(),
+			"[%s] …and the shop is STILL OPEN — the plate swallowed it" % state)
+		# …and its control: a tap that belongs to NO region still falls through to the veil and dismisses.
+		# Without it the check above would pass on a screen whose veil had simply stopped working. The
+		# point is the ACORN POUCHES plaque — the registry's own `section_plaque`, which it records as
+		# belonging to NO offer precisely because it spans both columns — read from the registry and taken
+		# as a fraction of the picture, so this stays on it however the screen is letterboxed.
+		var sr := screen.get_global_rect()
+		var plaque: Rect2 = _registry_rect(["furniture", "section_plaque"])
+		_push_tap(sr.position + sr.size * (plaque.get_center() / ShopScreen.art_size()))
+		await process_frame
+		await process_frame
+		ok(not (is_instance_valid(modal) and modal.is_inside_tree()),
+			"[%s] …while a tap on no region at all still dismisses (the veil is live)" % state)
+
+	host.queue_free()
+	await process_frame
+
+## A rect out of the shipped region registry by key path, in the PICTURE's own px. Read, never re-typed:
+## the registry is the one place this screen's geometry is written down.
+func _registry_rect(path: Array) -> Rect2:
+	var node: Variant = ShopScreen.registry()
+	for k in path:
+		node = (node as Dictionary).get(String(k), {})
+	var a := node as Array
+	if a == null or a.size() != 4:
+		return Rect2()
+	return Rect2(float(a[0]), float(a[1]), float(a[2]), float(a[3]))
+
+## The one region a held offer wears, or null. Found by the meta the storefront stamped beside the offer
+## id — never by node name or by position.
+func _unavailable_region(screen: Control, offer_id: String) -> Control:
+	for n in screen.find_children("*", "Control", true, false):
+		var c := n as Control
+		if c.has_meta(ShopScreen.UNAVAIL_META) and String(c.get_meta(ShopScreen.OFFER_META, "")) == offer_id:
+			return c
+	return null
+
+## An offer's cell or price region whatever state it is in — unlike `_region_for`, this does NOT skip an
+## inert one, because "the region under the plate went inert" is exactly what has to be asserted.
+func _any_region(screen: Control, offer_id: String, meta: String) -> Control:
+	for n in screen.find_children("*", "Control", true, false):
+		var c := n as Control
+		if c.has_meta(meta) and not c.has_meta(ShopScreen.UNAVAIL_META) \
+				and String(c.get_meta(ShopScreen.OFFER_META, "")) == offer_id:
+			return c
+	return null
+
+## What the GAME has drawn over the painting: cut-paper sheets, Labels, textures, and how many of the
+## first two sit outside an unavailable plate (`loose` — the regression this screen exists under, a stray
+## code-drawn primitive back on the art).
+func _painted_on(screen: Control) -> Dictionary:
+	var cp_script := load("res://engine/scripts/ui/cut_paper.gd")
+	var out := {"cp": 0, "labels": 0, "textures": 0, "loose": 0}
+	for n in screen.find_children("*", "Control", true, false):
+		var c := n as Control
+		var mine: bool = (c.get_script() == cp_script) or (c is Label)
+		if c.get_script() == cp_script:
+			out.cp = int(out.cp) + 1
+		if c is Label:
+			out.labels = int(out.labels) + 1
+		if c is TextureRect and (c as TextureRect).texture != null:
+			out.textures = int(out.textures) + 1
+		if mine and not _inside_unavailable_plate(c):
+			out.loose = int(out.loose) + 1
+	return out
+
+## Whether a node hangs under some offer's unavailable plate (rather than loose on the picture).
+func _inside_unavailable_plate(c: Node) -> bool:
+	var n: Node = c
+	while n != null:
+		if n.has_meta(ShopScreen.UNAVAIL_META):
+			return true
+		n = n.get_parent()
+	return false
+
+## The plate's own text, top line first — read off the Labels it built, in the order they sit on it.
+func _plate_lines(plate: Control) -> Array:
+	var out: Array = []
+	var found: Array = []
+	for n in plate.find_children("*", "Label", true, false):
+		found.append([(n as Label).get_global_rect().position.y, String((n as Label).text)])
+	found.sort_custom(func(a, b) -> bool: return float(a[0]) < float(b[0]))
+	for f in found:
+		out.append(String(f[1]))
+	return out
+
+## Every region on the built storefront, by offer id and kind, as global rects — the shape a state has to
+## keep across the whole faucet cycle.
+func _storefront_geometry(screen: Control) -> Dictionary:
+	var out := {}
+	for n in screen.find_children("*", "Control", true, false):
+		var c := n as Control
+		if c.has_meta(ShopScreen.CLOSE_META):
+			out["close"] = c.get_global_rect()
+		elif c.has_meta(ShopScreen.UNAVAIL_META):
+			continue
+		elif c.has_meta(ShopScreen.SLOT_META):
+			out["cell:%s" % String(c.get_meta(ShopScreen.OFFER_META, ""))] = c.get_global_rect()
+		elif c.has_meta("shop_buy"):
+			out["price:%s" % String(c.get_meta(ShopScreen.OFFER_META, ""))] = c.get_global_rect()
+	return out
+
+## THE OTHER SEVEN OFFERS AND THE ✕ ARE NOT PART OF THIS. Compared key for key against the ready state:
+## the same set of regions, each at the same rect. A treatment that re-laid the screen — or that dropped a
+## region while it was at it — fails here rather than in a capture nobody took.
+func _compare_other_offers(state: String, ready_geo: Dictionary, geo: Dictionary) -> void:
+	if ready_geo.is_empty():
+		ok(false, "[%s] no ready-state geometry to compare against" % state)
+		return
+	var want: Array = ready_geo.keys()
+	want.sort()
+	var got: Array = geo.keys()
+	got.sort()
+	ok(want == got, "[%s] the storefront still carries the same %d regions (%s)" % [state, want.size(),
+		"same set" if want == got else ",".join(PackedStringArray(got))])
+	var moved: Array = []
+	for k in want:
+		if not geo.has(k):
+			continue
+		var a: Rect2 = ready_geo[k]
+		var b: Rect2 = geo[k]
+		if not (a.position.is_equal_approx(b.position) and a.size.is_equal_approx(b.size)):
+			moved.append(String(k))
+	ok(moved.is_empty(), "[%s] …every one of them at the rect it had while the faucet was ready (%s)"
+		% [state, "none moved" if moved.is_empty() else ",".join(PackedStringArray(moved))])
+
+## …AND THE CAPTURE'S OWN READ-OUT, in the claimed state. `make shot-map MODE=shophits refill=claimed` is
+## how this state gets LOOKED at, so the overlay must name the held region rather than count it as a
+## purchase or leave it unlabelled. Composed exactly the way map_shot.gd does it.
+func _test_claimed_refill_overlay() -> void:
+	fresh("refill_claimed_overlay")
+	Save.add_diamonds(500)
+	_seed_refill("capped")
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host)
+	ShopS.open(host, {})
+	var modal: Control = host.find_child(ShopS.OVERLAY_NAME, true, false) as Control
+	var storefront: Control = null
+	if modal != null:
+		storefront = modal.find_child(ShopScreen.ROOT_NODE, true, false) as Control
+	HitOverlay.mount(modal, storefront)
+	await create_timer(0.3).timeout
+	var ov: Control = host.find_child(HitOverlay.OVERLAY_NAME, true, false) as Control
+	ok(ov != null, "the hit overlay mounts over a claimed storefront too")
+	if ov != null:
+		var by_kind := {}
+		var mismatched: Array = []
+		var held := {}
+		for r in ov.call("regions_for_test"):
+			var d := r as Dictionary
+			var k := String(d["kind"])
+			by_kind[k] = int(by_kind.get(k, 0)) + 1
+			if k == "held":
+				held = d
+			if not bool(d["good"]):
+				mismatched.append("%s->%s" % [String(d["declared"]), ",".join(PackedStringArray(d["resolved"]))])
+		ok(int(by_kind.get("held", 0)) == 1, "…and draws ONE held region (%d)" % int(by_kind.get("held", 0)))
+		# the claimed offer's two purchase regions are gone from the picker entirely — that is the whole
+		# behavioural change, and it is what the capture shows.
+		ok(int(by_kind.get("slot", 0)) == 7, "…the seven still-buyable shelf cells (%d)" % int(by_kind.get("slot", 0)))
+		ok(int(by_kind.get("price", 0)) == 7, "…their seven price buttons (%d)" % int(by_kind.get("price", 0)))
+		ok(int(by_kind.get("close", 0)) == 1, "…and the ✕ (%d)" % int(by_kind.get("close", 0)))
+		ok(int(by_kind.get("?", 0)) == 0, "…with nothing left unlabelled (%d)" % int(by_kind.get("?", 0)))
+		ok(mismatched.is_empty(), "…and every region resolving through the engine's own picker (%s)"
+			% ("none mismatched" if mismatched.is_empty() else ",".join(PackedStringArray(mismatched))))
+		ok(String(held.get("declared", "")) == ShopS.OFFER_REFILL
+			and PackedStringArray(held.get("resolved", [])) == PackedStringArray([ShopS.OFFER_REFILL]),
+			"…the held region's own probes resolve to `%s` (%s)" % [ShopS.OFFER_REFILL,
+				"absent" if held.is_empty() else ",".join(PackedStringArray(held.get("resolved", [])))])
 	host.queue_free()
