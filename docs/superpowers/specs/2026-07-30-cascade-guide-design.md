@@ -25,6 +25,7 @@ A mark:
   weight: float,             # 0..1 — alpha strength
   reach:  float,             # halo tightness
   tag:    bool,              # this mark carries the ×n chip
+  tag_cell: Vector2i,        # where that chip sits
 }
 ```
 
@@ -89,7 +90,20 @@ is republished at every step until `_finish_chain`.
 ### Tags
 
 One tag per cell; the FIRST mark in list order claiming a cell wins. The list is already in
-precedence order, so no separate precedence pass exists.
+precedence order, so no separate precedence pass exists. `tag_cell` is the chain's `top_cell` at
+REST, the winner's target cell during a DRAG, and the run's last remaining cell during a RUN.
+
+### List order IS draw order
+
+The builder emits background first: dimmed resting marks, then the winner's run, then non-winning
+targets, then the winner target, then stage marks. The renderer draws the list in order and owns no
+precedence of its own.
+
+### Where the pad generators live
+
+`_cascade_extension_pads` and `_single_neighbor_seed_pads` move into the builder unchanged in
+behaviour — they read only the board. The candidate occupied-target cells stay `board.gd`'s to
+supply (they come from `piece_nodes`), passed in as `ctx.targets`.
 
 ## Renderer — `engine/scripts/ui/cascade_outline.gd`
 
