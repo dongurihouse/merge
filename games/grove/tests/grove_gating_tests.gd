@@ -26,6 +26,11 @@ func _initialize() -> void:
 	await _test_cascade_teach_waits_for_a_real_chain()
 	_test_cascade_teach_is_unarmed_below_its_level()
 	_test_weather_teach_requires_a_pair_inside_the_patch()
+	await _test_weather_teach_orients_an_actionable_pair_into_the_patch()
+	await _test_weather_teach_skips_earlier_invalid_and_off_patch_pairs()
+	await _test_cascade_teach_finds_a_later_direction_sensitive_chain()
+	await _test_weather_reveal_banks_only_after_the_pointed_merge_lands()
+	await _test_cascade_reveal_banks_only_after_the_pointed_chain_finishes()
 	finish()
 
 ## Set the coin clock so G.level() reads exactly `lvl`.
@@ -181,3 +186,154 @@ func _test_weather_teach_requires_a_pair_inside_the_patch() -> void:
 	Save.mark_ftue_seen("gen_tap")
 	ok(FeatureGate.armed("weather"), "weather is armed at its level with both verbs seen")
 	ok(not FeatureGate.revealed("weather"), "armed is not revealed")
+
+func _open_teach_board(save_id: String, level: int, weather_seen := false) -> Node:
+	fresh(save_id)
+	Save.mark_ftue_seen("merge")
+	Save.mark_ftue_seen("gen_tap")
+	if weather_seen:
+		Save.mark_ftue_seen("unlock_weather")
+	_set_level(level)
+	var b = board_host()
+	await process_frame
+	return b
+
+func _blank_teach_fixture(b: Node, placements: Dictionary, reward_cells: Array = []) -> void:
+	for i in b.board.items.size():
+		b.board.terrain[i] = 0
+		b.board.items[i] = 0
+	b.board.collect_rewards = {}
+	b.board.gens = {}
+	b.board.gen_boost = {}
+	b.quests = []
+	for raw_cell in placements:
+		b.board.place(Vector2i(raw_cell), int(placements[raw_cell]))
+	for raw_cell in reward_cells:
+		b.board.set_collect_reward(Vector2i(raw_cell), "coins", 1)
+	b._rebuild_all()
+	for n in b.gen_nodes.values():
+		if n != null and is_instance_valid(n):
+			(n as Node).queue_free()
+	b.gen_nodes.clear()
+	b.gen_node = null
+	b.board.gens = {}
+	b.board.gen_boost = {}
+
+func _set_teach_patch(b: Node, lane: int) -> void:
+	b._sky_state = {
+		"sky": SkyLogic.SKY_SUNBEAM,
+		"lane_axis": SkyLogic.AXIS_COLUMN,
+		"lane": lane,
+	}
+
+func _input_drag_merge(b: Node, from: Vector2i, to: Vector2i) -> void:
+	var half := Vector2(b.csz, b.csz) / 2.0
+	var start: Vector2 = b._cell_pos(from) + half
+	var finish_at: Vector2 = b._cell_pos(to) + half
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	down.position = start
+	b._on_board_input(down)
+	var move := InputEventMouseMotion.new()
+	move.position = finish_at
+	b._on_board_input(move)
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	up.position = finish_at
+	b._on_board_input(up)
+
+func _wait_teach_board_idle(b: Node, timeout := 4.0) -> void:
+	var waited := 0.0
+	while (bool(b.animating) or b.chain_running()) and waited < timeout:
+		await create_timer(0.05).timeout
+		waited += 0.05
+
+func _test_weather_teach_orients_an_actionable_pair_into_the_patch() -> void:
+	var b = await _open_teach_board("teach_weather_oriented", G.FEATURE_LEVEL["weather"])
+	var patch_cell := Vector2i(0, 2)
+	var outside_cell := Vector2i(1, 1)
+	_blank_teach_fixture(b, {patch_cell: 101, outside_cell: 101})
+	_set_teach_patch(b, 2)
+	var pair: Array = b._weather_teach_pair()
+	ok(pair == [outside_cell, patch_cell] and b.board.can_merge(pair[0], pair[1])
+			and SkyLogic.in_patch(b._sky_state, pair[1]),
+		"weather points an actionable drag INTO the live patch, regardless of board order")
+	b.queue_free()
+
+func _test_weather_teach_skips_earlier_invalid_and_off_patch_pairs() -> void:
+	var b = await _open_teach_board("teach_weather_later_pair", G.FEATURE_LEVEL["weather"])
+	var want := [Vector2i(1, 1), Vector2i(1, 2)]
+	_blank_teach_fixture(b, {
+		Vector2i(0, 0): 101, Vector2i(0, 2): 101,
+		want[0]: 201, want[1]: 201,
+	}, [Vector2i(0, 0)])
+	_set_teach_patch(b, 2)
+	var after_invalid: Array = b._weather_teach_pair()
+	ok(after_invalid == want and b.board.can_merge(after_invalid[0], after_invalid[1]),
+		"an earlier equal-code pair rejected by board.can_merge does not hide a later weather merge")
+
+	_blank_teach_fixture(b, {
+		Vector2i(0, 0): 101, Vector2i(0, 1): 101,
+		want[0]: 201, want[1]: 201,
+	})
+	_set_teach_patch(b, 2)
+	var after_off_patch: Array = b._weather_teach_pair()
+	ok(after_off_patch == want and SkyLogic.in_patch(b._sky_state, after_off_patch[1]),
+		"an earlier actionable off-patch pair does not hide a later merge into the patch")
+	b.queue_free()
+
+func _test_cascade_teach_finds_a_later_direction_sensitive_chain() -> void:
+	var b = await _open_teach_board("teach_cascade_direction", G.FEATURE_LEVEL["cascade"], true)
+	var want := [Vector2i(3, 2), Vector2i(3, 1)]
+	_blank_teach_fixture(b, {
+		Vector2i(0, 0): 201, Vector2i(0, 1): 201,
+		Vector2i(3, 1): 101, Vector2i(3, 2): 101,
+		Vector2i(3, 0): 102, Vector2i(2, 0): 103,
+	})
+	var pair: Array = b._cascade_teach_pair()
+	ok(pair == want and b.board.can_merge(pair[0], pair[1])
+			and 1 + BoardLogicRef.chain_path(b.board, pair[0], pair[1]).size() >= 3,
+		"cascade skips an earlier ordinary pair and chooses the orientation that reaches x3")
+	b.queue_free()
+
+func _test_weather_reveal_banks_only_after_the_pointed_merge_lands() -> void:
+	var b = await _open_teach_board("teach_weather_bank", G.FEATURE_LEVEL["weather"])
+	_blank_teach_fixture(b, {Vector2i(0, 2): 101, Vector2i(1, 1): 101})
+	_set_teach_patch(b, 2)
+	b._maybe_hand_hint()
+	await process_frame
+	await process_frame
+	var pair: Array = b._weather_teach_pair()
+	ok(b._hand_hint_id == "weather" and pair.size() == 2 and not FeatureGate.revealed("weather"),
+		"weather is watched and pointed, but not banked before the taught drag")
+	if pair.size() == 2:
+		_input_drag_merge(b, pair[0], pair[1])
+		ok(not FeatureGate.revealed("weather"),
+			"weather remains unrevealed while the pointed merge is still landing")
+		await _wait_teach_board_idle(b)
+		ok(FeatureGate.revealed("weather"),
+			"weather banks only after the pointed merge lands inside the patch")
+	b.queue_free()
+
+func _test_cascade_reveal_banks_only_after_the_pointed_chain_finishes() -> void:
+	var b = await _open_teach_board("teach_cascade_bank", G.FEATURE_LEVEL["cascade"], true)
+	_blank_teach_fixture(b, {
+		Vector2i(3, 1): 101, Vector2i(3, 2): 101,
+		Vector2i(3, 0): 102, Vector2i(2, 0): 103,
+	})
+	b._maybe_hand_hint()
+	await process_frame
+	await process_frame
+	var pair: Array = b._cascade_teach_pair()
+	ok(b._hand_hint_id == "cascade" and pair.size() == 2 and not FeatureGate.revealed("cascade"),
+		"cascade is watched and pointed, but not banked before the taught drag")
+	if pair.size() == 2:
+		_input_drag_merge(b, pair[0], pair[1])
+		ok(not FeatureGate.revealed("cascade"),
+			"cascade remains unrevealed while the pointed chain is still running")
+		await _wait_teach_board_idle(b)
+		ok(FeatureGate.revealed("cascade"),
+			"cascade banks only after the pointed chain reaches x3 and finishes")
+	b.queue_free()

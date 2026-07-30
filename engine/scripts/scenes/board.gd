@@ -375,6 +375,7 @@ var _chain_active := false
 var _chain_auto_step := false
 var _chain_origin_cell := Vector2i(-1, -1)
 var _chain_reward_cell := Vector2i(-1, -1)
+var _chain_teach_pending := false   # the player began the cascade the live teach pointed at
 var _cascade_outline: Control = null
 
 var water_label: Label
@@ -1437,17 +1438,33 @@ func _gen_tap_teach_rects() -> Array:
 		return []
 	return [Rect2(), _local_rect(gn)]
 
-# The mergeable pair the weather teach points at: one sitting INSIDE the live sky patch, so the
-# taught gesture is "merge in the glow" rather than a merge that happens to be anywhere.
+# Every player-actionable equal-code pair, in stable board order. find_mergeable_pair() is an idle
+# nudge seam: it can stop on equal pieces carrying collect rewards, and it returns only one pair.
+# Teaches must search the whole board and promise a drag board.can_merge() will actually accept.
+func _actionable_merge_pairs() -> Array:
+	var pairs: Array = []
+	if board == null:
+		return pairs
+	for i in board.items.size():
+		var a := BoardModel.cell_of(i)
+		for j in range(i + 1, board.items.size()):
+			var b := BoardModel.cell_of(j)
+			if board.can_merge(a, b):
+				pairs.append([a, b])
+	return pairs
+
+# The mergeable pair the weather teach points at, oriented so the destination sits INSIDE the live
+# sky patch. The taught gesture is therefore "merge into the glow", exactly what completion banks.
 func _weather_teach_pair() -> Array:
 	if _sky_state.is_empty() or not SkyLogic.gate_open():
 		return []
-	var pair := BoardLogic.find_mergeable_pair(board)
-	if pair.size() < 2:
-		return []
-	if not SkyLogic.in_patch(_sky_state, pair[0]) and not SkyLogic.in_patch(_sky_state, pair[1]):
-		return []
-	return pair
+	for raw_pair in _actionable_merge_pairs():
+		var pair: Array = raw_pair
+		if SkyLogic.in_patch(_sky_state, pair[1]):
+			return pair
+		if SkyLogic.in_patch(_sky_state, pair[0]):
+			return [pair[1], pair[0]]
+	return []
 
 func _weather_teach_rects() -> Array:
 	var pair := _weather_teach_pair()
@@ -1459,15 +1476,17 @@ func _weather_teach_rects() -> Array:
 		return []
 	return [_local_rect(a), _local_rect(b)]
 
-# The pair whose merge would TIP a real cascade — the same predicate _prepare_chain computes,
-# so the teach can never point at a drag that turns out to be an ordinary merge.
+# The oriented pair whose merge would TIP a real cascade — the same predicate _prepare_chain
+# computes. chain_path is destination-sensitive, so test both legal drag directions for every
+# actionable pair before moving on to the next one.
 func _cascade_teach_pair() -> Array:
-	var pair := BoardLogic.find_mergeable_pair(board)
-	if pair.size() < 2:
-		return []
-	if 1 + BoardLogic.chain_path(board, pair[0], pair[1]).size() < CHAIN_MIN_N:
-		return []
-	return pair
+	for raw_pair in _actionable_merge_pairs():
+		var pair: Array = raw_pair
+		if 1 + BoardLogic.chain_path(board, pair[0], pair[1]).size() >= CHAIN_MIN_N:
+			return pair
+		if 1 + BoardLogic.chain_path(board, pair[1], pair[0]).size() >= CHAIN_MIN_N:
+			return [pair[1], pair[0]]
+	return []
 
 func _cascade_teach_rects() -> Array:
 	var pair := _cascade_teach_pair()
@@ -5587,6 +5606,7 @@ func _prepare_chain(a: Vector2i, b: Vector2i) -> void:
 	_chain_auto_step = false
 	_chain_origin_cell = Vector2i(-1, -1)
 	_chain_reward_cell = Vector2i(-1, -1)
+	_chain_teach_pending = false
 	if not FeatureGate.armed("cascade"):
 		_refresh_chain_board_visibility()
 		return
@@ -5595,6 +5615,7 @@ func _prepare_chain(a: Vector2i, b: Vector2i) -> void:
 		_chain_n = 1
 		_chain_active = true
 		_chain_origin_cell = b
+		_chain_teach_pending = _hand_hint_id == "cascade"
 	else:
 		_chain_run = []
 	_refresh_chain_board_visibility()
@@ -5668,7 +5689,10 @@ func _run_chain_step(current: Vector2i) -> void:
 		_after_merge(current, partner, produced, node, true)
 
 func _finish_chain() -> void:
-	if _hand_hint_id == "cascade" and _chain_n >= CHAIN_MIN_N:
+	# Intermediate chain merges re-evaluate the registry after each mutation. Once the pointed
+	# source pair has merged, it is no longer ready and that refresh may dismiss the overlay;
+	# the start-time latch is what carries "the player followed THIS teach" to real completion.
+	if _chain_teach_pending and _chain_n >= CHAIN_MIN_N:
 		_end_hand_hint("unlock_cascade")
 	_chain_run = []
 	_chain_n = 0
@@ -5676,6 +5700,7 @@ func _finish_chain() -> void:
 	_chain_auto_step = false
 	_chain_origin_cell = Vector2i(-1, -1)
 	_chain_reward_cell = Vector2i(-1, -1)
+	_chain_teach_pending = false
 	animating = false
 	_anim_t = 0.0
 	_refresh_chain_board_visibility()
