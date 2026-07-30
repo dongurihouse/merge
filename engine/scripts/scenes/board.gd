@@ -58,6 +58,7 @@ const SkyLogic = preload("res://engine/scripts/core/sky.gd")
 const SkyPatch = preload("res://engine/scripts/ui/sky_patch.gd")
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 const HandHint = preload("res://engine/scripts/ui/hand_hint.gd")   # FTUE: the merge / generator-tap teach overlay
+const TeachRegistry = preload("res://engine/scripts/ui/teach_registry.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
@@ -1345,48 +1346,88 @@ func _maybe_hand_hint() -> void:
 	await get_tree().process_frame          # let the rebuild's layout settle before reading rects
 	if not is_inside_tree():
 		return
-	var gen_cell := _hand_hint_gen_cell()   # one scan of gen_nodes, shared by eligibility + rect lookup
-	var want := _hand_hint_eligible(gen_cell)
+	var want := _hand_hint_eligible()
 	if want == "":
 		_dismiss_hand_hint()
 		return
-	var rects := _hand_hint_rects(want, gen_cell)
-	if rects.is_empty():
+	var spec := TeachRegistry.spec_for(_teach_specs(), want)
+	var rects: Array = (spec.get("rects", Callable()) as Callable).call()
+	if rects.size() < 2:
 		_dismiss_hand_hint()
 		return
 	if _hand_hint != null and is_instance_valid(_hand_hint) and _hand_hint_id == want:
 		_hand_hint.retarget(rects[0], rects[1])   # same teach, moved board — keep the loop running
 		return
 	_dismiss_hand_hint()
-	var gesture: String = HandHint.GESTURE_DRAG if want == "merge" else HandHint.GESTURE_TAP
-	_hand_hint = HandHint.present(self, gesture, rects[0], rects[1])
+	_hand_hint = HandHint.present(self, String(spec.get("gesture", HandHint.GESTURE_TAP)), rects[0], rects[1])
 	_hand_hint_id = want if _hand_hint != null else ""
 
-# Which teach the ledger + the current board allow. "" = none. `gen_cell` is the caller's own
-# _hand_hint_gen_cell() result — passed in rather than re-scanned here (that scan runs once per
-# _maybe_hand_hint(), not twice: once for eligibility, again for _hand_hint_rects()).
-func _hand_hint_eligible(gen_cell: Array) -> String:
-	if Save.ftue_seen("soil") and not Save.ftue_seen("soil_seed"):
-		if _soil_place_hint_ready():
-			return "soil_place"
-		if not _soil_seed_hint_cell().is_empty():
-			return "soil_seed"
-	var has_pair := not BoardLogic.find_mergeable_pair(board).is_empty()
-	var has_gen := not gen_cell.is_empty()
-	return HandHint.next_hint_id(Save.ftue_seen("merge"), Save.ftue_seen("gen_tap"), has_pair, has_gen)
+# THE TEACH SPEC ARRAY — the single ordered list both readers derive from (ui/teach_registry.gd).
+# Order IS priority. The soil beats come first because the seed is already on the board and a
+# merge/gen teach behind it would point away from it.
+func _teach_specs() -> Array:
+	return [
+		{
+			"id": "soil_place", "ledger": "soil_seed",
+			"gate": func() -> bool: return Save.ftue_seen("soil"),
+			"ready": _soil_place_hint_ready,
+			"rects": func() -> Array:
+				if not _soil_place_hint_ready():
+					return []
+				return [_cell_local_rect(_selected_cell), _local_rect(_info_seed_place)],
+			"gesture": HandHint.GESTURE_TAP,
+		},
+		{
+			"id": "soil_seed", "ledger": "soil_seed",
+			"gate": func() -> bool: return Save.ftue_seen("soil"),
+			"ready": func() -> bool: return not _soil_seed_hint_cell().is_empty(),
+			"rects": func() -> Array:
+				var seed_cell := _soil_seed_hint_cell()
+				if seed_cell.is_empty():
+					return []
+				return [Rect2(), _cell_local_rect(seed_cell[0])],
+			"gesture": HandHint.GESTURE_TAP,
+		},
+		{
+			"id": "merge", "ledger": "merge",
+			"gate": func() -> bool: return true,
+			"ready": func() -> bool: return not BoardLogic.find_mergeable_pair(board).is_empty(),
+			"rects": _merge_teach_rects,
+			"gesture": HandHint.GESTURE_DRAG,
+		},
+		{
+			"id": "gen_tap", "ledger": "gen_tap",
+			"gate": func() -> bool: return Save.ftue_seen("merge"),
+			"ready": func() -> bool: return not _hand_hint_gen_cell().is_empty(),
+			"rects": _gen_tap_teach_rects,
+			"gesture": HandHint.GESTURE_TAP,
+		},
+	]
 
-# "No teach can possibly be live" — the cheap gate that lets _maybe_hand_hint bail BEFORE its
-# frame await, since _after_board_change calls it on every board mutation. It reads the ledger
-# only (no board scan), so it is deliberately a touch more permissive than _hand_hint_eligible:
-# it may say "not complete" when the board happens to offer nothing, and eligibility then
-# returns "" a frame later. It must never say "complete" while a teach could still fire.
-#
-# KEEP IN SYNC with _hand_hint_eligible(): a new teach added there and forgotten here is
-# short-circuited before eligibility ever runs — it silently never appears, with no error and
-# no failing test.
+func _merge_teach_rects() -> Array:
+	var pair := BoardLogic.find_mergeable_pair(board)
+	if pair.size() < 2:
+		return []
+	var a: Control = piece_nodes.get(pair[0])
+	var b: Control = piece_nodes.get(pair[1])
+	if a == null or not is_instance_valid(a) or b == null or not is_instance_valid(b):
+		return []
+	return [_local_rect(a), _local_rect(b)]
+
+func _gen_tap_teach_rects() -> Array:
+	var gen_cell := _hand_hint_gen_cell()
+	if gen_cell.is_empty():
+		return []
+	var gn: Control = gen_nodes.get(gen_cell[0])
+	if gn == null or not is_instance_valid(gn):
+		return []
+	return [Rect2(), _local_rect(gn)]
+
+func _hand_hint_eligible() -> String:
+	return TeachRegistry.eligible(_teach_specs())
+
 func _hand_hint_ledger_complete() -> bool:
-	var soil_complete := not Save.ftue_seen("soil") or Save.ftue_seen("soil_seed")
-	return Save.ftue_seen("merge") and Save.ftue_seen("gen_tap") and soil_complete
+	return TeachRegistry.complete(_teach_specs())
 
 func _soil_place_hint_ready() -> bool:
 	if _selected_cell.x < 0:
@@ -1417,34 +1458,6 @@ func _hand_hint_gen_cell() -> Array:
 		if n != null and is_instance_valid(n):
 			return [cell]
 	return []
-
-# [source_rect, target_rect] in THIS control's space, or [] when a node is missing. `gen_cell` is
-# the caller's own _hand_hint_gen_cell() result (see _hand_hint_eligible()'s comment).
-func _hand_hint_rects(id: String, gen_cell: Array) -> Array:
-	if id == "merge":
-		var pair := BoardLogic.find_mergeable_pair(board)
-		if pair.size() < 2:
-			return []
-		var a: Control = piece_nodes.get(pair[0])
-		var b: Control = piece_nodes.get(pair[1])
-		if a == null or not is_instance_valid(a) or b == null or not is_instance_valid(b):
-			return []
-		return [_local_rect(a), _local_rect(b)]
-	if id == "soil_seed":
-		var seed_cell := _soil_seed_hint_cell()
-		if seed_cell.is_empty():
-			return []
-		return [Rect2(), _cell_local_rect(seed_cell[0])]
-	if id == "soil_place":
-		if not _soil_place_hint_ready():
-			return []
-		return [_cell_local_rect(_selected_cell), _local_rect(_info_seed_place)]
-	if gen_cell.is_empty():
-		return []
-	var gn: Control = gen_nodes.get(gen_cell[0])
-	if gn == null or not is_instance_valid(gn):
-		return []
-	return [Rect2(), _local_rect(gn)]
 
 func _cell_local_rect(cell: Vector2i) -> Rect2:
 	if board_area == null or not is_instance_valid(board_area):

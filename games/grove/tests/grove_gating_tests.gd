@@ -7,6 +7,7 @@ const Improvements = preload("res://engine/scripts/core/improvements.gd")
 const Mastery = preload("res://engine/scripts/core/mastery.gd")
 const ShopUI = preload("res://engine/scripts/ui/shop.gd")
 const SkyLogic = preload("res://engine/scripts/core/sky.gd")
+const TeachRegistry = preload("res://engine/scripts/ui/teach_registry.gd")
 
 func _initialize() -> void:
 	begin("grove · feature gating")
@@ -18,6 +19,9 @@ func _initialize() -> void:
 	_test_magnet_seed_cannot_drop_before_its_level()
 	_test_soil_ftue_level_comes_from_the_table()
 	_test_mastery_rank_is_clamped_until_revealed()
+	_test_registry_picks_the_first_unseen_armed_ready_spec()
+	_test_registry_complete_is_derived_from_the_same_array()
+	_test_registry_complete_does_not_call_ready()
 	finish()
 
 ## Set the coin clock so G.level() reads exactly `lvl`.
@@ -97,3 +101,46 @@ func _test_mastery_rank_is_clamped_until_revealed() -> void:
 	FeatureGate.mark_revealed("mastery")
 	ok(Mastery.rank(line) == Mastery.true_rank(line), "the clamp lifts on reveal")
 	ok(ShopUI.scissors_available(), "scissors becomes available once mastery is revealed")
+
+func _spec(id: String, ledger: String, gate: bool, ready: bool) -> Dictionary:
+	return {
+		"id": id, "ledger": ledger,
+		"gate": func() -> bool: return gate,
+		"ready": func() -> bool: return ready,
+		"rects": func() -> Array: return [Rect2(), Rect2()],
+		"gesture": "tap",
+	}
+
+func _test_registry_picks_the_first_unseen_armed_ready_spec() -> void:
+	fresh("registry_pick")
+	var specs := [
+		_spec("a", "t_a", true, false),   # armed but the board is not ready
+		_spec("b", "t_b", false, true),   # ready but unarmed
+		_spec("c", "t_c", true, true),    # the first that qualifies
+	]
+	ok(TeachRegistry.eligible(specs) == "c", "eligible() skips not-ready and unarmed specs")
+	Save.mark_ftue_seen("t_c")
+	ok(TeachRegistry.eligible(specs) == "", "a taught spec is not offered again")
+
+## THE assertion the old two-list design could not carry: complete() is derived from the SAME
+## array eligible() reads, so a teach added to one can no longer be missing from the other.
+func _test_registry_complete_is_derived_from_the_same_array() -> void:
+	fresh("registry_complete")
+	var specs := [_spec("a", "t_a", true, true), _spec("b", "t_b", true, true)]
+	ok(not TeachRegistry.complete(specs), "complete() is false while any ledger key is unseen")
+	Save.mark_ftue_seen("t_a")
+	ok(not TeachRegistry.complete(specs), "still false with one of two seen")
+	Save.mark_ftue_seen("t_b")
+	ok(TeachRegistry.complete(specs), "true only when EVERY spec's ledger key is seen")
+
+## complete() must never touch the board: board.gd calls it on every mutation BEFORE the
+## frame await, so a board scan there would cost a scan per merge.
+func _test_registry_complete_does_not_call_ready() -> void:
+	fresh("registry_cheap")
+	var called := [false]
+	var spec := _spec("a", "t_a", true, true)
+	spec["ready"] = func() -> bool:
+		called[0] = true
+		return true
+	TeachRegistry.complete([spec])
+	ok(not called[0], "complete() is ledger-only — it never invokes ready()")
