@@ -69,7 +69,7 @@ The runner prints a per-suite timing table and fails on any FAIL or crash — it
 trusts a zero exit code alone. The grove suite is split into focused suites
 (`grove_board_actions_tests`, `grove_explore_tests`, `grove_sky_tests`, `grove_shop_tests`,
 `grove_ui_workbench_tests`, `grove_scene_workbench_tests`, `grove_scene_covers_tests`,
-`grove_ftue_tests`, `grove_rush_ftue_tests`, `grove_cascade_tests`, `grove_improvements_tests`) sharing `games/grove/tests/grove_test_base.gd`
+`grove_ftue_tests`, `grove_rush_ftue_tests`, `grove_cascade_tests`, `grove_improvements_tests`, `grove_gating_tests`) sharing `games/grove/tests/grove_test_base.gd`
 — edit a slice, run that slice with `make test-grove`. The authoritative list is
 `GROVE_TESTS` in the Makefile. This line no longer relies on anyone remembering to update
 it: `engine/tests/suite_registry_tests.gd` fails if the Makefile, this file and the README

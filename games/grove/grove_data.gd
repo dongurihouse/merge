@@ -174,6 +174,25 @@ const ZONE_BAND := [2, 3, 3, 2, 2]
 # reaches at days 3/7/12/18/25 (mean of seeds 1, 7, 42) at 3 sessions/day — measured from the running
 # sim, not re-derived from pacing_calc's model.
 const SCENE_END_LEVEL := [28, 41, 54, 64, 71]
+
+# --- FEATURE UNLOCK LEVELS (spec 2026-07-29) ---------------------------------------------
+# The level at which each gated feature's RULES go live. Revealing it to the player is a
+# separate state (FeatureGate.revealed) driven by the board, not by this table.
+# The first four land on MIN_LEVEL board-growth beats so a new verb arrives with a new ring
+# of cells; L16 is the last beat, so magnet and rush are spaced by input cost alone.
+const FEATURE_LEVEL := {
+	"weather":  4,
+	"cascade":  7,
+	"mastery": 10,
+	"soil":    13,
+	"magnet":  18,
+	"rush":    22,
+}
+
+# Merges after the magnet gate ARMS before the teach gives up on the drop table and grants a
+# seed outright. The drop path is meant to be the common one — the seed should read as loot.
+const MAGNET_STAGE_MERGES := 40
+
 # §7 THE ACTIVE-LINE WINDOW (2026-07-25). The quest fence asks from exactly this many lines at a time —
 # ANY line, base or crafted-special alike (the window slides over ZONES rows, so it advances on EVERY zone,
 # not only base zones). A special no longer needs its ingredient lines to be in the window: its ingredient
