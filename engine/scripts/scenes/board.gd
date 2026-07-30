@@ -116,7 +116,10 @@ const DRAG_LIFT_Z := HandHint.HAND_HINT_Z + 20   # FTUE: a lifted/dragged piece 
 const MERGE_TARGET_GROW := 0.30  # merge-only hit area added around each cell; move/swap keep exact-cell targeting
 const ANIM_WATCHDOG_SECS := 0.6
 const CHAIN_STEP_WATCHDOG_SECS := 2.0
-const CHAIN_MIN_N := 3
+const CHAIN_MIN_N := 2           # owner call 2026-07-29: a chain starts at ×2 (was 3). Resolves the
+                                 # spec's §11 open question. One knob drives five sites — the resting
+                                 # marks, the runway threshold, the drag-guide filter, the
+                                 # cascade-vs-merge pad kind, and the arming gate in _prepare_chain.
 const CHAIN_PREROLL_MS := 300
 const CHAIN_STEP_MS := 250
 const CHAIN_STEP_RAMP_ENABLED := true

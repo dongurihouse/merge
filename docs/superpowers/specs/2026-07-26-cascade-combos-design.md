@@ -36,8 +36,10 @@ pads; the guide IS the teach (no FTUE dialog). Home board only; the Rush is unto
   (`_apply_recipe`). Placements never auto-merge: moves, swaps, bag retrieves, pops, drops,
   starfall (step 5), soil harvests (step 4).
 - **Arming floor:** a player merge tips a run only when the final length would reach
-  `CHAIN_MIN_N` (`3`). A `t·t·t+1` board resolves as an ordinary merge to ×2; `_prepare_chain`
-  drops any run where `1 + _chain_run.size() < CHAIN_MIN_N`.
+  `CHAIN_MIN_N` (`2`, owner call 2026-07-29 — see §11). A `t·t` pair with nothing for the upgrade
+  to land on resolves as an ordinary merge; `_prepare_chain` drops any run where
+  `1 + _chain_run.size() < CHAIN_MIN_N`. Rewards are unaffected: the chest ladder still starts at
+  ×3 (§5), so a ×2 run pays nothing.
 - **Step-4 cells** (Magnet range auto-merger; the Mirror is cut —
   `2026-07-26-cell-improvements-design.md` §5-6): its auto-merges neither tip nor extend runs,
   and it holds fire while a run executes. The scene exposes `chain_running() -> bool` as that
@@ -94,8 +96,9 @@ placement search.
 ## 4 · Run execution — `board.gd`
 
 - `_commit_merge` / `_apply_recipe` compute `_chain_run := BoardLogic.chain_path(board, a, b)`
-  (flag-gated). `_prepare_chain` arms only if `1 + _chain_run.size() >= CHAIN_MIN_N`; otherwise
-  it clears the run and the merge ends normally.
+  (flag-gated). `_prepare_chain` arms only if `1 + _chain_run.size() >= CHAIN_MIN_N` (`2`); otherwise
+  it clears the run and the merge ends normally. At `2` the pre-roll + one step land on a very common
+  merge: 300 ms held before the step, then a 320 ms step (`_chain_step_ms_for_n(2)`).
 - Before the first automatic step, `_schedule_chain_step` holds for `CHAIN_PREROLL_MS` (`300`) and
   `_show_chain_preroll` pulses the exact run cells with the ×n tag. Input remains locked during
   the pre-roll.
@@ -142,8 +145,14 @@ vacated — always free, synchronously, before the lucky rolls.
 ## 7 · Ready-ladder outline
 
 - Node `engine/scripts/ui/cascade_outline.gd`, one `board_area` child. The scene passes armed
-  `ready_ladders` entries with `n >= CHAIN_MIN_N`; ×2-only ladders draw nothing. It also passes
-  `runways(board, CHAIN_MIN_N)` entries for weaker resting marks.
+  `ready_ladders` entries with `n >= CHAIN_MIN_N`; at `2` that includes ×2 ladders. It also passes
+  `runways(board, CHAIN_MIN_N)` entries for weaker resting marks — at `2` a runway means "one
+  duplicate away from ×2", which is far more common (measured: mean 3.2-7.4 runway marks a board
+  against 0.2-0.7 at `3`; §11).
+- **Every armed chain is drawn, not the best one.** `ready_ladders` appends every same-line
+  component that scores, `_armed_cascade_marks` keeps them all, `_draw` loops every entry, and
+  `_rebuild_tags` dedups per CELL — so two chains at once are two contours with a ×n each. Only
+  chain EXECUTION is single (`_chain_active` + the input lock).
 - Stack invariant: the outline child index must sit above every slot/mat node and below every
   live piece/generator (`move_child`; draw order = child order, no CanvasLayers). Exclude
   queued-for-deletion nodes from the computation because `queue_free` is deferred; the guard is
@@ -204,6 +213,9 @@ and arms nothing. The marks say which of the two a drop is:
 | `merge` | any other occupied same-code target | mid | no |
 | `stage` | an empty cell that would grow the held line beside a single lower/higher tier, finish `chain_placements` at `n >= CHAIN_MIN_N`, or extend a runway/ladder | weakest | no |
 
+At `CHAIN_MIN_N = 2` a held tier whose merge lands on the next tier already on the board is a
+`cascade` target, not a `merge` one — so it also suppresses its own staging cells (`fires`).
+
 The three are different **materials**, not three weights of one stroke: `stage` cuts a shallow well
 into the cardstock (something goes here), while `cascade` and `merge` pool warm light behind an
 occupied piece. The pool is warmed ~60 % toward gold — it shows through the piece's own transparent
@@ -243,7 +255,7 @@ margins, so a saturated line colour tints the art itself rather than reading as 
     empty.
 - **Grove** `games/grove/tests/grove_cascade_tests.gd` (+ `GROVE_TESTS`, `Makefile:15`, +
   the project `CLAUDE.md` suite list line). Boot idiom: `grove_ftue_tests.gd:34-56`.
-  - A ×2-only ladder neither telegraphs nor arms nor shows drag pads.
+  - A ×2 ladder telegraphs, arms and auto-steps, and pays no chest.
   - A tipped ×3-capable ladder auto-runs with input locked; the pre-roll holds before the first
     auto-step and telegraphs the exact run.
   - Cascade watchdog keeps input locked past the single-merge timeout; unrelated player input is
@@ -265,11 +277,16 @@ margins, so a saturated line colour tints the art itself rather than reading as 
   ghost pads under a lifted piece, `phase=seedguide` for one-neighbor build pads,
   `phase=dragfocus` for a mixed-component held-path guide, and a mid-run step with floater —
   looked at before done.
-  `phase=guide` needs a ×3-capable fixture; ×2 placements exit 0 with a bare board because the
-  scene filters out pads that would not arm a cascade.
+  `phase=guide` keeps its ×3-capable fixture (two rungs would arm at `CHAIN_MIN_N = 2`; the third
+  shows the guide's grammar at more than the bare minimum).
 - `make test` green.
 
 ## 11 · Open questions
 
 1. Auto-steps also roll the 10 %/2 % lucky drops (uniform-merge stance) — confirm, or should
    auto-steps skip them? The sim pass will quantify either way.
+2. ~~Arming floor at ×2 or ×3?~~ **RESOLVED 2026-07-29: `CHAIN_MIN_N = 2`** (owner). Consequence
+   parked for the owner: `runways(board, CHAIN_MIN_N)` inherits the same `2` and carpets a settled
+   board with weak marks (measured mean 3.2-7.4, peak 13, present on 95-100 % of boards, against
+   mean 0.2-0.7 on 13-44 % at `3`). Decoupling it — `runways(board, 3)` at `board.gd:2562` and
+   `:2652` — is a one-line change and is the owner's call, not a silent re-tune.

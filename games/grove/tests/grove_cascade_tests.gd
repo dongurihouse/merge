@@ -7,11 +7,12 @@ const RNG_SEED := 20260727   # any fixed value; the point is that it does not ch
 const CascadeOutline = preload("res://engine/scripts/ui/cascade_outline.gd")
 const Contour = preload("res://engine/scripts/ui/cell_contour.gd")
 const Improvements = preload("res://engine/scripts/core/improvements.gd")
+const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 
 func _initialize() -> void:
 	begin("grove · cascade combos")
 	await process_frame
-	await _test_x2_ladder_does_not_arm_cascade()
+	await _test_x2_ladder_arms_a_cascade()
 	await _test_drag_merge_auto_runs_and_locks_input()
 	await _test_preroll_delays_first_auto_step_and_telegraphs_run()
 	await _test_chain_step_timing_ramps()
@@ -316,19 +317,28 @@ func _segment_is_horizontal(seg: Array) -> bool:
 	return seg.size() == 2 and is_equal_approx(Vector2(seg[0]).y, Vector2(seg[1]).y) \
 		and not is_equal_approx(Vector2(seg[0]).x, Vector2(seg[1]).x)
 
-func _test_x2_ladder_does_not_arm_cascade() -> void:
-	var b := _open_board("cascade_x2_does_not_arm")
+# CHAIN_MIN_N is 2 (owner call 2026-07-29): the shortest possible run — one player merge and one
+# automatic follow-up — IS a chain. It telegraphs at rest, it arms, and it auto-steps. It pays
+# nothing: chain_reward_code starts its chest ladder at 3, and that is deliberate, not an oversight.
+func _test_x2_ladder_arms_a_cascade() -> void:
+	var b := _open_board("cascade_x2_arms")
 	await process_frame
 	_blank_fixture(b, {
 		Vector2i(3, 1): 101,
 		Vector2i(3, 2): 101,
 		Vector2i(3, 3): 102,
 	})
-	ok(_outline_ladder_count(b) == 0, "a x2-only ladder does not draw a cascade telegraph")
+	await process_frame
+	ok(_outline_ladder_count(b) == 1 and _outline_has_tag(b, "×2"), \
+		"a x2 ladder draws its own cascade telegraph (%s)" % str(_outline_label_texts(b)))
 	_drag_merge(b, Vector2i(3, 1), Vector2i(3, 2))
-	await _wait_for_idle(b)
-	ok(not b.chain_running() and b.board.item_at(Vector2i(3, 2)) == 102 and b.board.item_at(Vector2i(3, 3)) == 102, \
-		"a x2-only ladder resolves as an ordinary merge and does not arm a cascade")
+	ok(b.chain_running() and b.animating, "the x2 merge arms a chain instead of resolving as one merge")
+	await _wait_for_idle(b, 3.0)
+	ok(not b.chain_running() and b.board.item_at(Vector2i(3, 3)) == 103 \
+		and _line_of(b.board.item_at(Vector2i(3, 2))) != 1, \
+		"the x2 run auto-steps: the upgrade slides onto its partner and lands at t3")
+	ok(BoardLogic.chain_reward_code(2) == 0 and not G.is_chest(b.board.item_at(Vector2i(3, 2))), \
+		"a x2 run pays no chest — the reward ladder still starts at x3")
 	b.queue_free()
 
 func _test_drag_merge_auto_runs_and_locks_input() -> void:
@@ -796,12 +806,13 @@ func _test_runway_drag_guide_strengths_use_real_input() -> void:
 	#   stage   = an empty cell; placing there builds the ladder and fires nothing
 	# Holding a t2 is the payoff: ONE cascade mark on the t2 itself, and the staging cells around
 	# it are suppressed so the eye has one place to go. t1/t5 cannot merge with anything, so they
-	# only stage. t3/t4 merge but stop short of CHAIN_MIN_N, so they stay ordinary while still
-	# showing weak build pads beside the single lower/higher neighboring tiers.
+	# only stage. At CHAIN_MIN_N = 2 the held t3 joins the t2 as a chain-maker — t3+t3 → t4 lands on
+	# the board's own t4 — so it too draws one cascade mark and suppresses its staging cells. Only
+	# the t4 still merges without running: t4+t4 → t5 and there is no t5 to catch it.
 	var want := {
 		1: {"cascade": 0, "merge": 0, "stage": 3},
 		2: {"cascade": 1, "merge": 0, "stage": 0},
-		3: {"cascade": 0, "merge": 1, "stage": 6},
+		3: {"cascade": 1, "merge": 0, "stage": 0},
 		4: {"cascade": 0, "merge": 1, "stage": 2},
 		5: {"cascade": 0, "merge": 0, "stage": 3},
 	}
@@ -862,7 +873,14 @@ func _test_ready_outline_and_flag_off() -> void:
 	ok(_outline_stack_is_visible_between_board_and_items(b), "ready outline renders above the mat and slot tiles")
 	b.board.place(Vector2i(3, 4), 0)
 	b._rebuild_all()
-	ok(_outline_ladder_count(b) == 0, "removing the upgraded rung clears the cascade outline")
+	await process_frame
+	ok(_outline_ladder_count(b) == 1 and _outline_has_tag(b, "×2"), \
+		"removing the top rung shortens the mark to ×2 rather than clearing it (CHAIN_MIN_N = 2)")
+	b.board.place(Vector2i(3, 3), 0)
+	b._rebuild_all()
+	await process_frame
+	ok(_outline_ladder_count(b) == 0, \
+		"a bare pair with nothing for the upgrade to land on clears the cascade outline")
 	b.queue_free()
 
 	Feat.FLAGS["cascade"] = false
