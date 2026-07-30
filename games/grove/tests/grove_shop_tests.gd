@@ -7,6 +7,9 @@ const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")   # the w
 const Kit = preload("res://games/grove/ui_kit.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")   # the two card/art shadow shapes
+const Stall = preload("res://engine/scripts/ui/market_stall.gd")         # the storefront's furniture + its hit-region names
+const HitOverlay = preload("res://engine/scripts/ui/shop_hit_overlay.gd")
+const DebugUI = preload("res://engine/scripts/ui/debug.gd")
 
 func _initialize() -> void:
 	begin("grove · shop")
@@ -777,70 +780,83 @@ func _initialize() -> void:
 	ok(rhost.find_children("ShopFooterNote", "", true, false).is_empty(), "no first-buy footer note")
 	rhost.queue_free()
 
-	# THE OFFER CARD IS THE SHARED CODE-DRAWN CUT-PAPER SHEET, and its shadow is that sheet's own.
-	#
-	# It used to be one of three baked nine-patch PNGs with a torn edge PAINTED into them, handed a
-	# SpritePanel.wrap cast of stepped copies of that nine-patch because a flat sprite casts nothing —
-	# and no shared knob can reach a painted edge, so when the whole UI's paper went smooth the shop's
-	# outer sheet followed and its cards stayed frilly. What is asserted now is the relationship that
-	# makes that impossible to repeat: every card draws a CutPaperPanel, read back off the built node.
-	# The edge VALUES are pinned by engine/tests/smooth_paper_tests.gd (the material's own guard, which
-	# builds this card too); what this asserts, per card, is that the card IS on the shared component.
-	# Control geometry is float32 → is_equal_approx, never ==.
-	fresh("card_shadow_shape")
+	# ── THE MARKET STALL (2026-07-30, concept A) ────────────────────────────────────────────────────
+	# The sage offer card is retired: the goods STAND on shelf planks now. The relationships the card's
+	# assertions existed to pin are unchanged and are re-asserted below on the surfaces that replaced it —
+	# every sheet is the shared code-drawn cut_paper.gd panel, every one casts its OWN shadow (no wrapper
+	# stack on top of it), every item's art casts a shape-true silhouette, and no baked nine-patch frame is
+	# drawn any more. Control geometry is float32 → is_equal_approx, never ==.
+	fresh("stall_surfaces")
 	var dhost := Control.new()
 	dhost.set_anchors_preset(Control.PRESET_FULL_RECT)
 	get_root().add_child(dhost)
 	ShopS.open(dhost, {})
 	await create_timer(0.15).timeout
-	var cards := dhost.find_children("ShopOfferCard", "", true, false)
-	ok(cards.size() >= 4, "the storefront builds its offer cards (%d)" % cards.size())
+	var stall: Control = dhost.find_child("ShopStall", true, false) as Control
+	ok(stall != null, "the storefront builds the market stall")
 	var cp_script := load("res://engine/scripts/ui/cut_paper.gd")
-	var drawn := 0         # cards whose face is the shared code-drawn panel
-	var smooth := 0        # …with the shared SMOOTH antialiased edge, not a torn one
-	var self_shadow := 0   # …casting its own shadow, so no wrapper has to
-	var seated := 0        # …with its content inside that sheet's own edge allowance
-	var art_cast := 0      # item art casting a copy of its own sprite
-	var haloed := 0        # a cast reaching ABOVE or LEFT of the element — a ring, not a drop
-	for c in cards:
-		var card := c as Control
-		var sheet := card.find_child(ShopS.CARD_SURFACE_NODE, false, false) as Control
-		if sheet == null or sheet.get_script() != cp_script:
+	# the furniture census, by each surface's own node name — 8 offers -> 1 counter shelf + 3 ladder shelves
+	var census := {
+		Stall.WALL_NODE: 1, Stall.POST_NODE: 2, Stall.SIGN_NODE: 1,
+		Stall.AWNING_NODE: Stall.AWNING_BAYS,
+		Stall.SHELF_FACE_NODE: 4, Stall.SHELF_LIP_NODE: 4,
+		Stall.HEADER_NODE: 1, Stall.SLOT_NODE: 8, Stall.TAG_NODE: 8,
+	}
+	for node_name in census:
+		var found := stall.find_children("%s*" % node_name, "Control", true, false)
+		ok(found.size() == int(census[node_name]),
+			"the stall builds %d x %s (%d)" % [int(census[node_name]), node_name, found.size()])
+	# every SHEET the stall draws is the shared panel, smooth-cut, casting its own shadow.
+	var sheets: Array = []
+	for node_name in [Stall.WALL_NODE, Stall.POST_NODE, Stall.SIGN_NODE, Stall.AWNING_NODE,
+			Stall.SHELF_FACE_NODE, Stall.SHELF_LIP_NODE, Stall.HEADER_NODE, Stall.TAG_NODE,
+			Stall.PLAQUE_NODE]:
+		sheets.append_array(stall.find_children("%s*" % node_name, "Control", true, false))
+	var drawn := 0
+	var smooth := 0
+	for sh in sheets:
+		if (sh as Node).get_script() != cp_script:
 			continue
 		drawn += 1
-		if is_equal_approx(float(sheet.get("deckle_amp")), 0.0) and float(sheet.get("edge_feather")) > 0.0:
+		if is_equal_approx(float((sh as Object).get("deckle_amp")), 0.0) \
+				and float((sh as Object).get("edge_feather")) > 0.0:
 			smooth += 1
-		if bool(sheet.get("draw_shadow")) and float(sheet.get("shadow_reach")) > 0.0 \
-				and float(sheet.get("shadow_alpha")) > 0.0:
-			self_shadow += 1
-		# the content host is inset at least as far as the sheet says its own edge eats (the corner arc
-		# plus the inner half of the antialias band) — content on partly-transparent paper is the failure.
-		var host := card.find_child("ShopOfferCardBody", false, false) as MarginContainer
-		var want: float = float(sheet.call("content_inset"))
-		if host != null and float(host.get_theme_constant("margin_left")) >= floorf(want) \
-				and float(host.get_theme_constant("margin_top")) >= floorf(want):
-			seated += 1
-		var art := card.find_children("%s*" % SpritePanel.SPRITE_SHADOW, "TextureRect", true, false)
+	ok(drawn == sheets.size(), "every stall surface is the shared cut_paper.gd panel (%d/%d)" % [drawn, sheets.size()])
+	ok(smooth == sheets.size(), "…wearing the shared SMOOTH antialiased cut, not a torn edge (%d/%d)" % [smooth, sheets.size()])
+	# the awning is the ONE surface that asks the shared panel for a different base outline. Assert the
+	# request LANDED: `base_shape` is read with .get(), so a misspelling would draw an ordinary rounded
+	# rect under the awning's own name and the hem would just quietly stop being a scallop.
+	var scallops := 0
+	for bay in stall.find_children("%s*" % Stall.AWNING_NODE, "Control", true, false):
+		if String((bay as Object).get("shape")) == "scallop":
+			scallops += 1
+	ok(scallops == Stall.AWNING_BAYS,
+		"every awning bay really draws the scalloped hem, not a rounded rect (%d/%d)" % [scallops, Stall.AWNING_BAYS])
+	# …and the SHARED knob set really reached them: the storefront's own cream sheets round by the config's
+	# `shop.corner`, which is what makes "the shop inherits the UI's paper" true rather than aspirational.
+	var lay: Dictionary = ShopS.shop_layout(Kit.load_config(Kit.CONFIG_PATH))
+	var want_corner: float = float((lay.get("cp", {}) as Dictionary).get("corner", -1.0))
+	ok(is_equal_approx(want_corner, float(Kit.SHOP_CARD_CP_DEFAULTS["corner"])),
+		"the SHIPPING config carries the storefront's measured corner (%.1f)" % want_corner)
+	var a_tag := stall.find_children("%s*" % Stall.TAG_NODE, "Control", true, false)[0] as Control
+	ok(is_equal_approx(float(a_tag.get("corner")), want_corner),
+		"…and the drawn amount tag really rounds by it (%.1f)" % float(a_tag.get("corner")))
+	# item art still casts its own silhouette, and never a halo (a drop, never a ring).
+	var art_cast := 0
+	var haloed := 0
+	for slot in stall.find_children("%s*" % Stall.SLOT_NODE, "Control", true, false):
+		var art := (slot as Control).find_children("%s*" % SpritePanel.SPRITE_SHADOW, "TextureRect", true, false)
 		art_cast += 1 if art.size() >= SpritePanel.LADDER_MIN else 0
-		for sh in art:
-			if (sh as Control).position.x < -0.01 or (sh as Control).position.y < -0.01:
+		for shn in art:
+			if (shn as Control).position.x < -0.01 or (shn as Control).position.y < -0.01:
 				haloed += 1
-	ok(drawn == cards.size(), "every card's face is the shared cut_paper.gd panel (%d/%d)" % [drawn, cards.size()])
-	ok(smooth == cards.size(), "…wearing the shared SMOOTH antialiased cut, not a torn edge (%d/%d)" % [smooth, cards.size()])
-	ok(self_shadow == cards.size(), "…casting its own shared drop shadow (%d/%d)" % [self_shadow, cards.size()])
-	ok(seated == cards.size(), "…with its content seated inside that sheet's own edge inset (%d/%d)" % [seated, cards.size()])
-	ok(art_cast == cards.size(), "every card's item art casts its own silhouette (%d/%d)" % [art_cast, cards.size()])
+	ok(art_cast == 8, "every offer's goods cast their own silhouette (%d/8)" % art_cast)
 	ok(haloed == 0, "no cast reaches above or left of its element (a drop, never a halo)")
-	# …and NOT ALSO a wrapper cast. The drawn sheet carries its own shadow, so the SpritePanel.wrap stack
-	# the baked card needed would be a SECOND shadow under every card — this is the assertion that says the
-	# old one was removed rather than left stacked under the new one.
+	# NOT ALSO a wrapper cast, and no baked nine-patch frame anywhere in the storefront.
 	ok(dhost.find_children("%s*" % SpritePanel.CARD_SHADOW, "Panel", true, false).is_empty(),
-		"no card wears a second, wrapper-drawn cast on top of the sheet's own")
+		"no surface wears a second, wrapper-drawn cast on top of the sheet's own")
 	ok(dhost.find_children("%s*" % SpritePanel.PANEL_SHADOW, "Panel", true, false).is_empty(),
 		"no cut-paper element falls back to the rounded-rect cast that rings it")
-	# THE BAKED CARD ART IS NO LONGER READ. A grep proves nothing about a runtime load, so ask the loader:
-	# the three nine-patch frames may still sit on disk (a separate sweep removes them) but nothing in the
-	# storefront may be drawing one, or "the cards inherit the shared material" is only half true.
 	var baked := 0
 	for tr in dhost.find_children("*", "TextureRect", true, false):
 		var tex: Texture2D = (tr as TextureRect).texture
@@ -851,40 +867,24 @@ func _initialize() -> void:
 		if sb is StyleBoxTexture and (sb as StyleBoxTexture).texture != null \
 				and String((sb as StyleBoxTexture).texture.resource_path).contains("/dialogs/shop/card_"):
 			baked += 1
-	ok(baked == 0, "no card frame is painted from a baked nine-patch any more (%d found)" % baked)
-	# THE RE-DERIVED CORNER, in literal px, and ONE number. It is measured off the mock's own arc
-	# (Kit.SHOP_CARD_CP_DEFAULTS carries the fit) at 22 layout px; shop.gd keeps a Kit-less fallback for a
-	# caller that hands `shop_layout` no config, and the two drifting apart is how a card built by the
-	# workbench and a card built by the game stop matching. Bounded by what is SEEN — the radius the sheet
-	# actually draws — not by restating the constant that produces it.
-	ok(is_equal_approx(float(ShopS.CARD_CORNER), float(Kit.SHOP_CARD_CP_DEFAULTS["corner"])),
-		"the card corner is one number: shop.gd's fallback matches the kit's default (%.1f / %.1f)"
-			% [float(ShopS.CARD_CORNER), float(Kit.SHOP_CARD_CP_DEFAULTS["corner"])])
-	var lay: Dictionary = ShopS.shop_layout(Kit.load_config(Kit.CONFIG_PATH))
-	ok(float(lay.get("corner", 0.0)) >= 21.0 and float(lay.get("corner", 0.0)) <= 23.0,
-		"…and the SHIPPING config draws that corner, not the baked art's 18 (%.1f)" % float(lay.get("corner", 0.0)))
-	var one := cards[0].find_child(ShopS.CARD_SURFACE_NODE, false, false) as Control
-	ok(one != null and is_equal_approx(float(one.get("corner")), float(lay.get("corner", 0.0))),
-		"…and the drawn sheet really rounds by it (%.1f)" % (float(one.get("corner")) if one != null else -1.0))
-	# THE LAST CARD'S SHADOW MUST CLEAR THE SCROLL'S CLIP. The baked card cast through a wrapper INSIDE the
-	# card's own rect; the drawn sheet casts BELOW it, into the frame's own tail pad — so the bottom card of
-	# a scrolling storefront is the one that gets sliced if that pad is ever shorter than the reach.
-	ok(one != null and Kit.CONTENT_TAIL_PAD >= float(one.get("shadow_reach")),
-		"the frame's tail pad clears the card's shadow reach, so the last card is not sliced (%.0f ≥ %.1f)"
-			% [Kit.CONTENT_TAIL_PAD, (float(one.get("shadow_reach")) if one != null else -1.0)])
-	# …and the storefront really is a SCROLLING list capped to the viewport, not a sheet that grew: the cards
-	# are ~4px taller each now (the drawn sheet's own content inset is deeper than the baked art's pad), and
-	# the thing that must absorb that is the scroll, not the dialog.
-	var scrolls := dhost.find_children("*", "ScrollContainer", true, false)
-	var caps := 0
-	for s in scrolls:
-		var sc := s as ScrollContainer
-		if sc.get_child_count() > 0 and sc.size.y > 0.0 \
-				and (sc.get_child(0) as Control).get_combined_minimum_size().y > sc.size.y:
-			caps += 1
-	ok(not scrolls.is_empty(), "the storefront rides a scrolling list (%d)" % scrolls.size())
-	ok(caps > 0, "…and the ladder overflows it, so the taller list scrolls rather than stretching the sheet")
+	ok(baked == 0, "no storefront frame is painted from a baked nine-patch (%d found)" % baked)
+	# THE STOREFRONT FITS THE SCREEN. The mock has no scroll bars, so the stall SHRINKS to the viewport
+	# instead of scrolling — assert the built stall really is inside it rather than trusting the solver.
+	var vp: Vector2 = dhost.get_viewport_rect().size
+	ok(stall.size.y <= vp.y + 0.5 and stall.size.x <= vp.x + 0.5,
+		"the stall fits the screen without scrolling (%.0fx%.0f in %.0fx%.0f)" % [stall.size.x, stall.size.y, vp.x, vp.y])
+	ok(dhost.find_children("*", "ScrollContainer", true, false).is_empty(),
+		"…so the storefront carries no scroll container at all (the mock has no scroll bars)")
 	dhost.queue_free()
+
+	# ── HIT TESTING: every tappable region triggers exactly the purchase it appears to ───────────────
+	# This is the screen that takes real money, so geometry is not enough. Each region is driven through
+	# the REAL input path — get_root().push_input at the region's own centre — and the assertion is on
+	# what the WALLET did, not on which callable was wired.
+	await _test_stall_hit_regions()
+
+	# ── the region ↔ purchase OVERLAY (the owner's read-out) ────────────────────────────────────────
+	await _test_hit_overlay_is_gated_and_honest()
 
 	finish()
 
@@ -1009,3 +1009,140 @@ func _push_tap(gpos: Vector2) -> void:
 	up.pressed = false
 	up.position = gpos
 	get_root().push_input(up, true)
+
+# ── the storefront's HIT REGIONS ───────────────────────────────────────────────────────────────────
+## Every tappable region must trigger exactly the purchase it appears to, and no purchase may become
+## unreachable. That is the invariant this screen exists under — it takes real money — so it is driven
+## through the REAL input path (get_root().push_input at the region's own centre, the same events a
+## finger produces) and asserted on what the WALLET did, never on which callable was wired.
+##
+## Both entry points are driven over the whole storefront: the shelf CELL (a tap anywhere on the goods,
+## the tag or the plank under them) and the green PRICE BUTTON pinned to the lip. They must agree.
+func _test_stall_hit_regions() -> void:
+	for via in ["cell", "price"]:
+		await _drive_every_offer(via)
+
+func _drive_every_offer(via: String) -> void:
+	fresh("stall_hit_%s" % via)
+	Save.set_first_purchase_made()          # past the first-buy doubler: each tier grants exactly its own
+	Save.add_diamonds(500)                  # …and the quick-help offers are affordable
+	Save.set_water(G.WATER_CAP)             # full, so the free refill banks a spare and the delta is exact
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host)
+	ShopS.open(host, {})
+	await create_timer(0.25).timeout
+
+	# the FREE refill: a claim, not a purchase — it grants on the tap itself.
+	var water_before := Save.water()
+	await _tap_offer(host, ShopS.OFFER_REFILL, via)
+	ok(Save.water() == water_before + ShopS.refill_amount(),
+		"[%s] the free refill's region claims the refill and nothing else (%d -> %d)"
+			% [via, water_before, Save.water()])
+
+	# the COIN POUCH: a soft-currency purchase — coins up, acorns down, both exact.
+	var coins_before := Save.coins()
+	var gems_before := Save.diamonds()
+	await _tap_offer(host, ShopS.OFFER_POUCH, via)
+	ok(Save.coins() == coins_before + ShopS.COIN_PACK
+		and Save.diamonds() == gems_before - ShopS.COIN_PACK_GEM_COST,
+		"[%s] the coin pouch's region buys the pouch (%d coins for %d acorns)"
+			% [via, ShopS.COIN_PACK, ShopS.COIN_PACK_GEM_COST])
+
+	# THE SIX REAL-MONEY TIERS, one at a time, each through its OWN region. A cash region must open the
+	# honest confirm and grant NOTHING until Confirm is pressed — a region that granted on the tap would
+	# be a charge without a decision.
+	for i in Data.CASH_PACKS.size():
+		var before := Save.diamonds()
+		var tapped := await _tap_offer(host, ShopS.cash_offer_id(i), via)
+		ok(tapped, "[%s] tier %d (%s) has a live region" % [via, i, Iap.usd(String(Data.CASH_PACKS[i].key))])
+		ok(Save.diamonds() == before, "[%s] …and tapping it grants nothing before the confirm" % via)
+		var confirm := _button_with_text(host, Strings.t("shop.confirm.confirm"))
+		ok(confirm != null, "[%s] …it opens the honest cash confirm" % via)
+		if confirm == null:
+			continue
+		_push_tap(confirm.get_global_rect().get_center())
+		await process_frame
+		await process_frame
+		ok(Save.diamonds() == before + int(Data.CASH_PACKS[i].gems),
+			"[%s] …and confirming grants EXACTLY tier %d's %d acorns (%+d)"
+				% [via, i, int(Data.CASH_PACKS[i].gems), Save.diamonds() - before])
+		await create_timer(0.12).timeout      # the storefront rebuilds in place after a buy
+	host.queue_free()
+
+## Tap one offer's region through the real input path. `via` picks the entry point: "cell" is the shelf
+## cell (the goods + tag + plank), "price" is the green button pinned to the lip. Returns false when the
+## offer has no live region at all — which is itself a failure worth naming (a purchase gone unreachable).
+func _tap_offer(host: Control, offer_id: String, via: String) -> bool:
+	var node := _region_for(host, offer_id, via)
+	if node == null:
+		return false
+	var rect := node.get_global_rect()
+	# a region a finger cannot reliably hit is a wiring bug too. 44 CSS px is the platform floor; the
+	# storefront's own cells are many times that, and its price buttons clear it on both axes.
+	ok(rect.size.x >= 44.0 and rect.size.y >= 44.0,
+		"the %s region for %s is at least a fingertip (%.0fx%.0f)" % [via, offer_id, rect.size.x, rect.size.y])
+	_push_tap(rect.get_center())
+	await process_frame
+	await process_frame
+	return true
+
+## The live region for an offer: the shelf cell (`shop_slot`) or its price button (`shop_buy`). Read off
+## the BUILT tree by the meta the storefront stamped from the same card dict that supplied `on_buy`.
+func _region_for(host: Control, offer_id: String, via: String) -> Control:
+	for n in host.find_children("*", "Control", true, false):
+		var c := n as Control
+		if String(c.get_meta(Stall.OFFER_META, "")) != offer_id:
+			continue
+		if c.mouse_filter == Control.MOUSE_FILTER_IGNORE or not c.is_visible_in_tree():
+			continue
+		if via == "cell" and c.has_meta(Stall.SLOT_META):
+			return c
+		if via == "price" and c.has_meta("shop_buy"):
+			return c
+	return null
+
+# ── the HIT-REGION OVERLAY (deliverable 3) ─────────────────────────────────────────────────────────
+## The overlay must be ABSENT from an ordinary run and PRESENT (and honest) under the authoring gate.
+## "Honest" is the whole point: it reports what the ENGINE's picker returns for points inside each
+## region, so a region drawn over the wrong purchase shows up as a mismatch instead of a tidy label.
+func _test_hit_overlay_is_gated_and_honest() -> void:
+	fresh("hit_overlay_gate")
+	var plain := Control.new()
+	plain.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(plain)
+	ShopS.open(plain, {})
+	await create_timer(0.2).timeout
+	ok(plain.find_child(HitOverlay.OVERLAY_NAME, true, false) == null,
+		"the hit overlay is absent from an ordinary storefront open")
+	plain.queue_free()
+
+	fresh("hit_overlay_honest")
+	DebugUI.force = true                     # the capture tool's own gate (map_shot MODE=shophits)
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host)
+	ShopS.open(host, {})
+	await create_timer(0.3).timeout
+	var ov: Control = host.find_child(HitOverlay.OVERLAY_NAME, true, false) as Control
+	ok(ov != null, "the authoring gate mounts the hit overlay over the storefront")
+	if ov != null:
+		var regions: Array = ov.call("regions_for_test")
+		var slots := 0
+		var prices := 0
+		var mismatched: Array = []
+		for r in regions:
+			var d := r as Dictionary
+			if String(d["kind"]) == "slot":
+				slots += 1
+			else:
+				prices += 1
+			if not bool(d["good"]):
+				mismatched.append("%s->%s" % [String(d["declared"]), ",".join(PackedStringArray(d["resolved"]))])
+		ok(slots == 8, "…covering all eight offers' shelf cells (%d)" % slots)
+		ok(prices == 8, "…and all eight price buttons (%d)" % prices)
+		ok(mismatched.is_empty(),
+			"…and every region resolves, through the engine's own picker, to the purchase it is labelled with (%s)"
+				% ("none mismatched" if mismatched.is_empty() else ",".join(PackedStringArray(mismatched))))
+	host.queue_free()
+	DebugUI.force = false                    # never leave the gate armed for a later suite

@@ -155,7 +155,7 @@ icon: ## process an icon raw:  make icon IN=/tmp/x.png OUT=res://assets/ui/y.png
 	$(GODOT) --headless --path $(PROJECT) -s res://games/tools/process_icon.gd -- "$(IN)" $(OUT) $(SIZE)
 
 ## --- screenshots (quiet: the window is parked off-screen, never steals focus) ---
-shot-map: ## capture the map:  make shot-map [MODE=fresh|interior|progress|shop|settings|spirits] [OUT=/tmp/map.png]
+shot-map: ## capture the map:  make shot-map [MODE=fresh|interior|progress|shop|shophits|settings|spirits] [OUT=/tmp/map.png]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/map_shot.gd -- $(or $(MODE),fresh) $(or $(OUT),/tmp/map.png)
 
 shot-grove: ## capture the board (byte-deterministic per MODE):  make shot-grove [MODE=fresh|played|gate|hud|fullline] [OUT=/tmp/grove.png]

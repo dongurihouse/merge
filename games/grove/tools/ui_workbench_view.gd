@@ -21,7 +21,7 @@ const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")  # the 
 const Login = preload("res://engine/scripts/core/login.gd")            # reward_for(day) → the REAL weekly rungs the daily preview shows
 const LoginUI = preload("res://engine/scripts/ui/login.gd")            # the REAL daily dialog / day-cell renderer (the game's daily card)
 const LadderUI = preload("res://engine/scripts/ui/ladder.gd")          # the REAL discovery-ladder renderer (corner tier chips + generator header)
-const ShopUI = preload("res://engine/scripts/ui/shop.gd")              # the REAL shop storefront renderer (Shop.build_body — sage art-left cards)
+const ShopUI = preload("res://engine/scripts/ui/shop.gd")              # the REAL shop storefront renderer (Shop.build_body — the market stall)
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # the REAL level dialog sheet (the game's level screen)
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
@@ -150,7 +150,7 @@ const CAPTIONS := {
 	"dialog": "Mail dialog — cards (card style: badge · icon · Claim · title/body)",
 	"daily": "Daily — the game's real login screen (grid + capstone) in the shared frame",
 	"mystery": "Mystery — slot reveal (reels spin · premium shines · pick N)",
-	"shop": "Shop — packs (shared frame)",
+	"shop": "Shop — the market stall",
 	"level": "Level — the game's real dialog (level_popup: medallion · tally pill · bar · CTA)",
 	"tiers": "Discovery — tier ladder (shared frame, no vines)",
 	"info_bar": "Info bar — board bottom action bar (Home · ⓘ · selected piece · Bag)",
@@ -566,19 +566,14 @@ func _make_element(id: String) -> Control:
 			# (no shuffle) so the capture is repeatable. Frame edits flow through via frame_cfg: _params.
 			return _mystery_preview(String(p.preview))
 		"shop":
-			# the REAL game storefront (shop.gd) — the SAME Shop.build_body the shop screen renders: sage
-			# art-left offer cards, a 2-column grid, plain navy all-caps section headers, bespoke green price
-			# slabs. The old Kit.shop_dialog here was orphaned (3-col daily-card cells, sprig dividers,
-			# ribbons) — the game diverged to shop.gd. Demo data mirrors the game's sections.
-			var width := _dlg_px("shop")
-			var scale := _dlg_scale("shop")
-			var inner := width - 2.0 * float(Kit.frame_border("parchment")["pad_x"]) / scale
-			var fopts := Kit.dialog_opts_from_config(_params)
-			fopts["banner_text"] = "Shop"
-			fopts["content_scale"] = scale
-			fopts["clip_below_banner"] = true   # rows clip UNDER the title band, like the game
-			fopts["list_max_h"] = 2600.0        # show the whole storefront (the game caps to 72% of the viewport)
-			return Kit.dialog_frame(ShopUI.build_body(Kit, inner, _shop_demo_sections(), ShopUI.shop_layout(_params)), width, fopts)
+			# the REAL game storefront (shop.gd) — the SAME Shop.build_body the shop screen renders. Since
+			# 2026-07-30 that is the MARKET STALL (concept A): a scalloped awning, a hung signboard, and the
+			# goods standing on four slate shelves. There is no dialog frame and no offer card any more, so
+			# the preview builds the stall directly, exactly as `Shop._open` does. Demo data mirrors the
+			# game's sections; `max_h` is left off so the whole stall renders at its full height.
+			var lay: Dictionary = ShopUI.shop_layout(_params)
+			lay["title"] = "Shop"
+			return ShopUI.build_body(Kit, _dlg_px("shop"), _shop_demo_sections(), lay)
 		"level":
 			# the game's REAL level dialog sheet (level_popup.gd _sheet) — byte-for-byte what tapping
 			# the Lv badge opens; only the preview state (level · progress · mode) is workbench-side.
@@ -1722,16 +1717,17 @@ func _element_sidebar(_id: String) -> void:
 			mplay.pressed.connect(_play_mystery_spin)
 			_sidebar_body.add_child(mplay)
 		"shop":
-			# the shop is the game's real storefront (shop.gd Shop.build_body). Each offer-card metric is
-			# SAVED config the game reads (shop.gd shop_layout), so tuning here flows to the live shop:
-			# the product icon size, the card's inner padding, the grid gap/margin, and the card corner.
+			# the shop is the game's real storefront (shop.gd Shop.build_body → the market stall). The ONE
+			# metric still saved-and-read is the goods' art size — the stall derives every other number from
+			# its own width (engine/scripts/ui/market_stall.gd), so the retired card_pad / grid_gap / corner
+			# sliders would have edited a config key nothing draws.
 			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_slider_row(["icon_size", 50, 160]))   # product art size, % of default
-			_sidebar_body.add_child(_slider_row(["card_pad", 2, 40]))      # inner padding (px)
-			_sidebar_body.add_child(_slider_row(["grid_gap", 2, 48]))      # gap / margin between cards + sections (px)
-			# the offer card is the shared code-drawn cut-paper sheet now, not a baked nine-patch, so its
-			# edge is tunable here like every other paper surface. `corner` is one of these knobs — it is
-			# NOT listed separately above, or the same key would carry two sliders.
+			_sidebar_body.add_child(_slider_row(["icon_size", 50, 160]))   # the goods' art size, % of default
+			# THE SHARED CUT-PAPER EDGE. Every sheet in the stall — the wall, the posts, the awning bays, the
+			# signboard, the shelf planks, the amount tags and the caption plaques — is cut with this one knob
+			# set (market_stall._sheet merges only per-surface geometry over it), so the storefront follows the
+			# UI's paper automatically. `corner` is a member of the set and gets no separate slider; it is what
+			# the storefront's own small cream sheets (the tags and plaques) round by.
 			_cut_paper_section("shop")
 		"level":
 			# the sheet is the game's real level_popup.gd. Each element's SIZE (% of its default) and its

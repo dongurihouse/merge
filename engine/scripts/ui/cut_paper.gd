@@ -34,7 +34,7 @@ const SMOOTH_FEATHER_PX := 2.0
 # nothing extra to the drawing (the tear is louder than the rasterizer's stairs and hides them), but
 # anything AT 0 needs `edge_feather` or the smooth arc comes out as a staircase. That is why the two knobs
 # are documented as one decision and why SMOOTH_FEATHER_PX lives on this script.
-@export_enum("rect", "poly", "blob", "tab") var shape: String = "rect"
+@export_enum("rect", "poly", "blob", "tab", "scallop") var shape: String = "rect"
 @export var sides: int = 5          # for shape == "poly" (pentagon, hexagon, …)
 @export var corner: float = 30.0    # rect corner radius
 @export var deckle_amp: float = 0.0
@@ -148,6 +148,19 @@ func configure(o: Dictionary, fill: Color, rim: Variant = null, tile: Texture2D 
 	# "tab" base outline. Absent (or 0) the panel is the plain rounded rect every surface has always been.
 	flare = maxf(0.0, float(o.get("flare", 0.0)))
 	shape = "tab" if flare > 0.0 else "rect"
+	# …unless the caller names a base outline outright. Only the market stall's awning does (a panel whose
+	# hem is a scallop, not a corner radius); absent the key every existing caller keeps the rect/tab rule
+	# above untouched. The key is `base_shape` and NOT `shape` on purpose: several opts dicts that reach
+	# this call already carry a `shape` of their own (`home_button`'s disc/rect shell picker), and quietly
+	# adopting theirs would let an unrelated component re-cut every sheet it builds.
+	if o.has("base_shape"):
+		var want := String(o["base_shape"])
+		if want in ["rect", "poly", "blob", "tab", "scallop"]:
+			shape = want
+		else:
+			# rule 4 of docs/design/verifying-against-a-mock.md: an override that changes nothing must
+			# REFUSE, not fall through — a misspelt outline would draw the baseline under its own label.
+			push_error("cut_paper: unknown base_shape '%s' — the sheet would silently draw a rect" % want)
 	corner = float(o.get("corner", corner))
 	deckle_amp = float(o.get("deckle_amp", deckle_amp)) * amp_scale
 	deckle_freq = float(o.get("deckle_freq", deckle_freq))
@@ -316,8 +329,54 @@ func _base_perimeter(sz: Vector2, r: float) -> PackedVector2Array:
 			return _blob_base(sz)
 		"tab":
 			return _tab_base(sz, r)
+		"scallop":
+			return _scallop_base(sz, r)
 		_:
 			return _rect_base(sz, r)
+
+## A SCALLOP panel: square-ish shoulders at the top, a half-round HEM at the bottom — one bay of the
+## market stall's awning. The hem is a semi-ellipse of the panel's own half-width, so a row of these laid
+## edge to edge draws the awning's scalloped lower edge with no seam and no per-panel art. `r` still
+## rounds the two TOP corners, so the awning inherits the same cut-paper corner knob as every other sheet.
+func _scallop_base(sz: Vector2, r: float) -> PackedVector2Array:
+	var rx: float = sz.x * 0.5
+	var ry: float = minf(rx, sz.y * 0.55)          # the hem never eats more than half the panel's height
+	r = clampf(r, 0.0, minf(rx, (sz.y - ry) * 0.5))
+	var pts := PackedVector2Array()
+	# top edge, left→right, with the two shoulders rounded
+	pts.append_array(_sample_line(Vector2(r, 0.0), Vector2(sz.x - r, 0.0)))
+	pts.append_array(_sample_arc(Vector2(sz.x - r, r), r, -PI * 0.5))
+	# right side down to where the hem starts
+	pts.append_array(_sample_line(Vector2(sz.x, r), Vector2(sz.x, sz.y - ry)))
+	# the HEM: a half-ellipse sweeping right → bottom → left
+	var steps := maxi(12, arc_steps(maxf(rx, ry)) * 2)
+	for i in range(steps + 1):
+		var ang: float = PI * (float(i) / float(steps))     # 0 → PI, right to left across the bottom
+		pts.append(Vector2(rx + cos(ang) * rx, (sz.y - ry) + sin(ang) * ry))
+	# left side back up to the shoulder
+	pts.append_array(_sample_line(Vector2(0.0, sz.y - ry), Vector2(0.0, r)))
+	pts.append_array(_sample_arc(Vector2(r, r), r, PI))
+	return pts
+
+## Densely sample a straight edge at the shared STEP (shared by the scallop base, which is built edge by
+## edge rather than from the rect table).
+func _sample_line(a: Vector2, b: Vector2) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	var steps := maxi(1, int(a.distance_to(b) / STEP))
+	for i in range(steps + 1):
+		out.append(a.lerp(b, float(i) / float(steps)))
+	return out
+
+## …and one quarter-arc of radius `r` about `c`, starting at angle `s`, at the shared ARC_TOL_PX bound.
+func _sample_arc(c: Vector2, r: float, s: float) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	if r <= 0.0:
+		return out
+	var steps := arc_steps(r)
+	for i in range(steps + 1):
+		var ang := s + PI * 0.5 * (float(i) / float(steps))
+		out.append(c + Vector2(cos(ang), sin(ang)) * r)
+	return out
 
 const STEP := 4.0
 

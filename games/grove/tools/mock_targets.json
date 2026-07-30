@@ -30,32 +30,42 @@
   ],
 
   "mocks": {
-    "shop_dialog_v3": {
-      "png": "res://games/grove/assets/_concepts/dialogs/shop_dialog_v3_unified_storefront.png",
-      "size": [941, 1672],
+    "shop_market_stall": {
+      "png": "res://games/grove/assets/_concepts/dialogs/shop_screen_variations_v1/shop_screen_a_market_stall.png",
+      "size": [1080, 1920],
+      "field_candidates": [
+        [120, 862, 165, 83], [800, 862, 160, 83], [130, 372, 155, 68], [840, 420, 120, 170],
+        [860, 1290, 100, 130], [470, 960, 120, 120], [900, 1130, 75, 50]
+      ],
       "note": [
-        "THE UNIFIED STOREFRONT the shop was drawn from (shop.gd names it throughout): one scrolling cream",
-        "sheet carrying a wide Free-refill row, a titled Quick-help pair and the landscape acorn pouches.",
-        "Its cards are SMOOTH-cornered sage sheets \u2014 the painting never drew a torn edge at all, which is",
-        "worth stating plainly: the baked nine-patch card art that shipped for years added a tear this mock",
-        "does not have.",
+        "THE STOREFRONT the shop is drawn from since 2026-07-30 (owner: 'use the market stall as it is'):",
+        "concept A of shop_screen_variations_v1. A scalloped coral/cream awning, a slate signboard hung on",
+        "two cords, four slate plank shelves against a pale-meadow paper wall, the goods standing on them,",
+        "cream amount tags propped at their base and action-green price buttons pinned to the shelf lips.",
+        "It REPLACES shop_dialog_v3 (the unified cream sheet of sage offer cards); that design's one",
+        "region, `shop_card`, retired with the card it measured \u2014 the storefront has no offer card any",
+        "more, so there was nothing left for the adapter to build.",
         "",
-        "ITS FIELD IS THE DIALOG'S OWN CREAM SHEET, not sky. A card lies INSIDE that sheet, so rule 16",
-        "applies and every darkening beside one is measured against its paper. With the rule-9 diagnostic",
-        "(mock_profile.flat_range) the vertical strips of bare sheet either side of the cards read 2.8 to",
-        "5.2 against a limit of 12 \u2014 genuinely flat. The strips BETWEEN rows are not (58.6: they swallow the",
-        "neighbouring cards' own edges) and neither is the sheet's bottom margin (175: the sheet's own edge),",
-        "so the honest ground this mock gives runs SIDEWAYS.",
+        "IT CARRIES NO REGIONS, AND CANNOT. This rig divides every sample by ONE field luma, and this",
+        "painting has no flat ground to give: the wall is painted with a broad vignette AND every shelf lip",
+        "drops a tinted shadow across it, so the quiet-looking stretches are gradients. Measured with the",
+        "rule-9 diagnostic (mock_profile.flat_range, limit 12, where meadow_board's own empty sky reads",
+        "4.7-7.9) the seven `field_candidates` read 42.9, 97.3, 90.2, 146.2, 30.9, 84.1 and 113.2 \u2014 the",
+        "last of those is the shelf plank's own lit face beside a price tag, which is the only ground other",
+        "than the wall that anything on this mock sits on.",
         "",
-        "ITS LIGHT IS THE SAME UPPER-LEFT ONE as every other mock here. Beside the wide card the LEFT side",
-        "carries no darkening at all (0.008 at 1px, the paper's own grain) and the TOP reads BRIGHTER than",
-        "the sheet (+11 luma, a lit cut edge), while the RIGHT runs 0.26 at 2px and is gone by 8px and the",
-        "FOOT runs 0.37 and is gone by 10px.",
+        "ONE patch on the whole mock does measure flat: the wall immediately right of the signboard,",
+        "[840,372,120,68], reads 11.2. It is deliberately NOT registered as a field, because nothing is",
+        "beside it \u2014 the sign is to its left and the stall post to its right \u2014 and rule 7 says do not",
+        "report past the clean ground you actually have. It is recorded here so the claim above is bounded",
+        "rather than absolute.",
         "",
-        "ONLY THE WIDE CARD IS REGISTERED. The half-width cards have 26px of clean sheet to their LEFT but",
-        "only 16 to their right before the sibling card's face, of which that card's own shadow takes about",
-        "8 \u2014 too little to report the SHADOW side on, which is the side that matters (rule 7). They differ",
-        "from the wide card in BOX and nothing else: same builder, same knobs, same fill."
+        "WHAT THE MOCK WAS USED FOR INSTEAD is everything that needs no ground: the shelf bands were read",
+        "off the PNG by scanning for the slate rows beside the left post (plank tops 672 / 1120 / ~1455 /",
+        "1790; lit faces 101 then 67 px; lips 57 then 51), and every metric on",
+        "engine/scripts/ui/market_stall.gd is one of those measurements over the mock's own 1080 width. The",
+        "MATERIAL is not this mock's to give either way \u2014 the stall is built from the shared cut-paper",
+        "panel, whose edge is fitted on meadow_board and guarded by engine/tests/smooth_paper_tests.gd."
       ]
     },
     "meadow_board": {
@@ -105,15 +115,6 @@
   },
 
   "regions": {
-    "shop_card": {
-      "mock": "shop_dialog_v3",
-      "element": "shop_card",
-      "args": {"wide": true, "face_h": 176, "icon": "shop_can", "count": 100, "price": "Free"},
-      "face": [71, 269, 796, 176],
-      "clean": [45, 251, 848, 224],
-      "field": [[44, 285, 21, 130], [876, 285, 19, 130]],
-      "note": "THE WIDE FREE-REFILL ROW \u2014 the storefront's lead offer, and the only card on this mock with real ground on all four sides: 26px of bare sheet to its LEFT (the sheet's own inner edge is 29px away), 30px to its RIGHT, 21px above before the FREE REFILL header's ink and 35px below before QUICK HELP's. `face` is the sage sheet ONLY \u2014 its foot's shadow starts on the very next row (0.37 darkening at 2px) and has to sit outside the rect. The mock's card is 796x176 where ours lays out at 0.26 of its width, so the aspect is the shop grid's layout choice and not the material's; hence face_h, as with `well` and `unlock`. MEASURE THE SHEET WITH `:blank`: the card's art and its white-on-green price pill both come within a few px of the edge, and the profiler probes the face 11px in \u2014 the same trap the wallet pill's numeral set."
-    },
     "nav_home": {
       "mock": "meadow_board",
       "element": "nav",

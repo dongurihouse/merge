@@ -299,17 +299,18 @@ func _check_built_surfaces() -> void:
 	# checking a knob dict the game never uses.
 	var daily_opts: Dictionary = Kit.daily_opts_from_config(cfg)
 	daily_opts["cut_paper"] = true      # what `daily_grid` sets: the calendar draws the CODE-DRAWN face
-	# THE SHOP'S OFFER CARDS ARE IN THIS NET TOO, and were not: they were three baked nine-patch PNGs with
-	# a torn edge painted in, so this suite could pass while the storefront rendered a smooth sheet full of
-	# frilly cards — which is exactly what shipped. They are the shared code-drawn panel now, built here
-	# through the SHIPPING call (Shop.build_body on Shop.shop_layout, the same pair the storefront and the
-	# workbench both use) at all THREE of its shapes, because the shape picks the box and nothing else may
-	# depend on it: `wide` is the Free-refill row, a `title` makes the tall Quick-help card, and neither
-	# makes the landscape pouch.
+	# THE STOREFRONT IS IN THIS NET TOO, and was not: its offer cards used to be three baked nine-patch
+	# PNGs with a torn edge painted in, so this suite could pass while the shop rendered a smooth sheet full
+	# of frilly cards — which is exactly what shipped. The cards are gone (2026-07-30: the storefront is the
+	# MARKET STALL), but the relationship the entry exists for is unchanged and now covers far more paper:
+	# the stall's wall, posts, awning bays, signboard, shelf planks, amount tags and caption plaques are ALL
+	# the shared code-drawn panel, built here through the SHIPPING call (Shop.build_body on Shop.shop_layout,
+	# the same pair the storefront and the workbench both use) with all three offer kinds present — a free
+	# claim, a currency-priced quick-help pair, and the real-money ladder.
 	var Shop := load("res://engine/scripts/ui/shop.gd")
 	var shop_lay: Dictionary = Shop.shop_layout(cfg)
 	var shop_cards: Array = [
-		{"caption": "Free refill", "cards": [{"icon": "shop_can", "count": 100, "price": "Free", "wide": true}]},
+		{"caption": "Free refill", "cards": [{"icon": "shop_can", "count": 100, "price": "Free"}]},
 		{"caption": "Quick help", "cards": [
 			{"title": "Coin pouch", "icon": "shop_pouch", "count": 150, "price": "5", "price_icon": "gem"},
 			{"title": "Fill water", "icon": "shop_can", "count": 100, "price": "25", "price_icon": "gem"}]},
@@ -330,8 +331,8 @@ func _check_built_surfaces() -> void:
 		"a daily card (today, two layers)": Kit.daily_card({"state": "today", "day": 1, "label": "Day 1",
 			"reward": {"coins": 50}}, daily_opts),
 		"a daily card face on its own fallback cp": Kit.daily_card_face(Vector2(160, 180), "cream"),
-		"the shop's offer cards (wide · tall · pouch)": Shop.build_body(Kit, 760.0, shop_cards, shop_lay),
-		"a shop offer card on its own fallback cp": Shop.build_body(Kit, 760.0, shop_cards),
+		"the market-stall storefront": Shop.build_body(Kit, 760.0, shop_cards, shop_lay),
+		"the market-stall storefront on its own fallback cp": Shop.build_body(Kit, 760.0, shop_cards),
 	}
 	for label in built:
 		var node: Node = built[label]
@@ -345,14 +346,31 @@ func _check_built_surfaces() -> void:
 		for p in found:
 			n += 1
 			_assert_smooth(p, "%s sheet %d/%d" % [label, n, found.size()])
-	# …and the shop entry must really have built ALL FIVE cards (one wide, two tall, two pouch). A loop that
-	# found one sheet passes every assertion above while four shapes go unchecked, and the shape is what used
-	# to pick which baked PNG got painted — so the count is the thing that says the sweep is complete. Counted
-	# by the CARD sheet's own node name: the ten panels each body draws are five cards and five green price
-	# pills, and only the cards are what this entry was added for.
-	for label in ["the shop's offer cards (wide · tall · pouch)", "a shop offer card on its own fallback cp"]:
-		var faces := (built[label] as Node).find_children(Shop.CARD_SURFACE_NODE, "Control", true, false)
-		ok(faces.size() == 5, "%s — all five cards drew a sheet (%d)" % [label, faces.size()])
+	# …and the shop entry must really have built the whole STALL, not one sheet of it. A loop that found a
+	# single panel passes every assertion above while the rest of the furniture goes unchecked, and the shape
+	# is what used to pick which baked PNG got painted — so the census is the thing that says the sweep is
+	# complete. Counted by each surface's OWN node name, off the built tree.
+	# 3 soft-currency offers pair onto 2 counter shelves; the 2 cash tiers take 1 ladder shelf -> 3 planks.
+	var stall_census := {
+		Shop.Stall.WALL_NODE: 1,          # the back panel
+		Shop.Stall.POST_NODE: 2,          # the two stall posts
+		Shop.Stall.SIGN_NODE: 1,          # the hanging signboard
+		Shop.Stall.AWNING_NODE: Shop.Stall.AWNING_BAYS,
+		Shop.Stall.SHELF_FACE_NODE: 3,
+		Shop.Stall.SHELF_LIP_NODE: 3,
+		Shop.Stall.HEADER_NODE: 1,        # the one "ACORN POUCHES" plaque
+	}
+	for label in ["the market-stall storefront", "the market-stall storefront on its own fallback cp"]:
+		var stall: Node = built[label]
+		for node_name in stall_census:
+			var found := stall.find_children("%s*" % node_name, "Control", true, false)
+			ok(found.size() == int(stall_census[node_name]),
+				"%s — %d x %s (expected %d)" % [label, found.size(), node_name, int(stall_census[node_name])])
+		# every offer stands in its own shelf cell, and every cell wears an amount tag
+		var slots := stall.find_children("%s*" % Shop.Stall.SLOT_NODE, "Control", true, false)
+		ok(slots.size() == 5, "%s — one shelf cell per offer (%d of 5)" % [label, slots.size()])
+		var tags := stall.find_children("%s*" % Shop.Stall.TAG_NODE, "Control", true, false)
+		ok(tags.size() == 5, "%s — one cream amount tag per offer (%d of 5)" % [label, tags.size()])
 	# THE TOGGLE SWITCH is built by the engine skin, not the Kit, and its opts dict is the hand-written
 	# fallback layer 4 scans for — so build it BOTH ways: through the config the game passes, and with the
 	# empty dict that selects the literal.
