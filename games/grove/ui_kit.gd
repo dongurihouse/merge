@@ -4032,10 +4032,18 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 		bar_sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(bar_sh)
 	var art_cap := int(opts.get("art_cap", 512))
-	var track_tex: Texture2D = clean_tex_path(Look.kit(String(opts.get("track_art", "kit/prog_track.png"))), art_cap) if use_art else null
-	var fill_tex: Texture2D = clean_tex_path(Look.kit(String(opts.get("fill_art", "kit/prog_fill.png"))), art_cap) if use_art else null
+	# THE CUT-PAPER WELL (engine/scripts/ui/paper_progress.gd). Present → the bar is drawn as a well sunk
+	# into the sheet under it with a raised capsule lying in it, instead of the nine-slice art capsules or
+	# the flat StyleBoxFlat pair. ABSENT is the default and every other caller leaves it absent, so the
+	# level dialog, the residents banks and the workbench preview render exactly what they always did.
+	var paper: Dictionary = opts.get("paper", {}) as Dictionary
+	var track_tex: Texture2D = clean_tex_path(Look.kit(String(opts.get("track_art", "kit/prog_track.png"))), art_cap) if use_art and paper.is_empty() else null
+	var fill_tex: Texture2D = clean_tex_path(Look.kit(String(opts.get("fill_art", "kit/prog_fill.png"))), art_cap) if use_art and paper.is_empty() else null
 	var fill_shadow_params: Dictionary = opts.get("fill_shadow_params", {}) as Dictionary
-	if track_tex != null and fill_tex != null:
+	if not paper.is_empty():
+		_progress_build_paper(holder, base_name, paper, h, fill_color if fill_color.a > 0.0 else Pal.LEAF,
+			fill_w_scale, fill_h_scale, fill_dx, fill_dy, f)
+	elif track_tex != null and fill_tex != null:
 		# ART mode — track & fill are NINE-SLICE capsules. A 9-slice pill's rounded caps only stay round
 		# when the node is drawn at least as tall as the cap (margin = radius); squashing it shorter ovals
 		# them out. So we draw the caps at their NATIVE texture height on an inner "stage", then uniformly
@@ -4213,6 +4221,112 @@ static func _progress_layout_flat(holder_ref: WeakRef, fill_clip_ref: WeakRef, f
 		fsh.position = fill_pos
 		fsh.size = Vector2(fw, fill_h)
 		_configure_progress_shadow(fsh, fill_h * 0.5, fill_shadow_params, 1.0)
+
+## THE CUT-PAPER WELL — the third face Kit.progress_bar can wear, and the only one drawn from the game's
+## own paper material rather than from a baked capsule pair. The material (every colour and reach below)
+## is engine/scripts/ui/paper_progress.gd; this is only how the nodes are stacked:
+##
+##   Track           a CutPaperPanel capsule — the well's FLOOR, with the lip's dark crease as its rim
+##   FillClip        clipped to the track's box, so the capsule's cast shadow lands on the FLOOR and
+##                   never on the sheet the well is cut into
+##     └ Fill        a second CutPaperPanel capsule, the raised green card, wearing the scene's own
+##                   directional shadow (paper_progress hands it Paper.surface_cp)
+##   InsetShadow     LAST, so the lip's inner shadow falls across the fill too — which is what the mock
+##                   draws: its fill's top edge is measurably darker than its bottom one
+##
+## The fill is SIZED to the visible run rather than clipped to it, because a code-drawn capsule can just
+## be short: that gives its head a real round cap (and therefore a real cast shadow) at every fraction,
+## which a clipped nine-slice cannot have.
+static func _progress_build_paper(holder: Control, base_name: String, paper: Dictionary, h: float,
+		fill_color: Color, fill_w_scale: float, fill_h_scale: float, fill_dx: float, fill_dy: float,
+		f: float) -> void:
+	var tile := cut_paper_tile()
+	var feather := float(paper.get("feather", 2.0))
+	# a capsule's corner radius is half its own height, which is where cut_paper's legacy arc sampling
+	# stops being invisible — both shapes here ask for a chord instead (see CutPaperPanel.arc_step).
+	var arc := float(paper.get("arc_step", 0.0))
+	var track: Control = load(CUT_PAPER).new()
+	track.name = _progress_name(base_name, "Track")
+	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	track.configure({"deckle_amp": 0.0, "rim_width": float(paper.get("crease_w", 3.0)),
+		"edge_feather": feather, "edge_shadow": false, "corner": h * 0.5, "arc_step": arc},
+		paper.get("well_fill", Pal.CREAM), paper.get("crease", Pal.BARK), tile)
+	holder.add_child(track)              # `edge_shadow: false`: a SUNK well casts nothing downward
+
+	var clip := Control.new()
+	clip.name = _progress_name(base_name, "FillClip")
+	clip.clip_contents = true
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(clip)
+
+	var fill: Control = load(CUT_PAPER).new()
+	fill.name = _progress_name(base_name, "Fill")
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fill_cp: Dictionary = (paper.get("fill_cp", {}) as Dictionary).duplicate()
+	fill_cp.merge({"deckle_amp": 0.0, "rim_width": float(paper.get("fill_rim_w", 2.0)),
+		"edge_feather": feather, "shadow_reach": 0.0, "arc_step": arc}, true)
+	# `shadow_reach: 0` and NOT `edge_shadow: false`. The DIRECTIONAL halo that came in with fill_cp IS
+	# this capsule's shadow, and cut_paper's straight-down drop shadow on top of it would cast a second
+	# one — but `edge_shadow` maps to `draw_shadow`, which gates BOTH (cut_paper.gd `_draw_edge_halo`
+	# returns early on it). Spelled that way the capsule cast nothing at all: probed off its head on the
+	# rig it read 0.070 at 1px and 0.006 at 2, against the mock's 0.292 · 0.242 · 0.204 · 0.172 · 0.113
+	# · 0.059 out to 7px — the fill was printed into the well instead of lying in it, under a comment
+	# claiming the halo was doing the work. The drop shadow has its OWN `shadow_reach > 0` guard, so
+	# zeroing the reach silences it and leaves the halo drawing.
+	fill.configure(fill_cp, fill_color, paper.get("fill_rim", fill_color.darkened(0.185)), tile)
+	clip.add_child(fill)
+
+	var inset: Control = load(INSET_SHADOW).new()
+	inset.name = _progress_name(base_name, "InsetShadow")
+	holder.add_child(inset)
+
+	var lay := _progress_layout_paper.bind(weakref(holder), weakref(track), weakref(clip),
+		weakref(fill), weakref(inset), paper, fill_w_scale, fill_h_scale, fill_dx, fill_dy, f)
+	holder.resized.connect(lay)
+	holder.ready.connect(lay)
+	holder.set_meta("relayout", lay)
+
+
+static func _progress_layout_paper(holder_ref: WeakRef, track_ref: WeakRef, clip_ref: WeakRef,
+		fill_ref: WeakRef, inset_ref: WeakRef, paper: Dictionary, fill_w_scale: float,
+		fill_h_scale: float, fill_dx: float, fill_dy: float, f: float) -> void:
+	var hld := holder_ref.get_ref() as Control
+	var trk := track_ref.get_ref() as Control
+	var clip := clip_ref.get_ref() as Control
+	var fl := fill_ref.get_ref() as Control
+	var ins := inset_ref.get_ref() as Control
+	if hld == null or trk == null or clip == null or fl == null or ins == null:
+		return
+	var disp := hld.size
+	if disp.x <= 0.0 or disp.y <= 0.0:
+		return
+	var corner := disp.y * float(paper.get("corner_frac", 0.5))
+	trk.position = Vector2.ZERO
+	trk.size = disp
+	trk.corner = corner
+	clip.position = Vector2.ZERO
+	clip.size = disp
+	var inset_x := float(paper.get("fill_inset_x", 1.5))
+	var fill_h := maxf(1.0, disp.y * fill_h_scale)
+	var run := maxf(1.0, (disp.x - inset_x * 2.0) * fill_w_scale)
+	var cur_f: float = clampf(float(hld.get_meta("frac", f)), 0.0, 1.0)
+	# floored at the capsule's own height: below that the head and the tail cap are the same arc, so a
+	# shorter fill is not a capsule at all but a lens, and it would pop into one as the tween crossed the
+	# floor. At 0% that leaves a round green nub sitting in the well beside a "0%" read-out.
+	#
+	# THE MOCK DOES NOT SETTLE THIS — it draws one bar at 67% and says nothing about an empty one, and an
+	# earlier note here claimed the nub was "what the mock draws". It is a design call: the nub reads as
+	# the bar's own start marker, and the alternative (nothing at all below one capsule-length) trades it
+	# for a fill that appears out of empty track. Left as the nub because the previous slate bar showed
+	# one too, so no shipped behaviour changes here; flagged for the owner rather than settled quietly.
+	fl.position = Vector2(inset_x + fill_dx, (disp.y - fill_h) * 0.5 + fill_dy)
+	fl.size = Vector2(maxf(fill_h, run * cur_f), fill_h)
+	fl.corner = fill_h * float(paper.get("corner_frac", 0.5))
+	ins.position = Vector2.ZERO
+	ins.size = disp
+	ins.configure(corner, float(paper.get("inset_reach", 5.0)), float(paper.get("inset_alpha", 0.5)),
+		paper.get("inset_tint", Pal.BARK), float(paper.get("inset_falloff", 3.0)))
+
 
 static func _progress_place_knob(knob_ref: WeakRef, holder_ref: WeakRef, f: float, h: float) -> void:
 	var k := knob_ref.get_ref() as Control
