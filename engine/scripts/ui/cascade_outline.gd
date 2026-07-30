@@ -112,12 +112,68 @@ static func cream_pull() -> float:
 static func band_width() -> float:
 	return float(Array(LEVELS[forced_level])[1]) if LEVELS.has(forced_level) else BAND_WIDTH
 
+## THE MARK'S HUE — the knob the intensity one ran out of. MEASURED on the shipped `rest` capture
+## (1080x1920; the three tray gutters INSIDE the chain against the same three gutters on an unlit
+## row): the lit gutter reads 203.9 in luminance against the board's own 155.7, so the mark IS +48.1
+## brighter — but every bit of that is along the TRAY'S OWN AXIS. The lit gutter's warm shift (R-B)
+## is 92 where the unlit gutter's is 164: the mark is not a different colour from the tray, it is the
+## tray's amber desaturated toward white, and desaturating further is the only thing opacity can do
+## (ALPHA_LIFT's note measured the end of that road: 1.6 -> 2.4 moves the peak band-minus-tray delta
+## by 0.0). What is left is to take the mark OFF the tray's hue, so it separates by hue as well.
+##
+## ONE pull carries the WHOLE mark: the tray-riding band rails, the interior gutters (`lit_crack`),
+## the tile faces (`lit_face`) and the inward spill. It has to — the face is the largest lit area of
+## the mark (alpha up to FACE_EDGE_A), so a tint that moved the band and left the face amber would
+## read as a re-coloured ring around unchanged amber tiles, the same split CREAM_PULL's note warns
+## about. The ONE rail left exactly as solved is the hot line AT the tile edge (offset -1.000): it is
+## not light lying on a surface, it is the tile's own cut edge showing through, and it is what makes
+## the mark read as light coming from UNDER the board. Re-colouring it moves the tiles, not the glow.
+##
+## [target colour, how far the whole mark is carried toward it]
+const TINTS := {
+	# THE CONTROL — today's colour. The pull is 0, so every colour of the mark is exactly the shipped
+	# one BY CONSTRUCTION, not by a second copy of it that could drift; the target names the hue the
+	# mark is already pulled toward (CREAM_PULL) so the row is not an arbitrary placeholder.
+	"cream": [Pal.CREAM, 0.00],
+	# CREAM's own channels with the warm/cool axis flipped (R and B swapped): the same lightness the
+	# palette's paper has, leaning the opposite way. Separates by hue while staying above the tray.
+	"cool": [Color(0.867, 0.922, 0.965), 0.80],
+	# STRAW taken down to an ink (darkened ~0.62). The board is bright, so the biggest value headroom
+	# is downward; this is the palette's own warm gold, not a foreign brown.
+	"deep": [Color(0.319, 0.252, 0.113), 0.70],
+	# The palette's own green — complementary to the tray's amber, and already a production role.
+	"green": [Pal.LEAF, 0.70],
+}
+
+## Pins the tint for a capture, the way `forced_level` pins the intensity. Empty = the shipped hue,
+## which is `cream`'s identity. `tint=<name>` (engine/tools/shot_base.gd) sets it.
+static var forced_tint := ""
+
+static func tint_target() -> Color:
+	return Color(Array(TINTS[forced_tint])[0]) if TINTS.has(forced_tint) else Pal.CREAM
+
+static func tint_pull() -> float:
+	return float(Array(TINTS[forced_tint])[1]) if TINTS.has(forced_tint) else 0.0
+
+## The ONE place a tint is applied. Every surface of the chain mark goes through this and nothing
+## re-does the lerp at a call site, so "the whole mark moves together" is a property of the code
+## rather than of three call sites agreeing — and the guard in grove_cascade_tests.gd can read the
+## colours the drawing really uses.
+static func tinted(c: Color) -> Color:
+	return c.lerp(tint_target(), tint_pull())
+
+## The hot line: the ONE rail the tint leaves alone (see TINTS). Named by what it IS — the gap rail
+## sitting exactly ON the tile edge — so re-solving the profile cannot silently retarget it.
+static func _is_hot_line(rail: Array) -> bool:
+	return int(rail[0]) == ANCHOR_GAP and is_equal_approx(float(rail[1]), -1.0)
+
 static var _lit_rails: Array = []
 static var _lit_pull := -1.0
+static var _lit_tint := "￿"     # a name no tint can have, so the first call always builds
 
 static func lit_rails() -> Array:
 	var pull := cream_pull()
-	if not _lit_rails.is_empty() and is_equal_approx(pull, _lit_pull):
+	if not _lit_rails.is_empty() and is_equal_approx(pull, _lit_pull) and _lit_tint == forced_tint:
 		return _lit_rails
 	var out: Array = []
 	for raw in RAILS:
@@ -125,9 +181,12 @@ static func lit_rails() -> Array:
 		var colour: Color = rail[2]
 		if int(rail[0]) == ANCHOR_GAP and float(rail[1]) > -1.0:
 			colour = colour.lerp(Pal.CREAM, pull)
+		if not _is_hot_line(rail):
+			colour = tinted(colour)
 		out.append([rail[0], rail[1], colour, minf(float(rail[3]) * ALPHA_LIFT, 1.0), rail[4]])
 	_lit_rails = out
 	_lit_pull = pull
+	_lit_tint = forced_tint
 	return _lit_rails
 
 # The chain's own tiles, lit from underneath: a warm wash that is brightest at the tile edge and
@@ -137,6 +196,13 @@ const FACE_COLOR := Color(1.000, 0.855, 0.541)
 const FACE_EDGE_A := 0.78
 const FACE_MID_A := 0.50
 const FACE_CORE_A := 0.19
+
+## The face AS DRAWN: FACE_COLOR under the same tint the band rails and the interior gutters take, so
+## the largest lit area of the mark cannot be left on the tray's hue while the ring moves off it. Like
+## `lit_crack()` it is a function so the guard can read the colour the drawing uses; unlike it, the
+## face never rode the tray, so it takes the tint alone and no CREAM_PULL.
+static func lit_face() -> Color:
+	return tinted(FACE_COLOR)
 # The tray gutters BETWEEN two chain cells, which read as light coming up from under the blob. Held
 # steady on purpose: arc length along the contour is discontinuous across the shape's medial axis,
 # so driving the interior with it stamps a hard seam down the middle. Solved on the same tray as the
@@ -153,8 +219,11 @@ const CRACK_A := 0.88
 ## It reads `cream_pull()`, NOT the constant: a capture that pins an intensity (`glow=dim`) moves the
 ## band rails through that function, and a gutter still on the raw constant would leave the interior
 ## amber against a cream ring in exactly the captures meant to compare the intensities.
+## It carries the TINT as well, through the same `tinted()` every other surface of the mark goes
+## through — the interior is the mark's own ground, and a gutter left on the tray's amber inside a
+## re-coloured ring is the amber-bars-in-a-cream-ring regression in a new hue.
 static func lit_crack() -> Color:
-	return CRACK_COLOR.lerp(Pal.CREAM, cream_pull())
+	return tinted(CRACK_COLOR.lerp(Pal.CREAM, cream_pull()))
 
 ## The hue every rail colour above is written against; `_tint` carries the profile's colour across
 ## to the live line as a shift from it, so a green line glows green without losing the hot core.
@@ -406,9 +475,10 @@ func _draw_tile_lift(face: Dictionary, glow: Color, strength: float) -> void:
 	var norm: PackedVector2Array = face["off"]
 	var centre: Vector2 = face["centre"]
 	var inner: float = face["inner"]
-	var edge := _tint(glow, FACE_COLOR, FACE_EDGE_A * strength)
-	var mid := _tint(glow, FACE_COLOR, FACE_MID_A * strength)
-	var core := _tint(glow, FACE_COLOR, FACE_CORE_A * strength)
+	var face_colour := lit_face()
+	var edge := _tint(glow, face_colour, FACE_EDGE_A * strength)
+	var mid := _tint(glow, face_colour, FACE_MID_A * strength)
+	var core := _tint(glow, face_colour, FACE_CORE_A * strength)
 	var n := pts.size()
 	var points := PackedVector2Array()
 	var colours := PackedColorArray()

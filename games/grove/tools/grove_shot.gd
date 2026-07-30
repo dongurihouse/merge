@@ -18,7 +18,8 @@ extends SceneTree
 ## MODE=cascade takes `phase=`: run (default, frozen mid-run) | guide | dragfocus | seedguide |
 ##        tagtarget | runway [hold=N] | two (two chains armed at once) | x2 (the shortest chain) |
 ##        anything else (e.g. `rest`) = the armed marks at rest. `glow=dim|stronger|strongest`
-##        (shot_base) picks the contour's intensity, so one batched launch shoots every variant.
+##        (shot_base) picks the contour's intensity and `tint=cream|cool|deep|green` its hue, so one
+##        batched launch shoots every variant.
 ##
 ## BYTE-DETERMINISTIC: same code + same MODE ⇒ identical PNG. The board RNG is pinned BEFORE the
 ## scene loads (board.gd's forced_rng_seed — _load_state randomizes on a fresh save, and the quest
