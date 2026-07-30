@@ -3,6 +3,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ## rewards, guide pads, ready outlines, and the code-level feature flag.
 
 const BoardScriptRef = preload("res://engine/scripts/scenes/board.gd")
+const Ambient = preload("res://engine/scripts/ui/ambient.gd")   # the fixture pins the hour's sky (see _open_board)
 const RNG_SEED := 20260727   # any fixed value; the point is that it does not change between runs
 const CascadeOutline = preload("res://engine/scripts/ui/cascade_outline.gd")
 const Contour = preload("res://engine/scripts/ui/cell_contour.gd")
@@ -49,12 +50,27 @@ func _initialize() -> void:
 	_test_glow_levels_stay_ordered_and_equally_warm()
 	_test_chain_gutters_carry_the_band_warmth()
 	_test_cascade_phase_pins_for_captures()
-	BoardScriptRef.forced_rng_seed = -1        # leave the static as we found it
+	BoardScriptRef.forced_rng_seed = -1        # leave the statics as we found them
+	Ambient.forced_weather = ""
 	finish()
 
 func _open_board(name: String) -> Node:
 	fresh(name)
 	BoardScriptRef.forced_rng_seed = RNG_SEED   # a fresh save would rng.randomize(); drops must not vary per run
+	# …and PIN THE HOUR'S SKY, or the seed above does not mean what it says. A merge rolls its lucky drop
+	# through BoardLogic.roll_merge_drops, which BRANCHES on the sky: a Sunbeam patch swaps the baseline
+	# coin for the sky coin, a Rain patch adds a water drop — each changes how many drops are emitted, and
+	# every drop spends another rng draw picking its landing cell. So the same seed lands a coin on a
+	# different cell depending on what the WALL CLOCK says the weather is (engine/scripts/core/sky.gd
+	# reads Time.get_unix_time_from_system()). Measured 2026-07-29/30: the vacated-cell assert in
+	# _test_chain_rewards_and_chest_open_clock failed 12/12 runs during a Sunbeam hour and passed the next.
+	#
+	# CALM is the pin, and it is the ONLY state that removes the clock completely: every other sky still
+	# rolls its LANE from the real hour (Sky._pick_lane), so pinning "rain" would only trade an unknown sky
+	# for an unknown row. Calm returns lane -1 and in_patch false for every cell, so no branch and no lane
+	# depends on the hour. Nothing is lost — this suite asserts cascades, and the weather board is covered
+	# by grove_sky_tests, which pins its own state per case.
+	Ambient.forced_weather = "calm"
 	Save.mark_board_tutorial_seen()
 	Save.mark_ftue_seen("merge")
 	Save.mark_ftue_seen("gen_tap")
@@ -573,6 +589,12 @@ func _test_chain_rewards_and_chest_open_clock() -> void:
 		Vector2i(2, 3): 102,
 		Vector2i(2, 4): 103,
 	})
+	# The vacated-cell assert below reads a SEEDED drop stream, and the sky moves that stream (_open_board).
+	# Read the pin back off the board's own state so a dropped pin fails here, by name, instead of turning
+	# the next assert into an hour-shaped flake.
+	ok(String(b3._sky_state.get("sky", "")) == "calm" and int(b3._sky_state.get("lane", 0)) < 0, \
+		"the fixture's board is on a PINNED calm hour, with no patch to divert the drop stream (%s)" \
+			% String(b3._sky_state.get("sky", "?")))
 	_drag_merge(b3, Vector2i(2, 1), Vector2i(2, 2))
 	await _wait_for_idle(b3)
 	ok(b3.board.item_at(Vector2i(2, 2)) != G.COIN_LINE * 100 + 1, "x2 no longer leaves a coin reward")
