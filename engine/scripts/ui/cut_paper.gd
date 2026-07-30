@@ -94,14 +94,36 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 # the silhouette does not move or grow; the rim, bevel and halo still key off the same `pts`.
 # 0 = off (the default everywhere): every torn surface draws the single flat polygon it always drew.
 @export var edge_feather: float = 0.0
+## THE BAND WIDTH A SMOOTH CUT NEEDS, owned here because `deckle_amp` and `edge_feather` are two halves
+## of ONE decision — nothing may zero the tear without asking for the coverage the rasterizer skips.
+## Measured on the like-for-like rig (`make shot-mock`; docs/design/verifying-against-a-mock.md) across a
+## nav tile's top-left arc, as the count of pixels per row whose value lands between the ground and the
+## fill: unfeathered ours ran 0.00 (a pure binary step) against the mock's 1.68 on its own 931px canvas —
+## ~1.95 at our 1080. At 2.0px ours renders 1.22 per row; 2.5px measured 1.39 and stops reading as a cut,
+## starting to read as a soft glow. `engine/scripts/ui/paper_button.gd` re-exports this as
+## EDGE_FEATHER_PX rather than keeping a second copy of the number.
+const SMOOTH_FEATHER_PX := 2.0
 var paper_tex: Texture2D = null
 
 func _ready() -> void:
 	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED   # so the paper UVs (> 1) tile instead of clamp
 	resized.connect(queue_redraw)
 
+## How far in from the sheet's OUTLINE a consumer must seat its content. Three terms, each the clearance
+## for one thing that eats the sheet at its edge:
+##   * `corner * 0.5` — the corner arc, which cuts the usable rect in from the box on the diagonals;
+##   * `deckle_amp` — the tear, which displaces the outline OUTWARD by up to this much, so content that
+##     cleared only the corner would sit in a bay of the tear on an inward stretch;
+##   * `edge_feather * 0.5` — the ANTIALIAS band's inner half. The coverage ramp is centred on the
+##     outline (`feather_coverage`), so the paper is partially TRANSPARENT for half a band reading in,
+##     and content laid there sits on a see-through sheet. This is the tear's REPLACEMENT term, not an
+##     addition to it: a surface trades one for the other the moment its edge goes from torn to smooth,
+##     which is why zeroing `deckle_amp` does not simply drop the whole allowance.
+## `edge_feather` is read raw rather than through `_feather_px()` on purpose — that clamp needs the
+## panel's `size`, which is still zero when a builder asks for the inset right after `configure()`, and a
+## content inset that depended on layout order would differ between the first frame and the next.
 func content_inset() -> float:
-	return corner * 0.5 + deckle_amp
+	return corner * 0.5 + deckle_amp + edge_feather * 0.5
 
 ## Configure this panel from a NORMALIZED cut-paper opts dict — the shared edge knob set (corner ·
 ## deckle_amp · deckle_freq · rim_width · edge_shadow) produced by Kit.cut_paper_opts_from_config. This

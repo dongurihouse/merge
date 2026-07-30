@@ -109,6 +109,37 @@ func _initialize() -> void:
 	ok(float(plan["core"]) < float(ramp["d_in"]),
 		"the opaque core is inset past the ramp's inner lip (%.2f < %.2f)" % [plan["core"], ramp["d_in"]])
 
+	# 4c-ii) THE CONTENT-INSET CONTRACT. `content_inset()` is what the map cards, the mail card and the
+	# settings rows seat their content by, so the three things that eat the sheet at its edge each owe it a
+	# term: the corner arc, the tear, and the antialias band's INNER half (the ramp is centred on the
+	# outline, so the paper is see-through for half a band reading in). Written with literals, never with
+	# the panel's own fields — a bound spelled in terms of the thing under test passes any re-tuning of it.
+	var ins: Control = load(Kit.CUT_PAPER).new()
+	root.add_child(ins)
+	ins.corner = 32.0
+	ins.deckle_amp = 0.0
+	ins.edge_feather = 0.0
+	ok(is_equal_approx(ins.content_inset(), 16.0), "a bare 32px corner insets content by 16 (%.2f)" % ins.content_inset())
+	ins.deckle_amp = 5.0
+	ok(is_equal_approx(ins.content_inset(), 21.0), "…plus the whole tear it has to clear (%.2f)" % ins.content_inset())
+	ins.deckle_amp = 0.0
+	ins.edge_feather = 2.0
+	ok(is_equal_approx(ins.content_inset(), 17.0),
+		"…and a SMOOTH sheet clears half its feather band instead of the tear (%.2f)" % ins.content_inset())
+	# the trade is the point: dropping a 5px tear for a 2px feather moves content out by 4px, not 5.
+	ins.deckle_amp = 5.0
+	ins.edge_feather = 0.0
+	var torn_inset: float = ins.content_inset()
+	ins.deckle_amp = 0.0
+	ins.edge_feather = CP.SMOOTH_FEATHER_PX
+	ok(torn_inset - ins.content_inset() < 5.0 and torn_inset > ins.content_inset(),
+		"the smooth contract seats content further out than the torn one, but by LESS than the tear (%.2f px)"
+			% [torn_inset - ins.content_inset()])
+	# the feather width is ONE number for the whole game — the material module re-exports it, never re-types it.
+	var PaperMat := load("res://engine/scripts/ui/paper_button.gd")
+	ok(is_equal_approx(PaperMat.EDGE_FEATHER_PX, CP.SMOOTH_FEATHER_PX),
+		"the paper material's feather IS the panel's own SMOOTH_FEATHER_PX (%.2f)" % CP.SMOOTH_FEATHER_PX)
+
 	# 4d) OPT-IN. A torn surface must draw exactly what it always drew, so the feather is off unless the
 	# knob set asks for it; the nav tab — the one smooth surface — asks.
 	var EdgeTab := load("res://engine/scripts/ui/edge_tab.gd")
