@@ -89,6 +89,29 @@ run_mode() {
   echo "  $label: ok (gens=$got_gens genbag=$got_bag)"
 }
 
+# run_soil_ftue <seed|place>
+# Soil's teach moved from the retired literal L6 to the table-driven L13 gate, with weather and
+# cascade ahead of it in the shared registry. An exit-zero PNG is not enough: assert the live
+# board's semantic proof so a stale ledger or clock seed cannot silently photograph no teach.
+run_soil_ftue() {
+  local phase="$1"
+  run_capture "ftuesoil_$phase" ftuesoil "phase=$phase"
+  local line got_level got_armed got_seed got_hint got_phase
+  line="$(grep -m1 '^SOIL FTUE ' "$CAP_LOG" || true)"
+  [ -n "$line" ] || { cat "$CAP_LOG" >&2; fail "ftuesoil_$phase: no semantic Soil FTUE proof line"; }
+  got_level="$(field level "$line")"
+  got_armed="$(field armed "$line")"
+  got_seed="$(field seed "$line")"
+  got_hint="$(printf '%s\n' "$line" | sed -n 's/.* hint=\([^ ]*\).*/\1/p')"
+  got_phase="$(printf '%s\n' "$line" | sed -n 's/.* phase=\([^ ]*\).*/\1/p')"
+  [ "$got_level" = "13" ] || fail "ftuesoil_$phase: capture is not at the L13 Soil gate — $line"
+  [ "$got_armed" = "1" ] || fail "ftuesoil_$phase: Soil is not armed — $line"
+  [ "$got_seed" = "1" ] || fail "ftuesoil_$phase: no visible Soil seed exists — $line"
+  [ "$got_hint" = "soil_$phase" ] || fail "ftuesoil_$phase: expected soil_$phase hint — $line"
+  [ "$got_phase" = "$phase" ] || fail "ftuesoil_$phase: proof reports wrong phase — $line"
+  echo "  ftuesoil_$phase contract: ok ($line)"
+}
+
 # run_flyaway <expected-pieces>
 # flyaway is a SWEEP, and the sweep clears the line it flies away: gens= and genbag= both read 0
 # afterwards whether the fixture seeded or not, so those two cannot tell a real capture from a bare
@@ -128,6 +151,8 @@ CASCADE_GUIDE_LINE="$(grep -m1 '^CASCADE GUIDE ' "$CAP_LOG" || true)"
 echo "  cascade_guide contract: ok ($CASCADE_GUIDE_LINE)"
 run_mode cascade_seedguide 0 0 cascade phase=seedguide
 run_mode cascade_tagtarget 0 0 cascade phase=tagtarget
+run_soil_ftue seed
+run_soil_ftue place
 # Mastery reveal is not the old static info-row capture: it must be L10, reveal
 # through a real still-tap, and freeze while the ring is strictly mid-sweep.
 run_capture mastery_reveal mastery phase=reveal

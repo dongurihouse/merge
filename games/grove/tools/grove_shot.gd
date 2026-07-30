@@ -7,7 +7,7 @@ extends SceneTree
 ##        sky_calm | sky_sunbeam | sky_rain | sky_starfall | sky_starfall_blocked |
 ##        gentap (tap a generator → ⓘ → its own line's Tiers ladder) |
 ##        ftue (fresh ledger → the live merge-drag hand hint) | ftuegen (merge taught → the live
-##        generator-tap hand hint) | ftuesoil (L6 Soil-seed hand hint; phase=place for beat 2)
+##        generator-tap hand hint) | ftuesoil (table-gated Soil-seed hand hint; phase=place for beat 2)
 ##
 ## MODE=cascade takes `phase=`: run (default, frozen mid-run) | guide | dragfocus | seedguide |
 ##        tagtarget | runway [hold=N] | two (two chains armed at once) | x2 (the shortest chain) |
@@ -96,7 +96,13 @@ func _initialize() -> void:
 	if mode == "ftuegen":
 		Save.data["ftue_seen"] = {"merge": true}   # merge taught — the generator tap hand is live
 	if mode == "ftuesoil":
-		Save.data["ftue_seen"] = {"merge": true, "gen_tap": true}   # L6 grant: only Soil remains live
+		# Advance exactly the teaches before Soil in the registry; soil_seed itself stays unseen.
+		Save.data["ftue_seen"] = {
+			"merge": true,
+			"gen_tap": true,
+			"unlock_weather": true,
+			"unlock_cascade": true,
+		}
 	if mode == "flyaway":
 		Save.mark_ftue_seen("soil")
 		Save.mark_ftue_seen("soil_seed")
@@ -140,6 +146,10 @@ func _initialize() -> void:
 	match mode:
 		"ftuesoil":
 			var soil_phase := String(Base.opt(args, "phase", "seed"))
+			if soil_phase != "seed" and soil_phase != "place":
+				print("REFUSED: ftuesoil phase must be seed or place (got %s)." % soil_phase)
+				Base.finish(self, 2)
+				return
 			scn._maybe_soil_ftue()
 			await create_timer(0.35).timeout
 			if soil_phase == "place":
@@ -147,6 +157,23 @@ func _initialize() -> void:
 				if seed_cell.x >= 0:
 					scn._select_item(seed_cell)
 					await create_timer(0.35).timeout
+			var soil_gate_level := int(G.FEATURE_LEVEL["soil"])
+			var soil_armed := FeatureGate.armed("soil")
+			var visible_seed_cell: Vector2i = scn.board.first_item_of(
+				Improvements.seed_code_for_kind(Improvements.KIND_SOIL))
+			var visible_seed_node: Control = scn.piece_nodes.get(visible_seed_cell)
+			var has_visible_seed := visible_seed_cell.x >= 0 \
+				and visible_seed_node != null and is_instance_valid(visible_seed_node) \
+				and visible_seed_node.visible and visible_seed_node.is_visible_in_tree()
+			var active_soil_hint := String(scn.get("_hand_hint_id"))
+			var expected_soil_hint := "soil_%s" % soil_phase
+			print("SOIL FTUE level=%d armed=%d seed=%d hint=%s phase=%s" % [
+				G.level(), int(soil_armed), int(has_visible_seed), active_soil_hint, soil_phase])
+			if G.level() != soil_gate_level or not soil_armed or not has_visible_seed \
+					or active_soil_hint != expected_soil_hint:
+				print("REFUSED: ftuesoil is not a live %s teach at its table gate." % expected_soil_hint)
+				Base.finish(self, 2)
+				return
 		"cascade":
 			var phase := String(Base.opt(args, "phase", "run"))
 			var hold_tier := int(String(Base.opt(args, "hold", "0")))
@@ -967,7 +994,8 @@ static func _clock_seeds() -> Dictionary:
 		"levelup": _clock_midway(3),
 		# L6 · 25🪙 — the level the generator-tap capture is written for.
 		"gentap": G.coins_at_level(6),
-		"ftuesoil": G.coins_at_level(6),
+		# The Soil FTUE is photographed exactly at its table-owned feature threshold.
+		"ftuesoil": G.coins_at_level(int(G.FEATURE_LEVEL["soil"])),
 		# Flyaway is a zone-transition visual, so seed by symbolic zone unlock level.
 		"flyaway": G.coins_at_level(G.zone_unlock_level(3)),
 		# gate: the SAME 25 is also earned into the WALLET (earn_coins), because G.cluster_ready gates on

@@ -11,7 +11,7 @@ extends Control
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")
-const Save = preload("res://engine/scripts/core/save.gd")     # the rush-intro popup's first-N-rushes counter
+const Save = preload("res://engine/scripts/core/save.gd")     # persistent Rush tuning inputs and in-scene teach ledger
 const ExploreReward = preload("res://engine/scripts/ui/explore_reward.gd")  # the run's payout, as an overlay on this board
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")     # the shared screen-juice toolbox
@@ -499,8 +499,8 @@ func _apply_treefall_visual() -> void:
 		var arrow_center_x := clampf(col_screen_x - _activity.position.x, 8.0, _activity.size.x - 8.0)
 		_act_arrow.position.x = arrow_center_x - _act_arrow.size.x * 0.5
 
-# An ALWAYS-ON info bar teaching the two secondary verbs the top popup leaves out: tap-again-to-fling
-# and clearing a column before a treefall. The tray surface is the SAME shared recipe the board's bottom
+# An ALWAYS-ON in-scene bar teaching the secondary verbs: tap-again-to-fling and clearing a column
+# before a treefall. The tray surface is the SAME shared recipe the board's bottom
 # info bar wears (ActionBar.bar_style — flat cream + light edge + THE uniform shadow — with the kit's
 # paper-grain layer). Sized to the board width (pure %), and centred vertically in the bottom SECTION
 # (board bottom → screen bottom) so it sits in the open band below the grid.
@@ -515,7 +515,7 @@ func _build_bottom_hint() -> void:
 	strip.size = Vector2(strip_w, strip_h)
 	strip.custom_minimum_size = strip.size
 	# the tray: a PanelContainer (it lays the paper-grain layer into the shell's fixed inset) wearing the
-	# board bottom bar's shared style — the hint caption and info button ride on the strip above it.
+	# board bottom bar's shared style — the always-visible hint caption rides on the strip above it.
 	var tray := PanelContainer.new()
 	tray.name = "RushBottomHintTray"
 	tray.position = Vector2.ZERO
