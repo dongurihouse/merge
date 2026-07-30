@@ -6,6 +6,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Mastery = preload("res://engine/scripts/core/mastery.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
+const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
 
 func save_prefix() -> String:
 	return "tu_mastery_"
@@ -67,6 +68,7 @@ func _test_thresholds_and_windows() -> void:
 
 func _test_ask_band_and_sliding() -> void:
 	fresh("ask_band")
+	FeatureGate.mark_revealed("mastery")
 	var quests: Array = [
 		{"line": 1, "tier": 6, "reward": {"coins": 1}},
 		{"line": 5, "tier": 8, "reward": {"coins": 1}},
@@ -91,6 +93,7 @@ func _test_ask_band_and_sliding() -> void:
 ## than the tier-1 clicks its window floor is worth (that would make mastery a punishment).
 func _test_pop_cost() -> void:
 	fresh("pop_cost")
+	FeatureGate.mark_revealed("mastery")
 	ok(int(G.POP_COST_BY_TIER_LOW[0]) == G.POP_COST and G.pop_cost(1) == G.POP_COST,
 		"a rank-0 window low costs exactly POP_COST")
 	var monotone := true
@@ -157,6 +160,7 @@ func _test_credit_math() -> void:
 ## one rank-down, which is the main thing the button exists to re-test.
 func _test_set_rank() -> void:
 	fresh("set_rank")
+	FeatureGate.mark_revealed("mastery")
 	var line := int(G.ZONE_BASE_LINES[0])
 	var top := G.MASTERY_THRESHOLDS.size()
 	var round_trips := true

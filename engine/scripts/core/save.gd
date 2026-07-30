@@ -246,6 +246,28 @@ static func grove_write() -> void:
 	_ensure_loaded()
 	save_now()
 
+# --- magnet teach staging (spec 2026-07-29 §5) -----------------------------
+# Merges counted since the magnet gate armed. The teach prefers the seed to arrive as a DROP;
+# this counter is how long it waits before giving up and granting one.
+static func magnet_armed_merges() -> int:
+	return int(grove().get("magnet_armed_merges", 0))
+
+static func bump_magnet_armed_merges() -> void:
+	grove()["magnet_armed_merges"] = magnet_armed_merges() + 1
+	save_now()
+
+static func magnet_stage_due() -> bool:
+	return magnet_armed_merges() >= int(Game.DATA.MAGNET_STAGE_MERGES)
+
+static func magnet_stage_granted() -> bool:
+	return bool(grove().get("magnet_stage_granted", false))
+
+static func mark_magnet_stage_granted() -> void:
+	if magnet_stage_granted():
+		return
+	grove()["magnet_stage_granted"] = true
+	save_now()
+
 # The single cumulative progression total (replaces stars_earned + the spendable balance).
 # Only ever increases; every world unlock gates on reaching a threshold of it.
 static func exp_total() -> int:
@@ -482,17 +504,6 @@ static func board_tutorial_seen() -> bool:
 
 static func mark_board_tutorial_seen() -> void:
 	grove()["board_tutorial_seen"] = true
-	grove_write()
-
-# --- rush teaching popup: how many times the "Tap to Merge!" intro has shown ------
-# A small counter in the grove blob (defaulted to 0 on old saves, no migration) gating the
-# rush-start teaching popup to a player's first few rushes. The threshold lives in explore.gd
-# (Explore.rush_intro_should_show); this is the pure persistence — read with a default, bump + save.
-static func rush_intro_seen() -> int:
-	return int(grove().get("rush_intro_seen", 0))
-
-static func mark_rush_intro_seen() -> void:
-	grove()["rush_intro_seen"] = rush_intro_seen() + 1
 	grove_write()
 
 # --- water — a Save-backed currency (grove energy) -------------------------

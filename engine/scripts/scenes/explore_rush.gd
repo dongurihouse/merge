@@ -11,7 +11,7 @@ extends Control
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")
-const Save = preload("res://engine/scripts/core/save.gd")     # the rush-intro popup's first-N-rushes counter
+const Save = preload("res://engine/scripts/core/save.gd")     # persistent Rush tuning inputs and in-scene teach ledger
 const ExploreReward = preload("res://engine/scripts/ui/explore_reward.gd")  # the run's payout, as an overlay on this board
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")     # the shared screen-juice toolbox
@@ -29,7 +29,6 @@ const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")      # the toggle
 const LandFx = preload("res://engine/scripts/ui/land_fx.gd")        # (workbench-tuned, resolved once in _ready)
 const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")
 const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
-const TutorialImage = preload("res://engine/scripts/ui/tutorial_image.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX       # MOVE_* arc-leg timings (the fling spin matches the move arc)
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")  # bundle D: the warm streak screen-bloom overlay
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
@@ -38,8 +37,6 @@ const HandHint = preload("res://engine/scripts/ui/hand_hint.gd")     # FTUE: the
 
 static var RUSH_ART := Look.kit("rush/%s.png")          # the carved-wood / parchment top-bar pieces
 static var DANGER_CHEVRON_ART := Look.kit("meadow_v2/danger_chevron.png")
-const RUSH_TUTORIAL_OVERLAY := "RushTutorialOverlay"
-static var RUSH_TUTORIAL_IMAGE := Look.kit("tutorial/how_to_play_rush.png")
 
 # --- Rush chrome layout — every band is sized as a FRACTION of the viewport (no fixed-px clamps), so the
 # whole HUD scales 1:1 with the device. The vertical stack, top → bottom:
@@ -502,8 +499,8 @@ func _apply_treefall_visual() -> void:
 		var arrow_center_x := clampf(col_screen_x - _activity.position.x, 8.0, _activity.size.x - 8.0)
 		_act_arrow.position.x = arrow_center_x - _act_arrow.size.x * 0.5
 
-# An ALWAYS-ON info bar teaching the two secondary verbs the top popup leaves out: tap-again-to-fling
-# and clearing a column before a treefall. The tray surface is the SAME shared recipe the board's bottom
+# An ALWAYS-ON in-scene bar teaching the secondary verbs: tap-again-to-fling and clearing a column
+# before a treefall. The tray surface is the SAME shared recipe the board's bottom
 # info bar wears (ActionBar.bar_style — flat cream + light edge + THE uniform shadow — with the kit's
 # paper-grain layer). Sized to the board width (pure %), and centred vertically in the bottom SECTION
 # (board bottom → screen bottom) so it sits in the open band below the grid.
@@ -518,7 +515,7 @@ func _build_bottom_hint() -> void:
 	strip.size = Vector2(strip_w, strip_h)
 	strip.custom_minimum_size = strip.size
 	# the tray: a PanelContainer (it lays the paper-grain layer into the shell's fixed inset) wearing the
-	# board bottom bar's shared style — the hint caption and info button ride on the strip above it.
+	# board bottom bar's shared style — the always-visible hint caption rides on the strip above it.
 	var tray := PanelContainer.new()
 	tray.name = "RushBottomHintTray"
 	tray.position = Vector2.ZERO
@@ -533,7 +530,6 @@ func _build_bottom_hint() -> void:
 	strip.add_child(tray)
 	tray.add_child(deckle_host)
 	var pad := strip_h * 0.55
-	var info_px := strip_h * 0.74
 	var l := Label.new()
 	l.name = "RushBottomHint"
 	l.text = "Tap again to fling · avoid treefall"
@@ -543,15 +539,12 @@ func _build_bottom_hint() -> void:
 	# the caption box FILLS the strip so the centring is symmetric; the code-drawn tray has no painted
 	# pill offset, so no optical nudge is needed.
 	l.position = Vector2(pad, 0.0)
-	l.size = Vector2(maxf(1.0, strip_w - pad * 2.0 - info_px * 1.25), strip_h)
+	l.size = Vector2(maxf(1.0, strip_w - pad * 2.0), strip_h)
 	l.add_theme_font_size_override("font_size", int(maxf(18.0, strip_h * RUSH_HINT_FS_FRAC)))
 	l.add_theme_color_override("font_color", Pal.INK)
 	l.add_theme_constant_override("outline_size", 0)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	strip.add_child(l)
-	var info := _rush_info_button(info_px)
-	info.position = Vector2(strip_w - pad * 0.65 - info_px, (strip_h - info_px) * 0.5)
-	strip.add_child(info)
 	add_child(strip)
 	# centred vertically in the bottom SECTION: the open band between the board's bottom and the screen
 	# bottom (minus the safe area). The board reserves exactly _band.bottom_band there, so centre within it.
@@ -559,44 +552,6 @@ func _build_bottom_hint() -> void:
 	strip.position = Vector2((vw - strip_w) * 0.5, strip_y)
 	_hint = strip
 	_hint_h = strip_h
-
-func _rush_info_button(px: float) -> Button:
-	var b := Button.new()
-	b.name = "RushInfoButton"
-	b.text = ""
-	b.tooltip_text = "How to play"
-	b.focus_mode = Control.FOCUS_NONE
-	b.size = Vector2(px, px)
-	b.custom_minimum_size = b.size
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#F8E9D0")
-	sb.border_color = GOLD
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(int(px * 0.5))
-	Look.apply_box_shadow(sb)
-	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		b.add_theme_stylebox_override(state, sb)
-	var glyph := Label.new()
-	glyph.name = "RushInfoGlyph"
-	glyph.text = "i"
-	glyph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	glyph.add_theme_font_size_override("font_size", int(px * 0.62))
-	glyph.add_theme_color_override("font_color", INK)
-	glyph.add_theme_color_override("font_outline_color", Color("#F8E9D0", 0.70))
-	glyph.add_theme_constant_override("outline_size", 1)
-	b.add_child(glyph)
-	b.pressed.connect(_show_rush_tutorial)
-	return b
-
-func _show_rush_tutorial() -> Control:
-	return TutorialImage.open(self, RUSH_TUTORIAL_OVERLAY, RUSH_TUTORIAL_IMAGE)
-
-func _rush_tutorial_open() -> bool:
-	var overlay := get_node_or_null(NodePath(RUSH_TUTORIAL_OVERLAY))
-	return overlay != null and not overlay.is_queued_for_deletion()
 
 func _start() -> void:
 	_grid = []
@@ -615,16 +570,10 @@ func _start() -> void:
 	_running = true
 	_refresh_readouts()
 	set_process(true)
-	# The Rush how-to image appears once, then stays available through the bottom info button.
-	if Explore.rush_intro_should_show(Save.rush_intro_seen()):
-		Save.mark_rush_intro_seen()
-		_show_rush_tutorial()
 
 # --- frame loop ------------------------------------------------------------------
 func _process(dt: float) -> void:
 	if not _running:
-		return
-	if _rush_tutorial_open():
 		return
 	dt = minf(dt, 0.1)
 	_elapsed += dt

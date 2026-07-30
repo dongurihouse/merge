@@ -44,8 +44,6 @@ const ROLE_NAMES := ["CREAM", "STRAW", "INK", "BARK", "SKY", "MEADOW", "LEAF", "
 ## Sites deliberately left as literals. One line of reason each — an entry here is a
 ## decision, not a backlog item. Keyed "res://path.gd:LINE".
 const ALLOWLIST := {
-	"res://games/grove/tests/grove_explore_tests.gd@INK":
-		"pins the Rush hint's ink text colour independently — reading it from Pal would make the assertion restate itself and stop catching a palette-role swap",
 	"res://games/grove/tests/grove_ui_workbench_tests.gd@STRAW":
 		"pins that a workbench-saved fill_color override round-trips to that exact hex; the value being STRAW is incidental to what the test proves",
 }

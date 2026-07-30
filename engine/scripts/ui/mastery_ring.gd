@@ -33,6 +33,17 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	queue_redraw()
 
+## The REVEAL sweep: fill from empty up to the meter's banked value. Used once, on the first
+## generator tap after the mastery gate arms — the ring has been filling invisibly since L1, and
+## this is the beat that says so.
+func sweep_to(frac: float, secs: float) -> void:
+	progress = 0.0
+	queue_redraw()
+	var tw := create_tween()
+	tw.tween_method(func(v: float) -> void:
+		progress = v
+		queue_redraw(), 0.0, clampf(frac, 0.0, 1.0), secs)
+
 func _draw() -> void:
 	var s := minf(size.x, size.y)
 	if s <= 0.0:

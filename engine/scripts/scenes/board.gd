@@ -59,8 +59,10 @@ const SkyLogic = preload("res://engine/scripts/core/sky.gd")
 const SkyPatch = preload("res://engine/scripts/ui/sky_patch.gd")
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 const HandHint = preload("res://engine/scripts/ui/hand_hint.gd")   # FTUE: the merge / generator-tap teach overlay
+const TeachRegistry = preload("res://engine/scripts/ui/teach_registry.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
+const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims the t8-sell premium here
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")   # pre-warm Map off-thread so Home is snappy
 const Game = preload("res://engine/scripts/core/game.gd")
@@ -377,6 +379,7 @@ var _chain_origin_cell := Vector2i(-1, -1)
 # is the counter's anchor and stays pinned to where the run began (see _chain_counter_at).
 var _chain_head := Vector2i(-1, -1)
 var _chain_reward_cell := Vector2i(-1, -1)
+var _chain_teach_pending := false   # the player began the cascade the live teach pointed at
 var _cascade_outline: Control = null
 var _guide_cell_size := -1.0          # the csz the outline was last configured for (configure clears its geometry cache)
 
@@ -1326,9 +1329,9 @@ func _hint_pair() -> Array:
 	return pair
 
 # --- FTUE hand hints -------------------------------------------------------------------
-# Three one-time teaches, in ledger order: drag-to-merge, tap-the-generator, then (from L6)
-# place-the-Soil-seed. Specs: docs/superpowers/specs/2026-07-23-ftue-hand-hint-design.md and
-# §5 of 2026-07-26-cell-improvements-design.md.
+# One-time teaches, in priority order: drag-to-merge, tap-the-generator, weather, cascade,
+# then place-the-Soil-seed. Specs: docs/superpowers/specs/2026-07-23-ftue-hand-hint-design.md,
+# §5 of 2026-07-26-cell-improvements-design.md, and the feature-level gating design.
 #
 # The soil teach runs as TWO beats behind ONE persisted key (`soil_seed`): id "soil_seed"
 # points at the seed on the board, and once the seed is selected id "soil_place" moves the
@@ -1351,48 +1354,184 @@ func _maybe_hand_hint() -> void:
 	await get_tree().process_frame          # let the rebuild's layout settle before reading rects
 	if not is_inside_tree():
 		return
-	var gen_cell := _hand_hint_gen_cell()   # one scan of gen_nodes, shared by eligibility + rect lookup
-	var want := _hand_hint_eligible(gen_cell)
+	var want := _hand_hint_eligible()
 	if want == "":
 		_dismiss_hand_hint()
 		return
-	var rects := _hand_hint_rects(want, gen_cell)
-	if rects.is_empty():
+	var spec := TeachRegistry.spec_for(_teach_specs(), want)
+	var rects: Array = (spec.get("rects", Callable()) as Callable).call()
+	if rects.size() < 2:
 		_dismiss_hand_hint()
 		return
 	if _hand_hint != null and is_instance_valid(_hand_hint) and _hand_hint_id == want:
 		_hand_hint.retarget(rects[0], rects[1])   # same teach, moved board — keep the loop running
 		return
 	_dismiss_hand_hint()
-	var gesture: String = HandHint.GESTURE_DRAG if want == "merge" else HandHint.GESTURE_TAP
-	_hand_hint = HandHint.present(self, gesture, rects[0], rects[1])
+	_hand_hint = HandHint.present(self, String(spec.get("gesture", HandHint.GESTURE_TAP)), rects[0], rects[1])
 	_hand_hint_id = want if _hand_hint != null else ""
 
-# Which teach the ledger + the current board allow. "" = none. `gen_cell` is the caller's own
-# _hand_hint_gen_cell() result — passed in rather than re-scanned here (that scan runs once per
-# _maybe_hand_hint(), not twice: once for eligibility, again for _hand_hint_rects()).
-func _hand_hint_eligible(gen_cell: Array) -> String:
-	if Save.ftue_seen("soil") and not Save.ftue_seen("soil_seed"):
-		if _soil_place_hint_ready():
-			return "soil_place"
-		if not _soil_seed_hint_cell().is_empty():
-			return "soil_seed"
-	var has_pair := not BoardLogic.find_mergeable_pair(board).is_empty()
-	var has_gen := not gen_cell.is_empty()
-	return HandHint.next_hint_id(Save.ftue_seen("merge"), Save.ftue_seen("gen_tap"), has_pair, has_gen)
+# THE TEACH SPEC ARRAY — the single ordered list both readers derive from (ui/teach_registry.gd).
+# Order IS priority.
+func _teach_specs() -> Array:
+	return [
+		{
+			"id": "merge", "ledger": "merge",
+			"gate": func() -> bool: return true,
+			"ready": func() -> bool: return not BoardLogic.find_mergeable_pair(board).is_empty(),
+			"rects": _merge_teach_rects,
+			"gesture": HandHint.GESTURE_DRAG,
+		},
+		{
+			"id": "gen_tap", "ledger": "gen_tap",
+			"gate": func() -> bool: return Save.ftue_seen("merge"),
+			"ready": func() -> bool: return not _hand_hint_gen_cell().is_empty(),
+			"rects": _gen_tap_teach_rects,
+			"gesture": HandHint.GESTURE_TAP,
+		},
+		{
+			"id": "weather",
+			"ledger": "unlock_weather",
+			"gate": func() -> bool: return FeatureGate.armed("weather"),
+			"ready": func() -> bool: return not _weather_teach_pair().is_empty(),
+			"rects": _weather_teach_rects,
+			"gesture": HandHint.GESTURE_DRAG,
+		},
+		{
+			"id": "cascade", "ledger": "unlock_cascade",
+			"gate": func() -> bool: return FeatureGate.armed("cascade"),
+			"ready": func() -> bool: return not _cascade_teach_pair().is_empty(),
+			"rects": _cascade_teach_rects,
+			"gesture": HandHint.GESTURE_DRAG,
+		},
+		{
+			"id": "soil_place", "ledger": "soil_seed",
+			"gate": func() -> bool: return Save.ftue_seen("soil"),
+			"ready": _soil_place_hint_ready,
+			"rects": func() -> Array:
+				if not _soil_place_hint_ready():
+					return []
+				return [_cell_local_rect(_selected_cell), _local_rect(_info_seed_place)],
+			"gesture": HandHint.GESTURE_TAP,
+		},
+		{
+			"id": "soil_seed", "ledger": "soil_seed",
+			"gate": func() -> bool: return Save.ftue_seen("soil"),
+			"ready": func() -> bool: return not _soil_seed_hint_cell().is_empty(),
+			"rects": func() -> Array:
+				var seed_cell := _soil_seed_hint_cell()
+				if seed_cell.is_empty():
+					return []
+				return [Rect2(), _cell_local_rect(seed_cell[0])],
+			"gesture": HandHint.GESTURE_TAP,
+		},
+		{
+			"id": "magnet_place", "ledger": "unlock_magnet",
+			"gate": func() -> bool: return FeatureGate.armed("magnet"),
+			"ready": _magnet_place_hint_ready,
+			"rects": func() -> Array:
+				if not _magnet_place_hint_ready():
+					return []
+				return [_cell_local_rect(_selected_cell), _local_rect(_info_seed_place)],
+			"gesture": HandHint.GESTURE_TAP,
+		},
+		{
+			"id": "magnet_seed", "ledger": "unlock_magnet",
+			"gate": func() -> bool: return FeatureGate.armed("magnet"),
+			"ready": func() -> bool: return not _magnet_seed_hint_cell().is_empty(),
+			"rects": func() -> Array:
+				var seed_cell := _magnet_seed_hint_cell()
+				if seed_cell.is_empty():
+					return []
+				return [Rect2(), _cell_local_rect(seed_cell[0])],
+			"gesture": HandHint.GESTURE_TAP,
+		},
+	]
 
-# "No teach can possibly be live" — the cheap gate that lets _maybe_hand_hint bail BEFORE its
-# frame await, since _after_board_change calls it on every board mutation. It reads the ledger
-# only (no board scan), so it is deliberately a touch more permissive than _hand_hint_eligible:
-# it may say "not complete" when the board happens to offer nothing, and eligibility then
-# returns "" a frame later. It must never say "complete" while a teach could still fire.
-#
-# KEEP IN SYNC with _hand_hint_eligible(): a new teach added there and forgotten here is
-# short-circuited before eligibility ever runs — it silently never appears, with no error and
-# no failing test.
+func _merge_teach_rects() -> Array:
+	var pair := BoardLogic.find_mergeable_pair(board)
+	if pair.size() < 2:
+		return []
+	var a: Control = piece_nodes.get(pair[0])
+	var b: Control = piece_nodes.get(pair[1])
+	if a == null or not is_instance_valid(a) or b == null or not is_instance_valid(b):
+		return []
+	return [_local_rect(a), _local_rect(b)]
+
+func _gen_tap_teach_rects() -> Array:
+	var gen_cell := _hand_hint_gen_cell()
+	if gen_cell.is_empty():
+		return []
+	var gn: Control = gen_nodes.get(gen_cell[0])
+	if gn == null or not is_instance_valid(gn):
+		return []
+	return [Rect2(), _local_rect(gn)]
+
+# Every player-actionable equal-code pair, in stable board order. find_mergeable_pair() is an idle
+# nudge seam: it can stop on equal pieces carrying collect rewards, and it returns only one pair.
+# Teaches must search the whole board and promise a drag board.can_merge() will actually accept.
+func _actionable_merge_pairs() -> Array:
+	var pairs: Array = []
+	if board == null:
+		return pairs
+	for i in board.items.size():
+		var a := BoardModel.cell_of(i)
+		for j in range(i + 1, board.items.size()):
+			var b := BoardModel.cell_of(j)
+			if board.can_merge(a, b):
+				pairs.append([a, b])
+	return pairs
+
+# The mergeable pair the weather teach points at, oriented so the destination sits INSIDE the live
+# sky patch. The taught gesture is therefore "merge into the glow", exactly what completion banks.
+func _weather_teach_pair() -> Array:
+	if _sky_state.is_empty() or not SkyLogic.gate_open():
+		return []
+	for raw_pair in _actionable_merge_pairs():
+		var pair: Array = raw_pair
+		if SkyLogic.in_patch(_sky_state, pair[1]):
+			return pair
+		if SkyLogic.in_patch(_sky_state, pair[0]):
+			return [pair[1], pair[0]]
+	return []
+
+func _weather_teach_rects() -> Array:
+	var pair := _weather_teach_pair()
+	if pair.size() < 2:
+		return []
+	var a: Control = piece_nodes.get(pair[0])
+	var b: Control = piece_nodes.get(pair[1])
+	if a == null or not is_instance_valid(a) or b == null or not is_instance_valid(b):
+		return []
+	return [_local_rect(a), _local_rect(b)]
+
+# The oriented pair whose merge would TIP a real player-built runway. A chain may arm at x2, but
+# that lower CHAIN_MIN_N is deliberately NOT the one-time teach threshold: wait for the stronger
+# x3 runway. chain_path is destination-sensitive, so test both legal drag directions for every
+# actionable pair before moving on to the next one.
+func _cascade_teach_pair() -> Array:
+	for raw_pair in _actionable_merge_pairs():
+		var pair: Array = raw_pair
+		if 1 + BoardLogic.chain_path(board, pair[0], pair[1]).size() >= RUNWAY_MIN_N:
+			return pair
+		if 1 + BoardLogic.chain_path(board, pair[1], pair[0]).size() >= RUNWAY_MIN_N:
+			return [pair[1], pair[0]]
+	return []
+
+func _cascade_teach_rects() -> Array:
+	var pair := _cascade_teach_pair()
+	if pair.size() < 2:
+		return []
+	var a: Control = piece_nodes.get(pair[0])
+	var b: Control = piece_nodes.get(pair[1])
+	if a == null or not is_instance_valid(a) or b == null or not is_instance_valid(b):
+		return []
+	return [_local_rect(a), _local_rect(b)]
+
+func _hand_hint_eligible() -> String:
+	return TeachRegistry.eligible(_teach_specs())
+
 func _hand_hint_ledger_complete() -> bool:
-	var soil_complete := not Save.ftue_seen("soil") or Save.ftue_seen("soil_seed")
-	return Save.ftue_seen("merge") and Save.ftue_seen("gen_tap") and soil_complete
+	return TeachRegistry.complete(_teach_specs())
 
 func _soil_place_hint_ready() -> bool:
 	if _selected_cell.x < 0:
@@ -1403,6 +1542,22 @@ func _soil_place_hint_ready() -> bool:
 
 func _soil_seed_hint_cell() -> Array:
 	var code := Improvements.seed_code_for_kind(Improvements.KIND_SOIL)
+	for cell in piece_nodes.keys():
+		if board.item_at(cell) == code:
+			var n: Control = piece_nodes.get(cell)
+			if n != null and is_instance_valid(n):
+				return [cell]
+	return []
+
+func _magnet_place_hint_ready() -> bool:
+	if _selected_cell.x < 0:
+		return false
+	if board.item_at(_selected_cell) != Improvements.seed_code_for_kind(Improvements.KIND_MAGNET):
+		return false
+	return _info_seed_place != null and is_instance_valid(_info_seed_place) and _info_seed_place.visible
+
+func _magnet_seed_hint_cell() -> Array:
+	var code := Improvements.seed_code_for_kind(Improvements.KIND_MAGNET)
 	for cell in piece_nodes.keys():
 		if board.item_at(cell) == code:
 			var n: Control = piece_nodes.get(cell)
@@ -1423,34 +1578,6 @@ func _hand_hint_gen_cell() -> Array:
 		if n != null and is_instance_valid(n):
 			return [cell]
 	return []
-
-# [source_rect, target_rect] in THIS control's space, or [] when a node is missing. `gen_cell` is
-# the caller's own _hand_hint_gen_cell() result (see _hand_hint_eligible()'s comment).
-func _hand_hint_rects(id: String, gen_cell: Array) -> Array:
-	if id == "merge":
-		var pair := BoardLogic.find_mergeable_pair(board)
-		if pair.size() < 2:
-			return []
-		var a: Control = piece_nodes.get(pair[0])
-		var b: Control = piece_nodes.get(pair[1])
-		if a == null or not is_instance_valid(a) or b == null or not is_instance_valid(b):
-			return []
-		return [_local_rect(a), _local_rect(b)]
-	if id == "soil_seed":
-		var seed_cell := _soil_seed_hint_cell()
-		if seed_cell.is_empty():
-			return []
-		return [Rect2(), _cell_local_rect(seed_cell[0])]
-	if id == "soil_place":
-		if not _soil_place_hint_ready():
-			return []
-		return [_cell_local_rect(_selected_cell), _local_rect(_info_seed_place)]
-	if gen_cell.is_empty():
-		return []
-	var gn: Control = gen_nodes.get(gen_cell[0])
-	if gn == null or not is_instance_valid(gn):
-		return []
-	return [Rect2(), _local_rect(gn)]
 
 func _cell_local_rect(cell: Vector2i) -> Rect2:
 	if board_area == null or not is_instance_valid(board_area):
@@ -1473,18 +1600,19 @@ func _dismiss_hand_hint() -> void:
 	_hand_hint_id = ""
 
 # The taught action HAPPENED — bank it and hand off to the next teach.
-func _end_hand_hint(id: String) -> void:
+func _end_hand_hint(ledger: String) -> void:
 	if not Features.on("ftue_hand_hint"):   # flag off: tear down ANY live hint, not just an id match —
 		_dismiss_hand_hint()                 # a different-id hint would otherwise linger until some later,
 		return                                # unrelated rebuild. No ledger write while the flag is off.
-	if _hand_hint_id == id or (id == "soil_seed" and _hand_hint_id == "soil_place"):
-		# Tear down before the seen check below — a live hint must clear even if `id` is already
+	var live := TeachRegistry.spec_for(_teach_specs(), _hand_hint_id)
+	if String(live.get("ledger", "")) == ledger:
+		# Tear down before the seen check below — a live hint must clear even if `ledger` is already
 		# marked seen (that check returns early and never re-teaches, so it must not gate the teardown).
 		_dismiss_hand_hint()
 
-	if Save.ftue_seen(id):
+	if Save.ftue_seen(ledger):
 		return
-	Save.mark_ftue_seen(id)
+	Save.mark_ftue_seen(ledger)
 	_maybe_hand_hint()
 
 # --- display orientation -------------------------------------------------------------
@@ -2539,7 +2667,7 @@ func _refresh_item_line_dim() -> void:
 		node.modulate = ITEM_UNUSED if unused else Color(1, 1, 1, 1)
 
 func _ensure_cascade_outline() -> Control:
-	if not Features.on("cascade") or board_area == null or not is_instance_valid(board_area):
+	if not FeatureGate.armed("cascade") or board_area == null or not is_instance_valid(board_area):
 		if _cascade_outline != null and is_instance_valid(_cascade_outline):
 			_cascade_outline.queue_free()
 		_cascade_outline = null
@@ -2615,7 +2743,7 @@ func _publish_guide() -> void:
 	# a run cut short can never leave the resting marks stuck at the pulse's dip.
 	if mode != CascadeMarks.MODE_RUN:
 		_kill_guide_pulse(outline)
-	outline.set_marks(CascadeMarks.build(board, ctx) if Features.on("cascade") else [])
+	outline.set_marks(CascadeMarks.build(board, ctx) if FeatureGate.armed("cascade") else [])
 
 func _kill_guide_pulse(outline: Control) -> void:
 	outline.modulate = Color(1, 1, 1, 1)
@@ -3150,6 +3278,8 @@ func _place_seed(cell: Vector2i) -> bool:
 		return false
 	if seed_kind == Improvements.KIND_SOIL:
 		_end_hand_hint("soil_seed")
+	elif seed_kind == Improvements.KIND_MAGNET:
+		_end_hand_hint("unlock_magnet")
 	Audio.play("button_tap", -2.0)
 	_rebuild_all()
 	_after_board_change()
@@ -3516,9 +3646,7 @@ func _after_magnet_merge(out: Dictionary, render := true) -> void:
 		_refresh_locked_cells()
 
 func _maybe_soil_ftue() -> void:
-	if not _improvements_enabled() or Save.ftue_seen("soil") or not Save.board_tutorial_seen():
-		return
-	if G.level() < 6:
+	if Save.ftue_seen("soil") or not FeatureGate.armed("soil"):
 		return
 	var code := Improvements.seed_code_for_kind(Improvements.KIND_SOIL)
 	var granted := false
@@ -3547,6 +3675,38 @@ func _maybe_soil_ftue() -> void:
 		_maybe_hand_hint()
 	if is_inside_tree():
 		FX.floating_text(self, Vector2(get_global_rect().get_center().x - 260, 220), "A seed of good earth! Tap it to choose a spot.", CREAM, FS.BODY)
+
+# The magnet teach prefers the seed to ARRIVE — armed, it is back in the drop table, so a merge
+# eventually shakes one loose and it reads as loot. This is the giving-up path: after
+# G.MAGNET_STAGE_MERGES armed merges with no seed ever held, grant one so the teach is not
+# hostage to the RNG. The caller is _after_merge, after lucky drops and before its one shared
+# _after_board_change; this helper must not invoke that fan-out itself.
+func _maybe_magnet_stage() -> void:
+	if Save.ftue_seen("unlock_magnet") or not FeatureGate.armed("magnet"):
+		return
+	if Save.magnet_stage_granted():
+		return
+	if _has_unplaced_seed(Improvements.KIND_MAGNET) \
+		or board.improvement_count(Improvements.KIND_MAGNET) > 0:
+		return
+	Save.bump_magnet_armed_merges()
+	if not Save.magnet_stage_due():
+		return
+	var code := Improvements.seed_code_for_kind(Improvements.KIND_MAGNET)
+	for c in board.empty_ground_cells():
+		if board.can_build_improvement(c):
+			board.place(c, code)
+			_rebuild_all()
+			# Persist the destination before the one-shot marker: a crash between these writes can
+			# leave an unmarked held seed (which suppresses another grant), never a marked missing one.
+			_persist()
+			Save.mark_magnet_stage_granted()
+			return
+	if bag.size() < _bag_capacity():
+		_bag_append(code)
+		_rebuild_bag()
+		_persist()
+		Save.mark_magnet_stage_granted()
 
 func _has_unplaced_seed(kind: String) -> bool:
 	var code := Improvements.seed_code_for_kind(kind)
@@ -4797,6 +4957,8 @@ func _line_color(line: int) -> Color:
 func _attach_mastery_chrome(gn: Control, gid: String) -> void:
 	if not Features.on("mastery"):
 		return
+	if not FeatureGate.revealed("mastery"):
+		return
 	var line := _gen_line(gid)
 	if line <= 0 or Mastery.meter(line) <= 0:
 		return
@@ -4812,7 +4974,10 @@ func _attach_mastery_chrome(gn: Control, gid: String) -> void:
 	_add_mastery_trim(gn, Mastery.rank(line))
 
 func _refresh_mastery_chrome() -> void:
-	if not Features.on("mastery"):
+	if not Features.on("mastery") or not FeatureGate.revealed("mastery"):
+		for gn in gen_nodes.values():
+			if gn != null and is_instance_valid(gn):
+				_remove_mastery_chrome(gn)
 		return
 	for cell in gen_nodes:
 		var gn: Control = gen_nodes[cell]
@@ -4821,8 +4986,7 @@ func _refresh_mastery_chrome() -> void:
 		var line := _gen_line(board.gen_id_at(cell))
 		var ring := gn.get_node_or_null("MasteryRing") as MasteryRing
 		if Mastery.meter(line) <= 0:
-			if ring != null:
-				ring.queue_free()
+			_remove_mastery_chrome(gn)
 			continue
 		if ring == null:
 			_attach_mastery_chrome(gn, board.gen_id_at(cell))
@@ -4830,6 +4994,12 @@ func _refresh_mastery_chrome() -> void:
 			ring.ring_color = _line_color(line)
 			ring.progress = Mastery.rank_progress(line)
 		_refresh_mastery_trim(gn, Mastery.rank(line))
+
+func _remove_mastery_chrome(gn: Control) -> void:
+	for child_name in ["MasteryRing", "MasteryTrim"]:
+		var child := gn.get_node_or_null(child_name)
+		if child != null:
+			child.queue_free()
 
 func _add_mastery_trim(gn: Control, rank: int) -> void:
 	var trim := _mastery_trim(rank)
@@ -5164,6 +5334,26 @@ func _on_release(pos: Vector2) -> void:
 ## A generator was dragged (T17). A still tap pops it; otherwise it MOVES to empty ground
 ## (#1) or EVOLVES onto the predecessor it upgrades (#2 — the grant→old merge). A generator
 ## is never sold and never normal-merges; any other drop snaps it back.
+# THE MASTERY REVEAL — no gesture to teach (the player already taps generators), so this is a
+# reward beat: the ring sweeps up to the value the meter has quietly held since L1, and the
+# rank clamp lifts behind it.
+func _maybe_mastery_reveal(cell: Vector2i) -> void:
+	if not FeatureGate.armed("mastery") or FeatureGate.revealed("mastery"):
+		return
+	var line := _gen_line(board.gen_id_at(cell))
+	if line <= 0 or Mastery.meter(line) <= 0:
+		return
+	FeatureGate.mark_revealed("mastery")
+	_refresh_mastery_chrome()
+	var gn: Control = gen_nodes.get(cell)
+	if gn == null or not is_instance_valid(gn):
+		return
+	var ring := gn.get_node_or_null("MasteryRing") as MasteryRing
+	if ring != null:
+		ring.sweep_to(Mastery.rank_progress(line), 0.9)
+	if Features.on("big_moment_shake"):
+		FX.celebrate_at(self, _cell_local_rect(cell).get_center(), "", _line_color(line))
+
 func _release_gen(pos: Vector2) -> void:
 	_drag_is_gen = false
 	var target := _pos_to_cell(pos)
@@ -5183,6 +5373,7 @@ func _release_gen(pos: Vector2) -> void:
 	if target == from and pos.distance_to(_press_pos) <= _drag_slop_px():
 		if node != null:
 			node.position = _cell_pos(from)
+		_maybe_mastery_reveal(from)
 		if G.is_accumulator(board.gen_id_at(from)):
 			_collect_accumulator(from)        # §6.C an accumulator banks a resource — a tap collects it
 			if board.is_gen(from):
@@ -5401,7 +5592,8 @@ func _prepare_chain(a: Vector2i, b: Vector2i) -> void:
 	_chain_origin_cell = Vector2i(-1, -1)
 	_chain_head = Vector2i(-1, -1)
 	_chain_reward_cell = Vector2i(-1, -1)
-	if not Features.on("cascade"):
+	_chain_teach_pending = false
+	if not FeatureGate.armed("cascade"):
 		_refresh_chain_board_visibility()
 		return
 	_chain_run = BoardLogic.chain_path(board, a, b)
@@ -5410,6 +5602,7 @@ func _prepare_chain(a: Vector2i, b: Vector2i) -> void:
 		_chain_active = true
 		_chain_origin_cell = b
 		_chain_head = b
+		_chain_teach_pending = _hand_hint_id == "cascade"
 	else:
 		_chain_run = []
 	_refresh_chain_board_visibility()
@@ -5482,6 +5675,11 @@ func _run_chain_step(current: Vector2i) -> void:
 	_publish_guide()
 
 func _finish_chain() -> void:
+	# Intermediate chain merges re-evaluate the registry after each mutation. Once the pointed
+	# source pair has merged, it is no longer ready and that refresh may dismiss the overlay;
+	# the start-time latch is what carries "the player followed THIS teach" to real completion.
+	if _chain_teach_pending and _chain_n >= CHAIN_MIN_N:
+		_end_hand_hint("unlock_cascade")
 	_chain_run = []
 	_chain_n = 0
 	_chain_active = false
@@ -5489,6 +5687,7 @@ func _finish_chain() -> void:
 	_chain_origin_cell = Vector2i(-1, -1)
 	_chain_head = Vector2i(-1, -1)
 	_chain_reward_cell = Vector2i(-1, -1)
+	_chain_teach_pending = false
 	animating = false
 	_anim_t = 0.0
 	_refresh_chain_board_visibility()
@@ -5695,6 +5894,12 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control, was_
 				_drop_coin_near(b, code)
 			else:
 				_drop_special_near(b, code)
+	# Count the completed merge only after its real lucky-drop path had the first chance to land a
+	# Magnet seed. This seam runs once per player/cascade merge; rebuild and the shared fan-out below
+	# never call it, so a staging grant cannot recursively increment the counter.
+	_maybe_magnet_stage()
+	if _hand_hint_id == "weather" and SkyLogic.gate_open() and SkyLogic.in_patch(_sky_state, b):
+		_end_hand_hint("unlock_weather")
 	_chain_auto_step = false
 	var keep_running := _chain_active and not _chain_run.is_empty()
 	if keep_running:
@@ -6010,12 +6215,18 @@ func debug_bump_mastery(delta: int) -> void:
 	_after_board_change()
 
 func _blocked_seed_drop_lines() -> Array:
-	if not _improvements_enabled():
-		return [
-			Improvements.seed_line_for_kind(Improvements.KIND_SOIL),
-			Improvements.seed_line_for_kind(Improvements.KIND_MAGNET),
-		]
-	return Improvements.blocked_seed_drop_lines(board, bag)
+	var blocked: Array = []
+	if not FeatureGate.armed("soil"):
+		blocked.append(Improvements.seed_line_for_kind(Improvements.KIND_SOIL))
+	if not FeatureGate.armed("magnet"):
+		blocked.append(Improvements.seed_line_for_kind(Improvements.KIND_MAGNET))
+	if blocked.is_empty():
+		return Improvements.blocked_seed_drop_lines(board, bag)
+	# An unarmed kind is blocked OUTRIGHT; an armed one still respects the held-unplaced filter.
+	for line in Improvements.blocked_seed_drop_lines(board, bag):
+		if not blocked.has(int(line)):
+			blocked.append(int(line))
+	return blocked
 
 func _collect_coin(cell: Vector2i, node: Control) -> void:
 	# RULE in the pure action (take the coin + credit the wallet); the scene renders the fly-to-HUD.

@@ -30,6 +30,11 @@ trap 'rm -rf "$TMPDIR_RUN"' EXIT
 
 fail() { echo "test_grove_shot_parse: FAIL — $*" >&2; exit 1; }
 
+case "$QUIET" in
+  /*) QUIET_ABS="$QUIET" ;;
+  *) QUIET_ABS="$ROOT/$QUIET" ;;
+esac
+
 # --- tier 1: it parses --------------------------------------------------------------------
 LOG="$TMPDIR_RUN/parse.log"
 if ! "$QUIET" --headless --path . --check-only \
@@ -45,6 +50,23 @@ if [ "${FAST:-0}" = "1" ]; then
 fi
 
 # --- tier 2: it renders what the mode intends ----------------------------------------------
+# An option in the positional output slot used to become the filename itself:
+# `grove mastery phase=reveal /tmp/x.png` wrote `phase=reveal` in the current directory and
+# exited zero. Run from the disposable directory so the RED behavior cannot dirty the worktree.
+BAD_ORDER_LOG="$TMPDIR_RUN/bad_output_order.log"
+if (
+  cd "$TMPDIR_RUN"
+  "$QUIET_ABS" --path "$ROOT" -s "$TOOL" -- mastery phase=reveal "$TMPDIR_RUN/never.png"
+) >"$BAD_ORDER_LOG" 2>&1; then
+  cat "$BAD_ORDER_LOG" >&2
+  fail "option in the output slot exited zero instead of refusing the ambiguous invocation"
+fi
+[ ! -e "$TMPDIR_RUN/phase=reveal" ] \
+  || fail "option in the output slot was silently written as a PNG filename"
+grep -q 'REFUSED:.*output' "$BAD_ORDER_LOG" \
+  || { cat "$BAD_ORDER_LOG" >&2; fail "bad output order gave no actionable refusal"; }
+echo "  output-order guard: ok"
+
 # run_capture <label> <mode> [extra args...]
 # One quiet capture. Asserts the run exits 0, prints no script error, writes a non-empty PNG and
 # reports err=0. Leaves the log in $CAP_LOG and the SHOT line in $CAP_LINE for the caller's own
@@ -89,6 +111,29 @@ run_mode() {
   echo "  $label: ok (gens=$got_gens genbag=$got_bag)"
 }
 
+# run_soil_ftue <seed|place>
+# Soil's teach moved from the retired literal L6 to the table-driven L13 gate, with weather and
+# cascade ahead of it in the shared registry. An exit-zero PNG is not enough: assert the live
+# board's semantic proof so a stale ledger or clock seed cannot silently photograph no teach.
+run_soil_ftue() {
+  local phase="$1"
+  run_capture "ftuesoil_$phase" ftuesoil "phase=$phase"
+  local line got_level got_armed got_seed got_hint got_phase
+  line="$(grep -m1 '^SOIL FTUE ' "$CAP_LOG" || true)"
+  [ -n "$line" ] || { cat "$CAP_LOG" >&2; fail "ftuesoil_$phase: no semantic Soil FTUE proof line"; }
+  got_level="$(field level "$line")"
+  got_armed="$(field armed "$line")"
+  got_seed="$(field seed "$line")"
+  got_hint="$(printf '%s\n' "$line" | sed -n 's/.* hint=\([^ ]*\).*/\1/p')"
+  got_phase="$(printf '%s\n' "$line" | sed -n 's/.* phase=\([^ ]*\).*/\1/p')"
+  [ "$got_level" = "13" ] || fail "ftuesoil_$phase: capture is not at the L13 Soil gate — $line"
+  [ "$got_armed" = "1" ] || fail "ftuesoil_$phase: Soil is not armed — $line"
+  [ "$got_seed" = "1" ] || fail "ftuesoil_$phase: no visible Soil seed exists — $line"
+  [ "$got_hint" = "soil_$phase" ] || fail "ftuesoil_$phase: expected soil_$phase hint — $line"
+  [ "$got_phase" = "$phase" ] || fail "ftuesoil_$phase: proof reports wrong phase — $line"
+  echo "  ftuesoil_$phase contract: ok ($line)"
+}
+
 # run_flyaway <expected-pieces>
 # flyaway is a SWEEP, and the sweep clears the line it flies away: gens= and genbag= both read 0
 # afterwards whether the fixture seeded or not, so those two cannot tell a real capture from a bare
@@ -115,8 +160,38 @@ run_flyaway() {
 run_mode cascade_run    0 0 cascade
 run_mode cascade_runway 0 0 cascade phase=runway
 run_mode cascade_guide  0 0 cascade phase=guide
+CASCADE_GUIDE_LINE="$(grep -m1 '^CASCADE GUIDE ' "$CAP_LOG" || true)"
+[ -n "$CASCADE_GUIDE_LINE" ] || { cat "$CAP_LOG" >&2; fail "cascade_guide: no semantic guide proof line"; }
+[ "$(field level "$CASCADE_GUIDE_LINE")" = "7" ] \
+  || fail "cascade_guide: capture is not at the L7 cascade gate — $CASCADE_GUIDE_LINE"
+[ "$(field armed "$CASCADE_GUIDE_LINE")" = "1" ] \
+  || fail "cascade_guide: cascade is not armed — $CASCADE_GUIDE_LINE"
+[ "$(field pads "$CASCADE_GUIDE_LINE")" -gt 0 ] \
+  || fail "cascade_guide: no illuminated drop pads are live — $CASCADE_GUIDE_LINE"
+[ "$(field ladders "$CASCADE_GUIDE_LINE")" -gt 0 ] \
+  || fail "cascade_guide: no illuminated ladder is live — $CASCADE_GUIDE_LINE"
+echo "  cascade_guide contract: ok ($CASCADE_GUIDE_LINE)"
 run_mode cascade_seedguide 0 0 cascade phase=seedguide
 run_mode cascade_tagtarget 0 0 cascade phase=tagtarget
+run_soil_ftue seed
+run_soil_ftue place
+# Mastery reveal is not the old static info-row capture: it must be L10, reveal
+# through a real still-tap, and freeze while the ring is strictly mid-sweep.
+run_capture mastery_reveal mastery phase=reveal
+MASTERY_REVEAL_LINE="$(grep -m1 '^MASTERY REVEAL ' "$CAP_LOG" || true)"
+[ -n "$MASTERY_REVEAL_LINE" ] || { cat "$CAP_LOG" >&2; fail "mastery_reveal: no semantic reveal proof line"; }
+[ "$(field level "$MASTERY_REVEAL_LINE")" = "10" ] \
+  || fail "mastery_reveal: capture is not at the L10 mastery gate — $MASTERY_REVEAL_LINE"
+[ "$(field armed "$MASTERY_REVEAL_LINE")" = "1" ] \
+  || fail "mastery_reveal: mastery is not armed — $MASTERY_REVEAL_LINE"
+[ "$(field revealed "$MASTERY_REVEAL_LINE")" = "1" ] \
+  || fail "mastery_reveal: real tap did not bank the reveal — $MASTERY_REVEAL_LINE"
+[ "$(field ring "$MASTERY_REVEAL_LINE")" = "1" ] \
+  || fail "mastery_reveal: tapped generator has no ring — $MASTERY_REVEAL_LINE"
+MASTERY_PROGRESS="$(field progress_milli "$MASTERY_REVEAL_LINE")"
+[ -n "$MASTERY_PROGRESS" ] && [ "$MASTERY_PROGRESS" -gt 0 ] && [ "$MASTERY_PROGRESS" -lt 500 ] \
+  || fail "mastery_reveal: ring is not visibly mid-sweep (0 < progress < 0.5) — $MASTERY_REVEAL_LINE"
+echo "  mastery_reveal contract: ok ($MASTERY_REVEAL_LINE)"
 # baggen SEEDS the stored-generator row via bag_add — genbag MUST be 2 (the pair the overlay's
 # generator row exists to show). gens=1 is the fresh board's own starting generator, untouched.
 run_mode baggen         1 2 baggen

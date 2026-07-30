@@ -18,6 +18,7 @@ extends RefCounted
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
+const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
 const Login = preload("res://engine/scripts/core/login.gd")   # the daily calendar — debug_advance_day()
 const Features = preload("res://engine/scripts/core/features.gd")   # gates the mastery rank actions
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
@@ -36,6 +37,10 @@ const ACTION_BG := Color("#2C3E50")      # every state-jump button's slate
 const ACTIVE_LIFT := 0.32                # how far the ACTIVE weather chip lifts off that slate
 const BTN_SIZE := Vector2(184, 44)       # a full-width action row
 const BTN_PAD := 12.0
+const PANEL_GAP := 4.0
+# The live layout readout remains under the scroll body. Reserve one action-row
+# height for it so the complete overlay, not only the actions, stays on-screen.
+const ACTION_READOUT_RESERVE := BTN_SIZE.y
 # The weather picker's chips: TWO per row, which is what pairs them — the two Sunbeam skins land on
 # one row and the two Rain skins on the next. Seven states fill four rows, the last one half-empty.
 const CHIP_COLUMNS := 2
@@ -59,11 +64,17 @@ static var _suppress_next_toggle := false
 ## headless suites or quiet captures — the quiet guard here also keeps the panel
 ## out of force-driven screenshots (force bypasses quiet in authoring() below).
 static func on() -> bool:
-	if DisplayServer.get_name() == "headless":
-		return false                     # logic suites never show chrome
-	if OS.get_environment("TU_QUIET") == "1":
-		return false                     # quiet captures stay clean of the panel
-	return authoring()                   # only when explicitly authoring
+	return _panel_allowed(
+		OS.is_debug_build(),
+		DisplayServer.get_name(),
+		OS.get_environment("TU_QUIET") == "1",
+		authoring())
+
+## The panel policy separated from the environment reads so the release-export
+## invariant can be asserted headlessly. A release build loses even when an owner
+## argument requests authoring; headless/quiet still keep debug builds capture-clean.
+static func _panel_allowed(debug_build: bool, display_name: String, quiet: bool, authoring_on: bool) -> bool:
+	return debug_build and display_name != "headless" and not quiet and authoring_on
 
 ## The owner LAYOUT editor: explicit only (force / TU_DEBUG / `-- debug`), ANY game.
 ## NOT auto-on in base. force is checked first so capture tools get the editor even
@@ -95,14 +106,15 @@ static func mount(host: Control) -> void:
 	layer.add_child(col)
 
 	var menu := VBoxContainer.new()
-	menu.visible = _menu_open               # reopen after an action's scene reload
 	menu.add_theme_constant_override("separation", 4)
+	var action_body := _action_body(host, menu)
+	action_body.visible = _menu_open         # reopen after an action's scene reload
 	var toggle := _dbg_button("DEBUG", Color("#C0392B"))   # the one red in the panel — the handle you drag
 	toggle.mouse_default_cursor_shape = Control.CURSOR_MOVE
 	toggle.gui_input.connect(func(ev: InputEvent) -> void: _on_toggle_gui_input(ev, host, col))
-	toggle.pressed.connect(func() -> void: _on_toggle_pressed(menu))
+	toggle.pressed.connect(func() -> void: _on_toggle_pressed(action_body))
 	col.add_child(toggle)
-	col.add_child(menu)
+	col.add_child(action_body)
 
 	# Always-visible live read-out: viewport aspect + the resulting grid/orientation. Lets the owner read
 	# off the current width/height ratio to pick the portrait↔landscape rotation cutoff (ROTATE_ASPECT).
@@ -120,28 +132,7 @@ static func mount(host: Control) -> void:
 		t.timeout.connect(upd)
 		readout.add_child(t)
 
-	_action(menu, host, "Reset progress", _act_reset)
-	_action(menu, host, "+100 premium", _act_premium)
-	_action(menu, host, "+5 stars", _act_stars)
-	_action(menu, host, "Unlock next map", _act_unlock_map)
-	_action(menu, host, "Level up", _act_level_up)
-	_action(menu, host, "Level down", _act_level_down)
-	_action(menu, host, "Advance day", _act_advance_day)
-	if host.has_method("debug_add_resident_to_hand"):
-		_action(menu, host, "+1 resident", _act_add_resident)
-	_weather_action(menu, host)
-	_action(menu, host, "-25 water", _act_reduce_water)
-	if host.has_method("debug_drop_coin"):       # board-only: spawn a coin to exercise tap-to-collect
-		_action(menu, host, "Drop coin", _act_drop_coin)
-	if host.has_method("debug_drop_acorn"):      # board-only: spawn an acorn to exercise premium collectables
-		_action(menu, host, "Drop acorn", _act_drop_acorn)
-	if host.has_method("debug_pop_soil"):        # board-only: land a Soil growth step without waiting it out
-		_action(menu, host, "Pop soil", _act_pop_soil)
-	if host.has_method("debug_pop_magnet"):      # board-only: feed a Magnet a pair so it auto-merges on demand
-		_action(menu, host, "Pop magnet", _act_pop_magnet)
-	if Features.on("mastery") and host.has_method("debug_bump_mastery"):   # board-only: walk every generator's mastery rank
-		_action(menu, host, "Gen tier +1", _act_mastery_up)
-		_action(menu, host, "Gen tier -1", _act_mastery_down)
+	_populate_action_menu(menu, host)
 
 	col.position = _panel_position(host, col)
 	host.add_child(layer)
@@ -223,10 +214,73 @@ static func reset_drag_for_test() -> void:
 static func drag_position_for_test() -> Vector2:
 	return _drag_panel_pos
 
+## Only the variable action body scrolls. The DEBUG toggle remains a direct child
+## of the draggable column, so the handle never leaves the player's reach.
+static func _action_body(host: Control, menu: VBoxContainer) -> Control:
+	var scroll := ScrollContainer.new()
+	scroll.name = "DebugActionScroll"
+	scroll.custom_minimum_size = Vector2(BTN_SIZE.x, _action_body_height(host))
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	menu.name = "DebugActionMenu"
+	menu.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(menu)
+	return scroll
+
+static func _action_body_height(host: Control) -> float:
+	var viewport := _viewport_size(host)
+	var panel_y := _drag_panel_pos.y if _drag_panel_pos != _UNSET_DRAG_POS \
+		else _default_panel_position(host).y
+	var pinned_height := BTN_SIZE.y + PANEL_GAP
+	var readout_height := ACTION_READOUT_RESERVE + PANEL_GAP
+	return maxf(BTN_SIZE.y, viewport.y - panel_y - pinned_height - readout_height)
+
+static func _populate_action_menu(menu: VBoxContainer, host: Control) -> void:
+	_action(menu, host, "Reset progress", _act_reset)
+	_action(menu, host, "+100 premium", _act_premium)
+	_action(menu, host, "+5 stars", _act_stars)
+	_action(menu, host, "Unlock next map", _act_unlock_map)
+	_action(menu, host, "Level up", _act_level_up)
+	_action(menu, host, "Level down", _act_level_down)
+	_action(menu, host, "Advance day", _act_advance_day)
+	_feature_gate_actions(menu, host)
+	if host.has_method("debug_add_resident_to_hand"):
+		_action(menu, host, "+1 resident", _act_add_resident)
+	_weather_action(menu, host)
+	_action(menu, host, "-25 water", _act_reduce_water)
+	if host.has_method("debug_drop_coin"):       # board-only: spawn a coin to exercise tap-to-collect
+		_action(menu, host, "Drop coin", _act_drop_coin)
+	if host.has_method("debug_drop_acorn"):      # board-only: spawn an acorn to exercise premium collectables
+		_action(menu, host, "Drop acorn", _act_drop_acorn)
+	if host.has_method("debug_pop_soil"):        # board-only: land a Soil growth step without waiting it out
+		_action(menu, host, "Pop soil", _act_pop_soil)
+	if host.has_method("debug_pop_magnet"):      # board-only: feed a Magnet a pair so it auto-merges on demand
+		_action(menu, host, "Pop magnet", _act_pop_magnet)
+	if Features.on("mastery") and host.has_method("debug_bump_mastery"):   # board-only: walk every generator's mastery rank
+		_action(menu, host, "Gen tier +1", _act_mastery_up)
+		_action(menu, host, "Gen tier -1", _act_mastery_down)
+
 static func _action(menu: VBoxContainer, host: Control, label: String, fn: Callable) -> void:
 	var b := _dbg_button(label, ACTION_BG)
 	b.pressed.connect(fn.bind(host))
 	menu.add_child(b)
+
+## Feature actions carry TWO parameters, unlike the panel's ordinary host-only
+## actions. Bind them explicitly in a closure: chaining Callable.bind() can reverse
+## (host, id) while still producing a valid Callable and a dead-looking button.
+static func _feature_gate_action(
+		menu: VBoxContainer, host: Control, label: String, id: String, fn: Callable) -> void:
+	var b := _dbg_button(label, ACTION_BG)
+	b.pressed.connect(func() -> void: fn.call(host, id))
+	menu.add_child(b)
+
+static func _feature_gate_actions(menu: VBoxContainer, host: Control) -> void:
+	for id_variant in FeatureGate.ids():
+		var id := String(id_variant)
+		_feature_gate_action(
+			menu, host, "Arm %s (L%d)" % [id, FeatureGate.level_for(id)], id, _act_arm_feature)
+		_feature_gate_action(menu, host, "Reveal %s" % id, id, _act_reveal_feature)
+	_action(menu, host, "Reset feature gates", _act_reset_gates)
 
 ## The WEATHER PICKER: one tap per state, Calm and Auto included. It replaces a single button that
 ## CYCLED the same list one step per tap, where reaching "star" from "auto" cost six taps and there
@@ -354,6 +408,54 @@ static func _act_unlock_map(host: Control) -> void:
 	g["unlocks"] = unl
 	Save.grove_write()
 	_reflect(host)
+
+# FEATURE GATES — reaching L18 by play is not a test procedure.
+static func _act_arm_feature(host: Control, id: String) -> void:
+	var need := FeatureGate.level_for(id)
+	var have := G.coins_at_level(need) - Save.coins_earned_lifetime()
+	if have > 0:
+		Save.earn_coins(have)          # lift the coin clock to the gate's level
+	# Arm means the REAL gate predicate is ready to exercise, not merely that its
+	# level term is met. Satisfy only the pre-existing AND terms; the gate's own
+	# unlock_<id> reveal ledger deliberately remains unseen.
+	match id:
+		"weather":
+			Save.mark_ftue_seen("merge")
+			Save.mark_ftue_seen("gen_tap")
+		"soil":
+			Save.mark_board_tutorial_seen()
+		"rush":
+			var pages := G.coverup_pages()
+			if not pages.is_empty():
+				var first_page := int(pages[0])
+				var g := Save.grove()
+				var unlocks: Dictionary = g.get("unlocks", {})
+				for cluster in G.clusters(first_page):
+					unlocks[String((cluster as Dictionary).id)] = true
+				g["unlocks"] = unlocks
+				Save.grove_write()
+	_refresh_gate_host(host)
+
+## Board can repaint a newly armed gate in place; other hosts take the existing
+## scene-reflect path. This deliberately does not assume every mount host owns
+## Board's private rebuild seam.
+static func _refresh_gate_host(host: Control) -> void:
+	if host == null:
+		return
+	if host.has_method("_rebuild_all"):
+		host.call("_rebuild_all")
+		return
+	_reflect(host)
+
+static func _act_reveal_feature(_host: Control, id: String) -> void:
+	FeatureGate.mark_revealed(id)
+
+static func _act_reset_gates(_host: Control) -> void:
+	var seen: Dictionary = Save.data.get("ftue_seen", {})
+	for id_variant in FeatureGate.ids():
+		seen.erase(FeatureGate.LEDGER_PREFIX + String(id_variant))
+	Save.data["ftue_seen"] = seen
+	Save.save_now()
 
 ## Push the coin clock to the next level threshold (the clock is uncapped).
 static func _act_level_up(host: Control) -> void:

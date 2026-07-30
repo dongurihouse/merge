@@ -4,6 +4,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 
 const Iap = preload("res://engine/scripts/core/iap.gd")   # cash-pack prices/ids live in the IAP catalog now
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")   # the water regen rule (over-cap pause)
+const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
 const Kit = preload("res://games/grove/ui_kit.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")   # the two card/art shadow shapes
@@ -225,6 +226,7 @@ func _initialize() -> void:
 	# Scissors stock unlocks from mastery rank 2. From a map-opened shop it banks a pending tool;
 	# from a board-opened shop it calls the board placement hook before spending.
 	fresh("scissors_shop")
+	FeatureGate.mark_revealed("mastery")
 	var sc_host := Control.new()
 	get_root().add_child(sc_host)
 	var saw_scissors := false

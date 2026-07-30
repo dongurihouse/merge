@@ -46,6 +46,7 @@ func _mount_board(forced_weather: String):
 	Save.mark_board_tutorial_seen()
 	Save.mark_ftue_seen("merge")
 	Save.mark_ftue_seen("gen_tap")
+	Save.earn_coins(G.coins_at_level(G.FEATURE_LEVEL["weather"]))
 	Feat.FLAGS["weather_hours"] = true
 	Ambient.forced_weather = forced_weather
 	var b = load("res://engine/scenes/Board.tscn").instantiate()
@@ -537,9 +538,10 @@ func _test_starfall_landings_share_the_post_change_beat() -> void:
 		var code := await _arm_pending_star(scn)
 		var owed_code := 205
 		SkyLogic.grove_sky_state()["owed"] = [owed_code]
-		ok(code > 0 and code != owed_code and lane_cells.size() >= 2, \
-			"%s fixture has a pending star, a distinct owed star and two free lane cells" % how)
-		if lane_cells.size() >= 2 and code > 0:
+		var free_cells: Array = scn.board.empty_ground_cells()
+		ok(code > 0 and code != owed_code and not lane_cells.is_empty() and free_cells.size() >= 2, \
+			"%s fixture has a pending star, a distinct owed star, a catch cell and room for both landings" % how)
+		if not lane_cells.is_empty() and free_cells.size() >= 2 and code > 0:
 			if caught:
 				scn._catch_pending_star_at(lane_cells[0])
 			else:
@@ -781,6 +783,18 @@ func _clear_lane_for_catch(board_scene) -> Array:
 		if board_scene.board.is_open(cell) and not board_scene.board.is_gen(cell):
 			board_scene.board.place(cell, 0)
 			out.append(cell)
+	# Starfall's lane is hour-derived. At the weather gate's L4 fixture, some
+	# hours select a lane made entirely of locked terrain; make exactly one catch
+	# target in that test-only case so wall-clock lane choice cannot erase the
+	# behavior the fixture exists to exercise.
+	if out.is_empty():
+		for cell in _lane_cells(board_scene):
+			if board_scene.board.is_gen(cell):
+				continue
+			board_scene.board.terrain[BoardModel.idx(cell)] = 0
+			board_scene.board.place(cell, 0)
+			out.append(cell)
+			break
 	return out
 
 func _fill_star_lane(board_scene) -> Vector2i:

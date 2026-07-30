@@ -118,6 +118,12 @@ func _test_sanitize_seen() -> void:
 	ok(not SaveMigrate.sanitize_seen(clean), "an all-valid seen set is not dirty")
 	ok(clean["seen"].has(str(good)), "...and is left untouched")
 
+	var retired_popup_key := "rush" + "_intro_seen"
+	var retired_popup := {"seen": {str(good): true}, retired_popup_key: 1}
+	ok(SaveMigrate.sanitize_seen(retired_popup), "the retired Rush popup key makes an old grove save dirty")
+	ok(not retired_popup.has(retired_popup_key), "...and the retired Rush popup key is erased in place")
+	ok(not SaveMigrate.sanitize_seen(retired_popup), "the Rush popup key removal is idempotent")
+
 	var dirty := {"seen": {str(good): true, "banana": true, str(UNKNOWN_CODE): true}}
 	ok(SaveMigrate.sanitize_seen(dirty), "a non-integer key or a retired code makes the seen set dirty")
 	var out: Dictionary = dirty["seen"]

@@ -13,7 +13,7 @@ ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/test
 ENGINE_TESTS_DISABLED :=
 # the grove suite was split from one 2.3k-line monolith into focused suites so they
 # parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
-GROVE_TESTS  := games/grove/tests/grove_board_actions_tests games/grove/tests/grove_explore_tests games/grove/tests/grove_sky_tests games/grove/tests/grove_scene_workbench_tests games/grove/tests/grove_scene_covers_tests games/grove/tests/grove_shop_tests games/grove/tests/grove_ui_workbench_tests games/grove/tests/grove_ftue_tests games/grove/tests/grove_rush_ftue_tests games/grove/tests/grove_cascade_tests games/grove/tests/grove_improvements_tests
+GROVE_TESTS  := games/grove/tests/grove_board_actions_tests games/grove/tests/grove_explore_tests games/grove/tests/grove_sky_tests games/grove/tests/grove_scene_workbench_tests games/grove/tests/grove_scene_covers_tests games/grove/tests/grove_shop_tests games/grove/tests/grove_ui_workbench_tests games/grove/tests/grove_ftue_tests games/grove/tests/grove_rush_ftue_tests games/grove/tests/grove_cascade_tests games/grove/tests/grove_improvements_tests games/grove/tests/grove_gating_tests
 GROVE_TESTS_DISABLED :=
 # dev-tool suites — pure-Image logic for the asset intake pipeline (fast, no scenes)
 TOOLS_TESTS  := games/tools/tests/slice_islands_tests
