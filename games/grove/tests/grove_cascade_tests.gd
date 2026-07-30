@@ -49,6 +49,7 @@ func _initialize() -> void:
 	await _test_drag_stage_starts_from_single_tier_neighbors()
 	await _test_a_staircase_with_no_pair_draws_nothing()
 	await _test_drag_cascade_tag_sits_on_drop_target()
+	await _test_resting_remote_chain_shows_before_drag()
 	await _test_ready_ladder_glow_excludes_duplicate_tip_source()
 	await _test_drag_guide_strengths_use_real_input()
 	await _test_ready_outline_stays_between_slots_and_pieces_with_stale_generator_nodes()
@@ -885,8 +886,8 @@ func _test_drag_focuses_the_held_cascade_path() -> void:
 		t4: 204,
 		t5: 205,
 	})
-	ok(_outline_ladder_count(b) == 1 and _outline_has_tag(b, "×5"),
-		"resting outline still reports the best armed ladder in the mixed component")
+	ok(_outline_ladder_count(b) == 2 and _outline_has_tag(b, "×5") and _outline_has_tag(b, "×3"),
+		"REST reports both actionable chains in the mixed component")
 	_input_begin_drag(b, from)
 	await process_frame
 	ok(_outline_has_pad_kind_at(b, "cascade", target),
@@ -900,10 +901,10 @@ func _test_drag_focuses_the_held_cascade_path() -> void:
 	_input_release(b, from)
 	await process_frame
 	# The drag's chain and a resting chain are the SAME mark now, so "no drag ladder" is no longer a
-	# thing to count — what tells them apart is which chain is drawn. The ×5 tag hidden during the
-	# drag (asserted above) is back, and it is the component's own best run again, not the ×3.
-	ok(_outline_ladder_count(b) == 1 and _outline_has_tag(b, "×5") and not _outline_has_tag(b, "×3"),
-		"releasing the drag restores the resting ready-ladder outline")
+	# thing to count — what tells them apart is which chain is drawn. The drag focuses one ×3; release
+	# restores every actionable route, including both this ×3 and the longer ×5.
+	ok(_outline_ladder_count(b) == 2 and _outline_has_tag(b, "×5") and _outline_has_tag(b, "×3"),
+		"releasing the drag restores every resting actionable chain")
 	b.queue_free()
 
 func _test_drag_stage_starts_from_single_tier_neighbors() -> void:
@@ -989,6 +990,24 @@ func _test_drag_cascade_tag_sits_on_drop_target() -> void:
 		"the x4 number sits on the drop target, not at the end of the chain")
 	_input_release(b, from)
 	await process_frame
+	b.queue_free()
+
+# The break this catches is the live REST publish path waiting for pickup before it evaluates the
+# remote source. This fixture is already actionable, so its ×3 must be visible before any input.
+func _test_resting_remote_chain_shows_before_drag() -> void:
+	var b := _open_board("cascade_resting_remote_chain")
+	await process_frame
+	var source := Vector2i(6, 6)
+	var target := Vector2i(3, 1)
+	_blank_fixture(b, {
+		source: 101,
+		target: 101,
+		Vector2i(3, 2): 102,
+		Vector2i(3, 3): 103,
+	})
+	await process_frame
+	ok(_outline_ladder_count(b) == 1 and _outline_has_tag_at(b, "×3", target),
+		"a remote actionable ×3 is visible on the resting board before pickup")
 	b.queue_free()
 
 func _test_ready_ladder_glow_excludes_duplicate_tip_source() -> void:
@@ -1143,11 +1162,9 @@ func _test_ready_outline_and_flag_off() -> void:
 	off.queue_free()
 	Feat.FLAGS["cascade"] = original
 
-# TWO chains armed at the same time. Nothing anywhere picks a single best: `ready_ladders` appends
-# EVERY same-line component that scores, CascadeMarks keeps each as its own mark, `_draw` loops every
-# entry and `_rebuild_tags` dedups per CELL rather than per chain. Two components of the SAME line is
-# the case that could have collapsed — `ready_ladders` walks the board with one shared `visited` map —
-# so pin that one, and pin that the result is drawn as two SEPARATE contours with their own ×n each.
+# Multiple chains at the same time. REST now enumerates every legal source→target merge, so the ×4
+# component also contributes the nested t2→t2 ×3. Pin all three actionable routes, then add another
+# line and prove it adds a fourth rather than replacing one.
 func _test_two_chains_arm_and_draw_at_once() -> void:
 	var b := _open_board("cascade_two_chains_at_once")
 	await process_frame
@@ -1164,27 +1181,36 @@ func _test_two_chains_arm_and_draw_at_once() -> void:
 		Vector2i(5, 5): 104,
 	})
 	await process_frame      # _rebuild_tags queue_free()s the previous chips; let the frees land
-	ok(_outline_ladder_count(b) == 2,
-		"two separate same-line components each arm their own ladder (got %d)" % _outline_ladder_count(b))
-	ok(_outline_number_tag_count(b) == 2 and _outline_has_tag(b, "×3") and _outline_has_tag(b, "×4"),
-		"each armed chain carries its own ×n, sized to its own length (%s)" % str(_outline_label_texts(b)))
+	ok(_outline_ladder_count(b) == 3,
+		"REST keeps all three actionable routes across the two components (got %d)"
+			% _outline_ladder_count(b))
+	var labels := _outline_label_texts(b)
+	labels.sort()
+	ok(_outline_number_tag_count(b) == 3 and labels == ["×3", "×3", "×4"],
+		"each actionable chain carries its own ×n (%s)" % str(labels))
 	var o := _outline(b)
 	var boxes: Array = []
 	for raw in _marks_with_role(b, "chain"):
 		var run := Array((raw as Dictionary).get("run", []))
 		ok(not run.is_empty(), "each armed entry carries the run its contour is built from")
 		boxes.append(_loop_bounds(o, run))
-	ok(boxes.size() == 2 and not (boxes[0] as Rect2).intersects(boxes[1] as Rect2),
-		"the two chains draw two separate contours, not one shape spanning both")
-	# and a second line arming beside them is a third mark, not a replacement.
+	var has_separate_components := false
+	for i in boxes.size():
+		for j in range(i + 1, boxes.size()):
+			if not (boxes[i] as Rect2).intersects(boxes[j] as Rect2):
+				has_separate_components = true
+	ok(boxes.size() == 3 and has_separate_components,
+		"nested routes stay separate from the other component instead of spanning the board")
+	# and a second line arming beside them is a fourth mark, not a replacement.
 	b.board.place(Vector2i(3, 1), 201)
 	b.board.place(Vector2i(3, 2), 201)
 	b.board.place(Vector2i(3, 3), 202)
 	b.board.place(Vector2i(3, 4), 203)
 	b._rebuild_all()
 	await process_frame
-	ok(_outline_ladder_count(b) == 3 and _outline_number_tag_count(b) == 3,
-		"a third chain on another line adds a mark rather than replacing one (got %d)" % _outline_ladder_count(b))
+	ok(_outline_ladder_count(b) == 4 and _outline_number_tag_count(b) == 4,
+		"a chain on another line adds a fourth mark rather than replacing one (got %d)"
+			% _outline_ladder_count(b))
 	b.queue_free()
 
 # The contour's ONE rule has to cover every shape a run or a component can take, so pin the shapes

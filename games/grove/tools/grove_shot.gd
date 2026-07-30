@@ -16,7 +16,7 @@ extends SceneTree
 ##        is unchanged.
 ##
 ## MODE=cascade takes `phase=`: run (default, frozen mid-run) | guide | dragfocus | seedguide |
-##        tagtarget | staircase [hold=N] (a t2·t3·t4 with no pair — was `runway`, back when it drew a
+##        tagtarget | restmove | staircase [hold=N] (a t2·t3·t4 with no pair — was `runway`, back when it drew a
 ##        second, fainter mark; the guide has ONE rule now, so at rest it draws nothing, and `hold=N`
 ##        is what makes it interesting) | two (two chains armed at once) | x2 (the shortest chain) |
 ##        anything else (e.g. `rest`) = the armed marks at rest. `glow=dim|stronger|strongest`
@@ -219,6 +219,14 @@ func _initialize() -> void:
 					Vector2i(3, 4): 104,
 					Vector2i(6, 6): 101,
 				}
+			elif phase == "restmove":
+				# The duplicate source is remote. REST must discover and draw this ×3 before pickup.
+				ready = {
+					Vector2i(3, 1): 101,
+					Vector2i(3, 2): 102,
+					Vector2i(3, 3): 103,
+					Vector2i(6, 6): 101,
+				}
 			elif phase == "staircase":
 				ready = {
 					Vector2i(3, 1): 102,
@@ -347,6 +355,25 @@ func _initialize() -> void:
 				scn._begin_drag()
 				scn._drag_follow(scn._cell_pos(Vector2i(3, 1)) + chalf + Vector2(-56.0, -52.0))
 				await create_timer(0.35).timeout
+			elif phase == "restmove":
+				await create_timer(0.35).timeout
+				var rest_outline: Control = scn.get("_cascade_outline")
+				var rest_ladders := 0
+				var rest_tags := 0
+				if rest_outline != null and is_instance_valid(rest_outline):
+					for raw_mark in Array(rest_outline.get("marks")):
+						var mark: Dictionary = raw_mark
+						if String(mark.get("role", "")) == "chain":
+							rest_ladders += 1
+						if bool(mark.get("tag", false)):
+							rest_tags += 1
+				var rest_dragging := scn.get("_drag_node") != null
+				print("CASCADE RESTMOVE dragging=%d ladders=%d tags=%d" % \
+					[int(rest_dragging), rest_ladders, rest_tags])
+				if rest_dragging or rest_ladders != 1 or rest_tags != 1:
+					print("REFUSED: cascade phase=restmove is not one visible resting chain before pickup.")
+					Base.finish(self, 2)
+					return
 			elif phase == "run":
 				scn._on_press(scn._cell_pos(Vector2i(3, 1)) + chalf)
 				scn._on_release(scn._cell_pos(Vector2i(3, 2)) + chalf)

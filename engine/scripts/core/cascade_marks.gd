@@ -27,9 +27,9 @@ const NO_CELL := Vector2i(-1, -1)
 ## ×2 still cascades — it is simply not advertised beforehand.
 const GUIDE_MIN_N := 3
 
-## Owner-facing knobs. REST_MAX and DRAG_DIM are new; MERGE_WEIGHT is today's `strength` literal
-## moved here unchanged.
-const REST_MAX := 3                  # resting chains drawn at once
+## Owner-facing knobs. DRAG_DIM and MERGE_WEIGHT are today's display weights. A drag keeps the
+## previous three-entry budget for unrelated already-armed ladders; REST itself is uncapped.
+const DRAG_BACKGROUND_MAX := 3
 const DRAG_DIM := 0.35               # weight of every non-winning mark while a piece is held
 const MERGE_WEIGHT := 0.55
 
@@ -76,19 +76,65 @@ static func build(board, ctx: Dictionary) -> Array:
 			return _rest_marks(board, ctx)
 
 # --- REST -------------------------------------------------------------------------------------
-# Every chain at or above GUIDE_MIN_N, longest first, truncated to REST_MAX.
+# Every actionable chain at or above GUIDE_MIN_N, longest first.
 static func _rest_marks(board, ctx: Dictionary) -> Array:
 	var out: Array = []
 	for raw in _rest_entries(board):
 		out.append_array(_rest_entry_marks(raw as Dictionary, 1.0, true))
 	return out
 
-## What the resting board has to say, in the order it says it: every chain the one rule admits,
-## longest first. The REST_MAX cap belongs HERE, over the entries, because it is a budget for how
-## many things the board may point at — a CHAIN counts once however many marks its effect stack
-## takes. Capping the mark list instead would silently halve the chains the moment one drew two.
+## What the resting board has to say: every legal piece-to-piece merge whose resulting run meets the
+## guide floor. DRAG already answers that question for one held piece through `_merge_targets`; REST
+## asks it for every occupied source. Equivalent sources can describe the same target and contour,
+## so those visual duplicates collapse before the deterministic longest-first sort.
 static func _rest_entries(board) -> Array:
-	return _rest_chains(board, GUIDE_MIN_N).slice(0, REST_MAX)
+	var occupied: Array = []
+	for i in board.items.size():
+		if int(board.items[i]) > 0:
+			occupied.append(BoardModel.cell_of(i))
+	var chains: Array = []
+	for raw_from in occupied:
+		var from := Vector2i(raw_from)
+		var line := BoardModel.line_of(board.item_at(from))
+		for raw_target in _merge_targets(board, from, occupied):
+			var target: Dictionary = raw_target
+			var n := int(target.get("n", 0))
+			if n < GUIDE_MIN_N:
+				continue
+			var cell := Vector2i(target.get("cell", NO_CELL))
+			var run: Array = [cell]
+			for raw_cell in Array(target.get("path", [])):
+				run.append(Vector2i(raw_cell))
+			var duplicate := false
+			for raw_existing in chains:
+				var existing: Dictionary = raw_existing
+				if Vector2i(existing.get("cell", NO_CELL)) == cell \
+						and _same_cells(Array(existing.get("run", [])), run):
+					duplicate = true
+					break
+			if duplicate:
+				continue
+			chains.append({
+				"from": from,
+				"cell": cell,
+				"path": Array(target.get("path", [])).duplicate(),
+				"run": run,
+				"line": line,
+				"n": n,
+			})
+	chains.sort_custom(func(a, b) -> bool:
+		var na := int((a as Dictionary).get("n", 0))
+		var nb := int((b as Dictionary).get("n", 0))
+		if na != nb:
+			return na > nb
+		var ac := BoardModel.idx(Vector2i((a as Dictionary).get("cell", Vector2i.ZERO)))
+		var bc := BoardModel.idx(Vector2i((b as Dictionary).get("cell", Vector2i.ZERO)))
+		if ac != bc:
+			return ac < bc
+		return BoardModel.idx(Vector2i((a as Dictionary).get("from", Vector2i.ZERO))) \
+			< BoardModel.idx(Vector2i((b as Dictionary).get("from", Vector2i.ZERO)))
+	)
+	return chains
 
 ## One resting entry, at the loudness the caller is drawing it. REST and the background of a DRAG
 ## both come through here, so a dimmed chain is this same stack at DRAG_DIM.
@@ -117,6 +163,9 @@ static func _rest_chains(board, min_n: int) -> Array:
 			< BoardModel.idx(Vector2i((b as Dictionary).get("top_cell", Vector2i.ZERO)))
 	)
 	return chains
+
+static func _drag_background_entries(board) -> Array:
+	return _rest_chains(board, GUIDE_MIN_N).slice(0, DRAG_BACKGROUND_MAX)
 
 ## The cells the light follows: the cascade's own run, never the same-line flood fill in `cells`.
 static func _run_of(entry: Dictionary) -> Array:
@@ -180,7 +229,7 @@ static func _drag_marks(board, ctx: Dictionary) -> Array:
 	# into something else — a dimmed chain keeps its bloom, so it stays the same effect at DRAG_DIM.
 	# The skip is per ENTRY, not per mark: the winner's own resting stack goes entirely, or its bloom
 	# would be stamped twice on the winning cell.
-	for raw in _rest_entries(board):
+	for raw in _drag_background_entries(board):
 		var entry: Dictionary = raw
 		if _same_cells(_run_of(entry), win_run):
 			continue
