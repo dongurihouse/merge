@@ -21,7 +21,11 @@ Status:
 - coin: v2 generated and sliced into live `games/grove/assets/items/coin`.
 - acorn: v2 generated as a 12-tier premium drop line and sliced into live `games/grove/assets/items/acorn`.
 - fairy_hollow_glowshroom: v3 revises the line with star/moon/sun late, crystal before final, and rainbow mushroom final.
-- fairy_hollow_wild_berries: v5 generated; berry silhouettes separated further, no desert fruit overlap.
+- fairy_hollow_wild_berries: v6 generated and sliced into live `games/grove/assets/items/fairy_hollow_wild_berries`.
+  Rebuilt the roster so every tier owns one hue and one silhouette (bud, redcurrant sprig, strawberry, ribbed
+  gooseberry, blueberry, raspberry cone, golden husk berry, blackberry, rosehip, snowberry, crystal dewberry,
+  rainbow berry) — v5 spent three tiers on near-identical greens and its cloudberry/salmonberry/rainbow tiers
+  read as loose orange balls, a mango, and a beach ball. Chosen from six candidates (see v6 sidecar).
 - snowy_village_snow_ice: v4 generated; starts with one simple snowflake, adds igloo and snow slide, removes the extra snowflake and round snow cylinder.
 - snowy_village_woolens: v4 generated; replaces the duplicate tier 10 sock/bootie shape with a neck-warmer cowl.
 - snowy_village_winter_berries: v5 generated; removes duplicate bud/acorn shapes and odd ornate flowers, broadening into winter needles, holly, juniper, pinecone, mistletoe, cabbage, fern, lichen, reeds, wreath, and seed crest.
