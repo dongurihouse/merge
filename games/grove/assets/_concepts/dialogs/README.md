@@ -13,5 +13,6 @@ Meadow Sky + Cut-Paper Playground dialog reference mocks, all exported at `1080x
 | Residents v2 | `resident_management_dialog_v2_1080x1920.png` | Four independent resource banks with fill progress and time-to-full states. |
 | Shop v1 | `shop_dialog_v1_1080x1920.png` | Meadow Sky shop dialog concept and offer-card hierarchy. |
 | Mail v1 | `mail_dialog_v1/mail_dialog_v1_1080x1920.png` | Three-message reward inbox with individual claims and a claim-all action. |
+| Shop screen variations v1 | `shop_screen_variations_v1/shop_screen_variations_v1_comparison.png` | Four distinct redesign directions for the live shop screen, with the current capture as baseline. |
 
 Each `*_source.png` is the native generation output. The adjacent `*.prompt.txt` is the saved production prompt. These are mockups only and are not currently connected to runtime UI.

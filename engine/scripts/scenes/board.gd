@@ -589,7 +589,9 @@ func _sync_sky_patch_marker(pop_marker: bool) -> void:
 	if sky == "" or sky == SkyLogic.SKY_CALM:
 		return
 	var patch := SkyPatch.new()
-	patch.setup(_sky_state, csz, GAP, _landscape)
+	# the wash clips to the panel's rounded silhouette, so an EDGE lane's square corner cannot stick out
+	# past the mat and read as a chip of colour on the scene background
+	patch.setup(_sky_state, csz, GAP, _landscape, _board_mat_silhouette())
 	board_area.add_child(patch)
 	board_area.move_child(patch, _sky_patch_insert_index())
 	_sky_patch = patch
@@ -2844,6 +2846,16 @@ func _make_board_mat() -> Control:
 	var panel: Control = Kit.board_panel(size, Kit.board_panel_opts_from_config(Game.kit_config()))
 	panel.position = Vector2(-FRAME_OUT, -FRAME_OUT)
 	return panel
+
+## The board panel's SILHOUETTE in board_area coordinates — the rect the mat occupies plus the corner
+## radius its builder actually applied, READ off the mat's Look.SHADOW_CORNER_META stamp (Kit.board_panel
+## and PieceView.make_board_mat each stamp their own). Never recomputed here: a second copy of the
+## rounding expression is exactly how a wash and its panel drift apart. Empty when there is no mat, and
+## the lane wash then degrades to its unclipped square bands.
+func _board_mat_silhouette() -> Dictionary:
+	if _board_mat == null or not is_instance_valid(_board_mat):
+		return {}
+	return {"rect": Rect2(_board_mat.position, _board_mat.size), "corner": Look.shape_corner(_board_mat, 0.0)}
 
 ## The lowest board_area index anything may be seated at and still DRAW — one above the board panel.
 ## Derived from the mat's live index, never hard-coded, so a future ordering change cannot bury a layer.

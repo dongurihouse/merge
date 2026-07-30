@@ -1,0 +1,182 @@
+Use case: ui-mockup.
+Asset type: polished high-fidelity vertical mobile game SHOP screen concept, exact 1080 x 1920 portrait composition.
+
+Input images and their separate roles (do not treat these as one undifferentiated mood board):
+- Image 1 is the mandatory PALETTE AND MATERIAL authority. It governs palette relationships, the matte
+  cut-paper treatment, warm cut edges, cream card and pill surfaces, ink typography weight, soft-tinted
+  card fills, restrained saturation, and shallow tinted shadows. It does NOT govern this screen's layout:
+  do not copy its merge board, its 7x7 grid of tiles, its resident cards, its info bar, or its bottom
+  navigation bar. This screen has no board and no bottom navigation.
+- Image 2 is the mandatory SCALE AND DETAIL-BUDGET authority. It governs how large a single paper object
+  reads, how simple its silhouette must stay, and the ceiling on ornament per object. It does NOT
+  authorize copying its farm world, its buildings, its paths, its sky, or its UI. This screen is a
+  storefront interface, not a world scene.
+- Image 3 is the CURRENT SHIPPED SHOP SCREEN. It is the exact content contract and simultaneously the
+  problem statement. Take every offer, every icon subject, and every number from it verbatim. Do NOT copy
+  its layout — that layout is the thing being redesigned. Name its fault precisely so you avoid it: it is
+  a single flat cream sheet holding seven near-identical soft-sage rounded rectangles of nearly equal
+  weight, with no focal hierarchy, no sense of the six paid tiers escalating, no depth layering, no
+  ornament, and section headings that are only small centered words. Every rectangle has the same smooth
+  antialiased corner radius, so the whole screen reads as machine-drawn rather than hand-cut.
+- Image 4 is PRIOR CONCEPT ART for the same screen. Use it only as confirmation of the already-approved
+  offer wording, icon vocabulary, and container series. Its layout is the same one being replaced; depart
+  from it deliberately.
+
+Primary request: redesign this storefront so it feels like a place a player wants to browse, while keeping
+every offer instantly legible. Reorganize the hierarchy, restyle the surfaces, and add structure and
+ornament. The design direction below is binding and is what makes this mock different from its siblings.
+
+Content contract. Every element below must be present, and every quoted string must be rendered
+EXACTLY as written, with no invented extra labels, no descriptive marketing copy, and no additional
+currencies or offers:
+
+- Screen title: exactly "SHOP" in ink, large and clearly the top of the screen. One small coral circular
+  close button with a cream X at the upper right.
+- Free refill offer. Section heading exactly "FREE REFILL". One offer showing a blue tin watering can, the
+  exact amount "100", and a claim control reading exactly "FREE" in cream on action green. This is a gift,
+  not a purchase, and should read as the warmest and most inviting single item on the screen without
+  taking more than about a fifth of its height.
+- Quick help offer. Section heading exactly "QUICK HELP". One offer showing a green cloth coin pouch
+  spilling gold coins, the exact amount "150", and a soft-currency price control showing one small
+  golden-brown acorn icon beside the exact number "5".
+- Acorn pouches. Section heading exactly "ACORN POUCHES". Exactly six real-money tiers, in this order,
+  each with its own hero container and its own price control:
+    tier 1  loose acorns on a leaf   amount "80"      price "$0.99"
+    tier 2  small cloth pouch        amount "450"     price "$4.99"
+    tier 3  full tied sack           amount "1,000"   price "$9.99"
+    tier 4  woven carry basket       amount "2,200"   price "$19.99"
+    tier 5  slatted wooden crate     amount "6,000"   price "$49.99"
+    tier 6  banded treasure chest    amount "13,000"  price "$99.99"
+  The six containers must read as a visibly ESCALATING series: each later vessel is larger, heavier, and
+  more valuable-looking than the one before it, and its heap of acorns is fuller. Plump golden-brown
+  acorns only — never blue gems, diamonds, crystals, or coins inside the acorn tiers.
+- Exactly one small coral ribbon reading exactly "POPULAR", on the "1,000" / "$9.99" tier and nowhere else.
+- Exactly one small reward-gold seal or ribbon reading exactly "BEST VALUE", on the "13,000" / "$99.99"
+  tier and nowhere else.
+
+Legibility gate: every amount and every price must be large, high-contrast ink-on-cream or cream-on-green,
+and unmistakably readable at phone size. A beautiful screen with a cramped or garbled price is a failure.
+Do not let ornament, ribbons, twine, shelf lips, or overlapping paper cross a numeral.
+
+Design direction C — DECKLE HERO GRID. Keep the familiar two-column reading order, but rematerialize
+every surface so the screen looks torn from real paper, and promote one tier out of the grid into a hero.
+
+- Every paper edge on this screen is a TORN DECKLE EDGE: a slightly irregular, softly feathered, fibrous
+  cut with visible paper tooth, never a smooth mathematically even antialiased corner radius. Two adjacent
+  cards must not have identical edge irregularities.
+- Every offer is TWO stacked paper layers: a slightly larger soft-meadow under-sheet offset a few pixels
+  down and right, with a warm-cream face sheet laid on top of it. The under-sheet's rim is visible on the
+  lower and right sides only, matching the single upper-left light, and a short soft tinted shadow sits
+  under the pair. This layered stack is what replaces the flat single rectangle.
+- Section headings hang as small coral paper banners with pinked, notched ends, strung on one fine ink cord
+  that spans the screen. "FREE REFILL", "QUICK HELP" and "ACORN POUCHES" each get one banner, and one tiny
+  cut-paper acorn charm hangs from the right end of each cord.
+- The FREE REFILL offer is one full-width layered plate whose face sheet is warmly gold-tinted rather than
+  cream, marking it as the gift. Its under-sheet is a deeper gold. The watering can is oversized and
+  overhangs the plate's left deckle edge so it reads as laid on top of the paper.
+- QUICK HELP is one full-width layered plate in the standard cream-over-meadow material.
+- Under the ACORN POUCHES banner, the "13,000" / "$99.99" tier is PROMOTED out of the grid: it becomes a
+  full-width hero plate at the top of the section, built from three stacked paper layers instead of two,
+  with a reward-gold rosette seal reading "BEST VALUE" pressed onto its upper-left corner and its treasure
+  chest drawn at roughly twice the scale of the grid containers. It is unmistakably the biggest, richest
+  object on the screen.
+- The remaining five tiers sit below it in a two-column grid: three rows, with the last row's single card in
+  the left column and a small quiet cut-paper sprig of two leaves resting in the empty right cell so the
+  grid does not read as broken. Each grid card keeps the two-layer stack, its container, its amount in large
+  ink, and its action-green price button.
+- The coral POPULAR ribbon is a small pinked strip laid across the tier-3 card's upper-left deckle corner.
+
+Composition: title about 8%; FREE REFILL banner and plate about 17%; QUICK HELP banner and plate about 15%;
+ACORN POUCHES banner about 5%; the hero plate about 20%; the five-card grid about 32%; thin margins. This
+direction must be recognizably the same information architecture as the current screen — the change is
+material, depth, ornament, and the hero promotion, not reorganization.
+
+CORRECTION PASS — two earlier attempts at this direction were rejected for measured faults. Fix both.
+
+Fault A, an over-saturated blue background field. THIS IS THE FAULT THAT KILLED THREE ATTEMPTS. Every
+attempt so far painted the field around the cards a vivid sky blue measured at 49-55% saturation covering
+a third to a half of the canvas, so only 33% of the screen sat below 45% saturation where the guide
+requires 60-70%. Read this as an absolute rule, not a preference:
+
+  THERE IS NO BLUE BACKGROUND ON THIS SCREEN. The canvas is covered, edge to edge, corner to corner, by
+  ONE warm cream #F6EBDD cut-paper sheet with a torn deckle outer edge. That cream sheet IS the background.
+  Do not put a blue field, a blue frame, a blue border, a blue margin, a blue vignette, or a blurred blue
+  game world anywhere on this image. The only blue permitted on the whole screen is the small blue tin
+  watering can in the FREE REFILL offer.
+
+Every offer plate sits ON that cream sheet, and the plates are wide — each full-width plate spans about
+860 of the 1080 px, and the two grid columns span about 420 px each with a 24 px gutter, so the cream sheet
+reads only as a comfortable margin and the gaps between plates, never as a large empty field. Because the
+sheet and the plate faces are both cream, the plates are told apart from it by their meadow #A8D3B9
+under-sheet offset down-right, by their torn deckle edge, and by their short tinted contact shadow — that
+layered depth is the entire point of this direction, and it works better on cream than on blue.
+
+Fault B, the composition overflowed the canvas. The last grid row was cut in half by the bottom edge of the
+image, so two cards and one price were truncated, and the title plate touched the top edge. This is
+disqualifying — a shop mock with a clipped price is not reviewable.
+
+Fit the ENTIRE composition inside 1080 x 1920 with real margin. The title plate starts at least 55 px
+below the top edge. The bottom-most grid row ends at least 90 px above the bottom edge, complete and
+uncropped, with its price button fully visible. To make room, tighten the vertical budget: give the
+FREE REFILL plate and the QUICK HELP plate each about 210 px of height rather than 290, give the promoted
+hero plate about 330 px rather than 400, and give each of the three grid rows about 200 px. Reduce the
+gutters between the hanging banners and their plates. Do NOT solve the overflow by shrinking the numerals
+— every amount and price stays large and legible; solve it by trimming the plate heights and gutters.
+
+Keep everything else about this direction exactly as specified: torn deckle edges everywhere, the
+two-layer paper stacks (now a meadow #A8D3B9 under-sheet behind each plate, offset down-right, reading
+against the cream sheet), the coral banners strung on cords with acorn charms, the gold-tinted FREE REFILL
+face, the promoted three-layer BEST VALUE hero, and the leaf sprig in the empty sixth grid cell. Also make
+tier 3's container a plain tan tied SACK, visibly different from tier 2's small green cloth pouch — the
+second attempt drew both as green pouches and the mid-series escalation was lost.
+
+Palette: the fixed Meadow Sky roles only — sky #6FA9C0, structural slate #3F6D7D, meadow #A8D3B9,
+receding blue #8296AF, warm cream #F6EBDD, ink #243B4B, action green #5F9B6D, coral #D87865, reward gold
+#D6A94C, rare purple #8677A3, tinted shadow #294654 at about 18-20% opacity. Keep 60-70% of the screen
+below about 45% saturation; the broad background surfaces stay between about 28% and 42% saturation.
+Reserve the strongest chroma for the purchase controls, the acorn heroes, and the two ribbons. Gold is
+meaningful: use it only for acorn value and the best-value marker. Coral is an accent only: the close
+button and the POPULAR ribbon. Green is the action color only. Purple is rare or absent here. No pure
+white, no pure black, no neon, no electric cyan, no muddy brown field.
+
+Meadow Sky + Cut-Paper Playground style: the world is friendly matte hand-cut cardstock — never
+plastic, clay, sticker, watercolor, gouache, visible brushwork, painterly gradient, glossy 3D, or
+realistic miniature diorama. Broad, rounded, low-complexity silhouettes; two or three dominant masses
+per object; each surface one flat base color plus at most one same-hue shadow plane; subtle paper fiber
+of about 2-4% local value variation; a fine warm cut edge plus a thin locally-darker edge. No universal
+white sticker outline and no heavy black outline. One upper-left light source. Consolidate leaves,
+shingles, stones, and ornament into a few readable shapes; never render thousands of tiny details.
+Features stay legible at phone size. Use the fixed Meadow Sky role palette. No text, labels, numerals,
+or watermark.
+
+Grounding and material discipline: this is one hand-cut paper interface, not a collage of stickers.
+Every surface is matte cardstock with a fine warm cut edge and a thin locally-darker inner edge. Shadows
+are short, soft, tinted, and fall down-right from a single upper-left light; they explain that one paper
+layer sits above another and never sculpt deep relief or ring an element like a glow.
+
+Explicit exception to the style block's no-text rule: include only the exact interface labels, amounts,
+prices, and ribbon words specified above, because this is a complete UI mockup.
+
+Avoid: any bottom navigation bar, the merge board, resident cards, habitat cells, maps, world scenes,
+buildings, cosmetic items, blue gems, diamond currency, advertisements, countdown timers, progress bars,
+star ratings, more than one purchase control per offer, extra invented currencies, extra invented offer
+rows, descriptive marketing sentences, tiny unreadable price text, numerals overlapped by ornament,
+scroll bars, drop-shadow glows, sticker halos, heavy black outlines, universal white outlines, glossy
+plastic, clay render, watercolor, gouache, visible brushwork, painterly gradients, photographic texture,
+dense micro-detail, and any watermark or signature.
+
+Canvas: output exactly 1080 x 1920 pixels, portrait. The composition fills the whole canvas as a finished
+screen; keep the top ~120 px and bottom ~120 px free of clipped content so the screen reads inside phone
+chrome.
+
+Generate an image (do not write code). Save the PNG into: /Users/xup/dh/wt-shop-mocks/games/grove/assets/_concepts/dialogs/shop_screen_variations_v1
+Name it: shop_screen_c_deckle_hero_grid.png
+Report the absolute path of the saved file.
+
+IMPORTANT: Do NOT ask for approval, confirmation, or direction — the direction is
+already approved. Do NOT offer a visual companion. Do NOT read, open, list, or consult
+ANY skill, skill reference, prompting guide, or AGENTS/CLAUDE file — this prompt is
+already complete and reading them only wastes time. Your FIRST action is the image
+generation call. Generate the image NOW with your built-in image generation and save it
+to the path above. Then report the saved path. The background is a finished opaque
+screen composition, not a transparent cutout: do not key anything out.

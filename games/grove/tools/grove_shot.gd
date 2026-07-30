@@ -9,6 +9,12 @@ extends SceneTree
 ##        ftue (fresh ledger → the live merge-drag hand hint) | ftuegen (merge taught → the live
 ##        generator-tap hand hint) | ftuesoil (L6 Soil-seed hand hint; phase=place for beat 2)
 ##
+## MODE=sky_sunbeam | sky_rain takes `lane=N`: which Weather Hours lane the wash paints (a column for
+##        sunbeam, a row for rain), clamped to the board. The lane is otherwise rolled off the real clock
+##        hour, so the EDGE lanes — 0 and the last, the ones whose wash meets the board panel's ROUNDED
+##        corners — are not reachable on demand. Omitted (the default) nothing is pinned and the capture
+##        is unchanged.
+##
 ## MODE=cascade takes `phase=`: run (default, frozen mid-run) | guide | dragfocus | seedguide |
 ##        tagtarget | runway [hold=N] | two (two chains armed at once) | x2 (the shortest chain) |
 ##        anything else (e.g. `rest`) = the armed marks at rest. `glow=dim|stronger|strongest`
@@ -307,6 +313,7 @@ func _initialize() -> void:
 			# The live Weather Hours patch + in-cell glyph, through Board.tscn. The save has both FTUE
 			# verbs marked above, so the gift gate is open and the lane is visible.
 			scn.debug_refresh_weather()
+			_force_sky_lane(scn, args)
 			await create_timer(0.45).timeout
 		"sky_calm":
 			# The SAME gate-open board on a Calm hour — the capture's whole point is what is MISSING:
@@ -901,6 +908,25 @@ func _initialize() -> void:
 		[out, err, G.level(), Save.coins_earned_lifetime(), Save.coins(), scn.board.bramble_count(),
 		scn.board.gens.size(), scn.board.gen_bag.size()])
 	Base.finish(self)
+
+## `lane=N` pins which Weather Hours lane the wash paints, then re-derives the patch + glyphs through the
+## scene's own path. The lane is rolled off the real clock hour (sky.gd `_pick_lane`), so without this the
+## EDGE lanes — the ones whose wash meets the board panel's ROUNDED corners — are not reachable on demand.
+## N is clamped to the axis the sky already chose (rain rolls a row, everything else a column); no `lane=`
+## touches nothing, so every existing capture keeps its bytes.
+static func _force_sky_lane(scn: Node, args: Array) -> void:
+	var want := Base.opt(args, "lane", "")
+	if want == "":
+		return
+	var state: Dictionary = scn.get("_sky_state")
+	if state.is_empty() or int(state.get("lane", -1)) < 0:
+		print("SKY LANE ignored: this hour projects no lane (sky=%s)" % String(state.get("sky", "")))
+		return
+	var lanes := G.ROWS if String(state.get("lane_axis", "")) == "row" else G.COLS
+	state["lane"] = clampi(int(want), 0, lanes - 1)
+	scn.set("_sky_state", state)
+	scn.call("_sync_sky_patch_marker", false)
+	print("SKY LANE forced axis=%s lane=%d" % [String(state.get("lane_axis", "")), int(state["lane"])])
 
 ## The lifetime-organic-coins each mode banks BEFORE the scene loads (see _initialize) — the ONLY way
 ## a capture sets its level now. A mode absent here keeps the fresh save's Level 1.
