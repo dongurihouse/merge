@@ -1448,27 +1448,41 @@ func _test_chain_gutters_carry_the_band_warmth() -> void:
 # colour change like this fails PARTIALLY: the ring moves off the tray's amber and the tile faces —
 # the largest lit area of the whole mark — stay on it, so the chain reads as a re-coloured outline
 # around unchanged amber tiles. That is the same split as the amber-bars-in-a-cream-ring regression
-# the warmth guard above was written for, one knob later. So pin the three things a tint can break:
-#   * `cream` is the CONTROL and must be the exact shipped colour, or every candidate is judged
-#     against a moved baseline;
+# the warmth guard above was written for, one knob later. So pin the five things a tint can break:
+#   * the SHIPPED hue is one of the named candidates, read from the same row `tint=<name>` reads —
+#     not a fourth copy of a colour that could drift, which is how a capture stops showing what ships;
+#   * `cream` is the CONTROL: the PRE-TINT look, the colour the one pull is applied TO. Since
+#     2026-07-30 the shipped hue is `cool`, so "the control" and "what the code returns by default"
+#     are DIFFERENT things and the control can no longer be pinned by comparing the two. It is pinned
+#     by what it MEANS instead: every candidate's every drawn surface is exactly `tinted()` of the
+#     cream one. A `cream` that stopped being the identity puts a second pull under every candidate's
+#     baseline and this fails — and no rewrite of it to "whatever the code now returns" is possible,
+#     because the claim is about the relationship between two reads, not about either read's value;
 #   * every surface of the mark takes the SAME pull — measured as the fraction of the way each drawn
 #     colour has travelled toward the tint's target, read off the accessors the drawing calls;
+#   * the target bloom is one of those surfaces. It had its own warm literal at the call site and
+#     shipped as an amber patch inside the first `cool` chain, so it is named separately as well;
 #   * the hot line ON the tile edge is the ONE surface left as solved, because it is the tile's own
 #     cut edge rather than light lying on the tray.
 func _test_tint_carries_the_whole_mark_on_one_pull() -> void:
 	var before := CascadeOutline.forced_tint
 	CascadeOutline.forced_tint = ""
 	var shipped := _mark_surfaces()
+	CascadeOutline.forced_tint = CascadeOutline.SHIPPED_TINT
+	var named := _mark_surfaces()
 	CascadeOutline.forced_tint = "cream"
 	var control := _mark_surfaces()
-	# A: a real selection, and both reads saw the same one — everything below indexes them together.
-	ok(control.size() >= 4 and control.size() == shipped.size(),
-		"the mark is a real set of drawn surfaces (%d, against the shipped read's %d)" \
-		% [control.size(), shipped.size()])
-	var drift := 0.0
-	for i in mini(control.size(), shipped.size()):
-		drift = maxf(drift, _channel_gap(Color(shipped[i]), Color(control[i])))
-	ok(drift == 0.0, "tint 'cream' is the CONTROL: every drawn surface is exactly the shipped colour (worst channel delta %.7f)" % drift)
+	var control_bloom := _bloom_probe()
+	# A: a real selection, and every read saw the same one — everything below indexes them together.
+	ok(control.size() >= 5 and control.size() == shipped.size() and named.size() == shipped.size(),
+		"the mark is a real set of drawn surfaces (%d, against the shipped read's %d and the named %d)" \
+		% [control.size(), shipped.size(), named.size()])
+	var copy_drift := 0.0
+	for i in mini(named.size(), shipped.size()):
+		copy_drift = maxf(copy_drift, _channel_gap(Color(shipped[i]), Color(named[i])))
+	ok(copy_drift == 0.0 and CascadeOutline.TINTS.has(CascadeOutline.SHIPPED_TINT),
+		"what ships IS the candidate TINTS['%s'], not a copy of it (worst channel delta %.7f)" \
+		% [CascadeOutline.SHIPPED_TINT, copy_drift])
 	for raw_name in CascadeOutline.TINTS:
 		var name := String(raw_name)
 		CascadeOutline.forced_tint = name
@@ -1477,25 +1491,41 @@ func _test_tint_carries_the_whole_mark_on_one_pull() -> void:
 		var lo := INF
 		var hi := -INF
 		var off_axis := 0.0
+		var from_control := 0.0
 		for i in mini(control.size(), lit.size()):
 			var f := _pull_fraction(Color(control[i]), Color(lit[i]), target)
 			lo = minf(lo, f)
 			hi = maxf(hi, f)
 			off_axis = maxf(off_axis, _pull_residual(Color(control[i]), Color(lit[i]), target, f))
-		# B: one pull, every surface. A face or a gutter left behind reports a fraction of 0 while the
+			from_control = maxf(from_control, _channel_gap(CascadeOutline.tinted(Color(control[i])), Color(lit[i])))
+		# B: the CONTROL. Every candidate is this candidate's ONE pull applied to the cream read, so
+		# the cream read is the pre-tint colour by consequence and not by assertion of a literal.
+		ok(from_control == 0.0,
+			"tint '%s' is ONE pull off the 'cream' CONTROL, which is therefore the PRE-TINT look (worst channel delta %.7f)" \
+			% [name, from_control])
+		# C: one pull, every surface. A face or a gutter left behind reports a fraction of 0 while the
 		# band reports the whole pull, so the spread IS the size of the split.
 		ok(hi - lo <= TINT_PULL_TOL, "tint '%s' carries every surface of the mark the same distance (%.5f apart, %.3f..%.3f)" \
 			% [name, hi - lo, lo, hi])
-		# C: …and each one moved ALONG the axis to the target, not merely as far. Without this a
+		# D: …and each one moved ALONG the axis to the target, not merely as far. Without this a
 		# surface re-coloured to something else entirely could project to the same fraction.
 		ok(off_axis <= TINT_PULL_TOL, "tint '%s' moves every surface toward its target and nowhere else (worst residual %.5f)" \
 			% [name, off_axis])
-		# D: and a candidate that moves nothing is not a candidate. `cream` is the control, and its
+		# E: and a candidate that moves nothing is not a candidate. `cream` is the control, and its
 		# whole job is to move nothing.
 		var moved: bool = lo > 0.0
-		ok(moved == (name != "cream"), "tint '%s' %s the mark off the shipped hue (pull %.3f)" \
+		ok(moved == (name != "cream"), "tint '%s' %s the mark off the pre-tint hue (pull %.3f)" \
 			% [name, "moves" if name != "cream" else "leaves", lo])
-		# E: the hot line is the tile's CUT EDGE, not light on the tray — it stays exactly as solved
+		# F: the target bloom, named. It is the light on the cell a merge lands in — inside the
+		# contour and over the lit face — and it is compared against `tint_pull()` itself, so "the
+		# bloom took the whole pull" is measured against the knob rather than against a copy of it.
+		var bloom := _bloom_probe()
+		var bloom_pull := _pull_fraction(control_bloom, bloom, target)
+		var bloom_off := _pull_residual(control_bloom, bloom, target, bloom_pull)
+		ok(absf(bloom_pull - CascadeOutline.tint_pull()) <= TINT_PULL_TOL and bloom_off <= TINT_PULL_TOL,
+			"tint '%s': the target bloom takes the mark's whole pull (%.3f of the knob's %.3f, residual %.5f)" \
+			% [name, bloom_pull, CascadeOutline.tint_pull(), bloom_off])
+		# G: the hot line is the tile's CUT EDGE, not light on the tray — it stays exactly as solved
 		# under every tint, and it is excluded from the surfaces above for that reason.
 		var hot_at := _rail_index(func(rail): return int(rail[0]) == CascadeOutline.ANCHOR_GAP \
 			and is_equal_approx(float(rail[1]), -1.0))
@@ -1506,9 +1536,9 @@ func _test_tint_carries_the_whole_mark_on_one_pull() -> void:
 	CascadeOutline.forced_tint = before
 
 # Every colour of the chain mark a tint has to carry, in a fixed order: the contour rails except the
-# hot line ON the tile edge (left as solved on purpose), the interior gutters, and the tile face.
-# READ off the accessors the drawing itself calls — a guard that recomputed the lerp would pass
-# however far the call sites drifted from it.
+# hot line ON the tile edge (left as solved on purpose), the interior gutters, the tile face, and the
+# bloom on the cell the merge lands in. READ off the accessors the drawing itself calls — a guard that
+# recomputed the lerp would pass however far the call sites drifted from it.
 func _mark_surfaces() -> Array:
 	var out: Array = []
 	for row in CascadeOutline.lit_rails():
@@ -1518,7 +1548,15 @@ func _mark_surfaces() -> Array:
 		out.append(rail[2])
 	out.append(CascadeOutline.lit_crack())
 	out.append(CascadeOutline.lit_face())
+	# TWO lines, because the bloom is the one surface built from the line's own colour: a tint applied
+	# to a literal instead of to the argument would move one hue and not the other.
+	out.append(CascadeOutline.lit_bloom(G.line_color(1)))
+	out.append(CascadeOutline.lit_bloom(G.line_color(3)))
 	return out
+
+# The bloom on ONE line, for the assert that names it. Same accessor the drawing calls.
+func _bloom_probe() -> Color:
+	return CascadeOutline.lit_bloom(G.line_color(1))
 
 # How far `lit` has travelled from `base` toward `target`, as a share of the whole way there.
 func _pull_fraction(base: Color, lit: Color, target: Color) -> float:
