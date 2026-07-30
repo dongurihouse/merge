@@ -9,6 +9,7 @@ func _initialize() -> void:
 	print("== cascade guide marks ==")
 	_test_rest_ranks_longest_first_and_caps()
 	_test_drag_keeps_only_the_longest_chain_loud()
+	_test_drag_winner_is_the_longest_not_the_first_that_qualifies()
 	_test_drag_without_a_chain_hides_every_chain_mark()
 	_test_run_emits_one_mark_covering_the_whole_remaining_run()
 	finish()
@@ -111,6 +112,43 @@ func _test_drag_keeps_only_the_longest_chain_loud() -> void:
 	ok(dimmed >= 1, "the losing target is dimmed rather than dropped (got %d dimmed)" % dimmed)
 	ok(String((marks[marks.size() - 1] as Dictionary).get("role", "")) == "target",
 		"the winning target is emitted last, so it draws on top")
+
+# The rule is LONGEST, and the test above cannot see it: only one of its targets clears CHAIN_MIN_N,
+# so "the longest" and "the first that qualifies" pick the same cell there. Proved vacuous by
+# mutation — replacing the length comparison with "first eligible wins" left all 24 asserts green.
+# Here BOTH targets cascade and the row-major FIRST one is the SHORTER, so the two rules disagree.
+func _test_drag_winner_is_the_longest_not_the_first_that_qualifies() -> void:
+	var b := _blank_board()
+	b.place(Vector2i(0, 0), 101)          # the held piece
+	b.place(Vector2i(0, 2), 101)          # idx 2 — merges, then one t2 partner   -> n = 2
+	b.place(Vector2i(1, 2), 102)
+	b.place(Vector2i(3, 4), 101)          # a later idx — climbs two rungs        -> n = 3
+	b.place(Vector2i(4, 4), 102)
+	b.place(Vector2i(5, 4), 103)
+	var targets := CascadeMarks._merge_targets(b, Vector2i(0, 0), _occupied_cells(b))
+	var lengths: Array = []
+	for raw in targets:
+		lengths.append([Vector2i((raw as Dictionary).get("cell", Vector2i(-1, -1))), int((raw as Dictionary).get("n", 0))])
+	# the premise: two qualifying targets, the earlier one shorter. Without this the test is vacuous
+	# again the moment a fixture edit collapses the two rules onto one answer.
+	ok(lengths == [[Vector2i(0, 2), 2], [Vector2i(3, 4), 3]],
+		"the fixture offers two cascading targets, shortest first in row-major order (got %s)" % str(lengths))
+	var marks := CascadeMarks.build(b, _drag_ctx(b, Vector2i(0, 0)))
+	var loud_targets: Array = []
+	for raw in _loud(marks):
+		var m: Dictionary = raw
+		if String(m.get("role", "")) == "target":
+			loud_targets.append([Vector2i(m.get("cell", Vector2i(-1, -1))), int(m.get("n", 0))])
+	ok(loud_targets == [[Vector2i(3, 4), 3]],
+		"the LONGER chain wins even though the shorter one qualifies first (got %s)" % str(loud_targets))
+	var dim_cells: Array = []
+	for raw in marks:
+		var m: Dictionary = raw
+		if String(m.get("role", "")) == "target" \
+				and is_equal_approx(float(m.get("weight", 0.0)), CascadeMarks.DRAG_DIM):
+			dim_cells.append(Vector2i(m.get("cell", Vector2i(-1, -1))))
+	ok(dim_cells == [Vector2i(0, 2)],
+		"the losing cascade target is dimmed, not hidden (got %s)" % str(dim_cells))
 
 func _test_drag_without_a_chain_hides_every_chain_mark() -> void:
 	var b := _blank_board()
