@@ -16,7 +16,9 @@ extends SceneTree
 ##        is unchanged.
 ##
 ## MODE=cascade takes `phase=`: run (default, frozen mid-run) | guide | dragfocus | seedguide |
-##        tagtarget | runway [hold=N] | two (two chains armed at once) | x2 (the shortest chain) |
+##        tagtarget | staircase [hold=N] (a t2·t3·t4 with no pair — was `runway`, back when it drew a
+##        second, fainter mark; the guide has ONE rule now, so at rest it draws nothing, and `hold=N`
+##        is what makes it interesting) | two (two chains armed at once) | x2 (the shortest chain) |
 ##        anything else (e.g. `rest`) = the armed marks at rest. `glow=dim|stronger|strongest`
 ##        (shot_base) picks the contour's intensity and `tint=cream|cool|deep|green` its hue, so one
 ##        batched launch shoots every variant.
@@ -217,7 +219,7 @@ func _initialize() -> void:
 					Vector2i(3, 4): 104,
 					Vector2i(6, 6): 101,
 				}
-			elif phase == "runway":
+			elif phase == "staircase":
 				ready = {
 					Vector2i(3, 1): 102,
 					Vector2i(3, 2): 103,
@@ -289,10 +291,10 @@ func _initialize() -> void:
 				move_focus.position = scn._cell_pos(Vector2i(1, 2)) + chalf + Vector2(18.0, -24.0)
 				scn._on_board_input(move_focus)
 				await create_timer(0.35).timeout
-			elif phase == "runway":
+			elif phase == "staircase":
 				if hold_tier > 0:
-					var held_runway := Vector2i(6, 6)
-					var start: Vector2 = scn._cell_pos(held_runway) + chalf
+					var held_staircase := Vector2i(6, 6)
+					var start: Vector2 = scn._cell_pos(held_staircase) + chalf
 					var target_cell := Vector2i(3, 2)
 					if hold_tier <= 2:
 						target_cell = Vector2i(3, 0)

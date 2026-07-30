@@ -147,11 +147,11 @@ vacated — always free, synchronously, before the lucky rolls.
 
 ## 7 · Ready-ladder outline
 
-- Node `engine/scripts/ui/cascade_outline.gd`, one `board_area` child. The scene passes armed
-  `ready_ladders` entries with `n >= CHAIN_MIN_N`; at `2` that includes ×2 ladders. It also passes
-  `runways(board, RUNWAY_MIN_N)` entries for weaker resting marks. **`RUNWAY_MIN_N` (`3`) is its own
-  constant, deliberately unequal to `CHAIN_MIN_N` (`2`)** — a chain arms at ×2, but a runway is the
-  quiet "one piece away" telegraph, and at `2` it draws on nearly every board (§11).
+- Node `engine/scripts/ui/cascade_outline.gd`, one `board_area` child. **SUPERSEDED 2026-07-30
+  (owner): the guide has ONE rule.** The scene passes `ready_ladders` entries with
+  `n >= CascadeMarks.GUIDE_MIN_N` (`3`), at one strength, and nothing else — no `runways` marks and
+  no ×2 marks. `CHAIN_MIN_N` (`2`) still decides whether a cascade FIRES; it no longer decides what
+  is drawn.
 - **Every armed chain is drawn, not the best one.** `ready_ladders` appends every same-line
   component that scores, `_armed_cascade_marks` keeps them all, `_draw` loops every entry, and
   `_rebuild_tags` dedups per CELL — so two chains at once are two contours with a ×n each. Only
@@ -191,13 +191,14 @@ vacated — always free, synchronously, before the lucky rolls.
   byte, and a running animation lands on a different phase in a warm batch process than in a
   fresh one; `tools/test_shot_batch.py` is the guard. `_process` runs only when there is a chain
   to animate and the phase is not pinned.
-- Per `runways` component: the same light, at half strength with a tighter halo. It carries no
-  tier text; the glow is the only resting runway hint.
+- Per `runways` component: nothing. **SUPERSEDED 2026-07-30 (owner): the guide has ONE rule —
+  `CascadeMarks.GUIDE_MIN_N = 3` — and one strength.** A runway is not a chain, so it draws no mark
+  in any mode; `BoardLogic.runways` survives for the staging pads and the cascade teach alone.
 - Color: `G.line_color(code)` reads `G.LINES[line].color`, fallback `Pal.TEXT_MUTED`
   (mirrors `piece_view.gd:297`). No hex literals (`palette_ssot_tests`).
 - Tags: resting armed ladders show a small code-drawn ×n paper chip on `top_cell`'s corner.
   During drag, the same ×n anchors on the occupied drop target (`tag_cell`) so the player sees
-  which item to drop onto. Empty staging pads and inert runways never carry text.
+  which item to drop onto. Empty staging pads never carry text.
 - Geometry via `_cell_pos` (`board.gd:1704`, owns the landscape transpose).
 
 ## 8 · Drag guide
@@ -212,8 +213,8 @@ and arms nothing. The marks say which of the two a drop is:
 
 | Mark | Where | Style | ×n |
 |---|---|---|---|
-| `cascade` | an occupied same-code target whose merge reaches `CHAIN_MIN_N` | strongest | **yes** |
-| `merge` | any other occupied same-code target | mid | no |
+| `cascade` | an occupied same-code target whose merge reaches `GUIDE_MIN_N` | strongest | **yes** |
+| `merge` | any other occupied same-code target, including one that reaches only `CHAIN_MIN_N` | mid | no |
 | `stage` | an empty cell that would grow the held line beside a single lower/higher tier, finish `chain_placements` at `n >= CHAIN_MIN_N`, or extend an armed ladder / a `RUNWAY_MIN_N` runway | weakest | no |
 
 At `CHAIN_MIN_N = 2` a held tier whose merge lands on the next tier already on the board is a
@@ -233,8 +234,8 @@ margins, so a saturated line colour tints the art itself rather than reading as 
 - **`stage` marks are suppressed whenever a `cascade` mark exists** — when a firing move is
   available it is the answer, and the staging cells around it compete with it.
 - When a held item has a `cascade` target, the outline uses a drag-focused ladder built from
-  `[target] + BoardLogic.chain_path(board, from, target)`. Resting ready/runway ribbons and their
-  tags are hidden until release, so the guide describes the chain the held item will create.
+  `[target] + BoardLogic.chain_path(board, from, target)`. Resting ribbons and their tags are
+  dimmed to `DRAG_DIM` until release, so the guide describes the chain the held item will create.
 - Nothing draws when the held piece neither merges nor builds.
 
 ## 9 · Flags & save
@@ -271,10 +272,10 @@ margins, so a saturated line colour tints the art itself rather than reading as 
   - Guide pads on `_begin_drag`, cleared on release; generator drag → none.
   - Weak guide pads start from a single lower/higher neighboring tier; they stay unnumbered and
     below cascade strength.
-  - Resting runways draw no `tN` label, drag cascade tags sit on the occupied drop target, and
-    ready ribbons exclude the duplicate source cell.
-  - The runway threshold is `RUNWAY_MIN_N`, never `CHAIN_MIN_N`: a fixture carrying one ×3-capable
-    and one ×2-capable component draws only the first.
+  - A same-line staircase with no pair draws nothing, drag cascade tags sit on the occupied drop
+    target, and ready ribbons exclude the duplicate source cell.
+  - The guide's floor is `GUIDE_MIN_N`, never `CHAIN_MIN_N`: a ×2 arms, auto-steps and pays no
+    chest, and is drawn in no mode.
   - A mixed component with a lower-tier `×5` at rest focuses to the held item's `×3` run while
     dragging; ordered ribbon links do not connect touching non-consecutive path cells.
   - Outline present iff an armed ladder exists; tag text ×n; stack index above mat/slots and below
@@ -293,11 +294,12 @@ margins, so a saturated line colour tints the art itself rather than reading as 
 1. Auto-steps also roll the 10 %/2 % lucky drops (uniform-merge stance) — confirm, or should
    auto-steps skip them? The sim pass will quantify either way.
 2. ~~Arming floor at ×2 or ×3?~~ **RESOLVED 2026-07-29: `CHAIN_MIN_N = 2`** (owner).
-3. ~~Does the runway threshold follow the arming floor down to ×2?~~ **RESOLVED 2026-07-29: no —
-   `RUNWAY_MIN_N = 3`, its own constant** (owner). At `2` a runway carpeted the board (mean 3.2-7.4
-   marks, peak 13, on 95-100 % of boards); at `3` it is back to mean 0.18-0.69, peak 4, on 13-44 %
-   — measured over 200 randomised boards × 3 fill levels, raw and settled. Pinned by
-   `_test_runway_threshold_is_independent_of_chain_min_n`.
+3. ~~Does the runway threshold follow the arming floor down to ×2?~~ **SUPERSEDED 2026-07-30: the
+   runway MARK is gone** (owner). The question dissolved with the second strength: the guide marks a
+   chain if and only if its run is `GUIDE_MIN_N = 3` or longer, and that is the only rule. A ×2 still
+   cascades (`CHAIN_MIN_N = 2`); it is simply not advertised. `RUNWAY_MIN_N = 3` stays in `board.gd`
+   for the staging-pad component list and the one-time cascade teach. Pinned by
+   `_test_the_one_rule_is_run_length_in_every_mode` and `_test_x2_ladder_arms_a_cascade`.
 4. ~~Does a ×2 run keep the full 300 ms pre-roll?~~ **RESOLVED 2026-07-29: no —
    `CHAIN_PREROLL_X2_MS = 100`** (owner). Measured input lock from the drop to `animating` clearing:
    plain merge 175 ms · ×2 827 → **627 ms** · ×3 1122 ms · ×4 1353 ms (×3/×4 unchanged). Pinned by

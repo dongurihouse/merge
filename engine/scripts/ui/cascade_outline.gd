@@ -371,7 +371,7 @@ func _draw_mark(m: Dictionary) -> void:
 		return
 	var colour := G.line_color(int(m.get("line", 0)))
 	match String(m.get("role", "")):
-		"chain", "runway":
+		"chain":
 			_draw_chain_glow(Array(m.get("run", [])), colour, weight, float(m.get("reach", 1.0)))
 		"target":
 			_draw_target_bloom(Vector2i(m.get("cell", Vector2i(-1, -1))), colour, weight)
@@ -406,9 +406,11 @@ func _draw_chain_glow(raw_cells: Array, base: Color, strength: float, reach: flo
 	for raw_quad in geom["gutters"]:
 		_poly(raw_quad as Array, crack, null)
 
-## Where each rail sits, in px, outward positive. A runway passes `reach` < 1 and gets a tighter
-## halo; the gap- and corner-anchored rails do not scale with it, so the hot line stays ON the tile
-## edge and the inward spill stays inside the corner radius whatever the mark's strength. BAND_WIDTH
+## Where each rail sits, in px, outward positive. A mark passing `reach` < 1 gets a tighter halo;
+## the gap- and corner-anchored rails do not scale with it, so the hot line stays ON the tile
+## edge and the inward spill stays inside the corner radius whatever the mark's strength. Since the
+## guide became ONE strength (cascade_marks.gd's GUIDE_MIN_N) every published mark passes 1.0, and
+## this is the knob that would carry a second strength if one is ever wanted again. BAND_WIDTH
 ## is the separate, mark-independent knob: it widens the tray-riding rails only — everything from the
 ## tile edge inward keeps its solved offset, so a wider band never moves the hot line.
 func _rail_offsets(m: Dictionary, reach: float) -> PackedFloat32Array:
@@ -434,7 +436,7 @@ func _rail_offsets(m: Dictionary, reach: float) -> PackedFloat32Array:
 ## so they have to stay strictly outward-to-inward: let the widened band's outermost rail climb past
 ## the innermost pitch-anchored haze rail and the strip folds through itself. Two things make that
 ## reachable — a board whose gutter is a big share of its pitch (the workbench's 40 px cells), and a
-## runway, whose `reach` shrinks the haze while the gap-anchored band deliberately does not scale.
+## `reach` below 1, which shrinks the haze while the gap-anchored band deliberately does not scale.
 ## Scaling the whole band down together keeps the profile's shape and the ordering. The cap never
 ## bites at BAND_WIDTH = 1.0: it can only take back width this knob added, never narrow the solved
 ## profile, so a board that drew correctly before draws identically now.

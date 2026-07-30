@@ -120,15 +120,16 @@ const MERGE_TARGET_GROW := 0.30  # merge-only hit area added around each cell; m
 const ANIM_WATCHDOG_SECS := 0.6
 const CHAIN_STEP_WATCHDOG_SECS := 2.0
 const CHAIN_MIN_N := 2           # owner call 2026-07-29: a chain starts at ×2 (was 3). Resolves the
-                                 # spec's §11 open question. Drives the resting marks, the drag-guide
-                                 # filter, the cascade-vs-merge pad kind, and the arming gate in
-                                 # _prepare_chain. NOT the runway threshold — see RUNWAY_MIN_N.
-const RUNWAY_MIN_N := 3          # owner call 2026-07-29: the runway threshold is its OWN knob and stays
-                                 # at 3 while CHAIN_MIN_N went to 2. A chain ARMS at ×2, but a runway is
-                                 # the quiet "one piece away" telegraph, and at 2 it fires on nearly
-                                 # every board (measured over 200 randomised boards × 3 fill levels:
-                                 # mean 3.2–7.4 marks, peak 13, on 95–100 % of boards, against mean
-                                 # 0.2–0.7 on 13–44 % at 3).
+                                 # spec's §11 open question. THE MECHANIC ONLY — the arming gate in
+                                 # _prepare_chain and the staging-pad filter. What the guide DRAWS is
+                                 # CascadeMarks.GUIDE_MIN_N (3), a display knob of its own: owner call
+                                 # 2026-07-30 made the guide one rule at one strength, so a ×2 still
+                                 # cascades and is simply never advertised.
+const RUNWAY_MIN_N := 3          # NOT a drawn mark since 2026-07-30 — the guide's second, fainter
+                                 # "one piece away" strength is gone. What still reads this: the
+                                 # staging-pad component list (CascadeMarks._extension_pads) and the
+                                 # one-time cascade teach (_cascade_teach_pair), which waits for a
+                                 # player-built ×3 rather than the ×2 arming floor.
 const CHAIN_PREROLL_MS := 300
 const CHAIN_PREROLL_X2_MS := 100 # owner call 2026-07-29: the ×2 pre-roll is shorter than the rest. A
                                  # ×2 run is ONE hop and is already entirely on screen, so the

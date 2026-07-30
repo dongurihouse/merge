@@ -99,16 +99,16 @@ def main() -> int:
     plan.write_text(
         f"widget {tmp}/widget_1.png 104 104:glow\n"
         f"grove hud {tmp}/grove_1.png\n"
-        f"grove cascade {tmp}/cascade_1.png phase=runway\n"
+        f"grove cascade {tmp}/cascade_1.png phase=staircase\n"
         f"widget {tmp}/widget_2.png 104 104:glow\n"
         f"grove hud {tmp}/grove_2.png\n"
-        f"grove cascade {tmp}/cascade_2.png phase=runway\n"
+        f"grove cascade {tmp}/cascade_2.png phase=staircase\n"
         f"grove cascade {tmp}/cascade_guide.png phase=guide\n"
         f"grove mastery {tmp}/mastery_reveal.png phase=reveal\n")
 
     batched = run(["-s", BATCH, "--", str(plan)])
     single = run(["-s", WIDGET, "--", str(tmp / "widget_single.png"), "104", "104:glow"])
-    cascade_single = run(["-s", GROVE, "--", "cascade", str(tmp / "cascade_single.png"), "phase=runway"])
+    cascade_single = run(["-s", GROVE, "--", "cascade", str(tmp / "cascade_single.png"), "phase=staircase"])
 
     failures = []
     for name, proc in (("batch", batched), ("single", single), ("cascade single", cascade_single)):

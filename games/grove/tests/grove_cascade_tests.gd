@@ -47,18 +47,16 @@ func _initialize() -> void:
 	await _test_drag_merge_targets_are_highlighted()
 	await _test_drag_focuses_the_held_cascade_path()
 	await _test_drag_stage_starts_from_single_tier_neighbors()
-	await _test_runway_resting_outline_without_needed_tier_tag()
-	await _test_runway_threshold_is_independent_of_chain_min_n()
+	await _test_a_staircase_with_no_pair_draws_nothing()
 	await _test_drag_cascade_tag_sits_on_drop_target()
 	await _test_ready_ladder_glow_excludes_duplicate_tip_source()
-	await _test_runway_drag_guide_strengths_use_real_input()
+	await _test_drag_guide_strengths_use_real_input()
 	await _test_ready_outline_stays_between_slots_and_pieces_with_stale_generator_nodes()
 	await _test_ready_outline_and_flag_off()
 	await _test_two_chains_arm_and_draw_at_once()
 	_test_contour_covers_bends_branches_rings_and_pinches()
 	_test_contour_rounds_and_resamples_for_drawing()
 	_test_landscape_outline_uses_transposed_geometry()
-	_test_runway_glow_is_weaker_than_an_armed_ladder()
 	_test_glow_levels_stay_ordered_and_equally_warm()
 	_test_chain_gutters_carry_the_band_warmth()
 	_test_tint_carries_the_whole_mark_on_one_pull()
@@ -192,7 +190,6 @@ func _outline(b: Node) -> Control:
 ## The guide is ONE ordered mark list now, so the suite's old channel vocabulary is read back off
 ## roles. Nothing here recomputes a rule — every helper reads what the renderer was handed:
 ##   ladder        role "chain" above DRAG_DIM  (armed at rest, held in a drag, or the run in flight)
-##   runway        role "runway"
 ##   pad "stage"   role "stage"    — an empty cell to build into
 ##   pad "cascade" role "target" WITH the tag — the cell the tipping merge lands on, which is where
 ##                 the ×n chip rides too
@@ -226,17 +223,15 @@ func _outline_ladder_count(b: Node) -> int:
 			n += 1
 	return n
 
-func _outline_runway_count(b: Node) -> int:
-	return _marks_with_role(b, "runway").size()
-
-## The weight the DRAWING reads off a resting runway mark — `_draw_mark` hands exactly this number to
-## `_draw_chain_glow` as its strength, so a runway that stopped being quieter than an armed ladder
-## fails here. Reading the published mark rather than a constant is the point: it pins the value that
-## reaches the renderer, not the value the builder happens to declare.
-func _outline_runway_weight(b: Node) -> float:
-	for raw in _marks_with_role(b, "runway"):
-		return float((raw as Dictionary).get("weight", 0.0))
-	return -1.0
+## Is every mark on this board drawn at full strength? `_draw_mark` hands a mark's `weight` straight
+## to the glow as its strength, so this reads the number that reaches the renderer rather than the
+## one the builder declares. A RESTING board has one strength now; the only sub-1.0 weights left in
+## the guide belong to a drag (DRAG_DIM, MERGE_WEIGHT), so at rest this must hold.
+func _outline_full_strength(b: Node) -> bool:
+	for raw in _outline_marks(b):
+		if not is_equal_approx(float((raw as Dictionary).get("weight", 0.0)), 1.0):
+			return false
+	return true
 
 ## The drag's focused chain: the loud one. The dimmed resting chains a drag keeps in the background
 ## sit AT DRAG_DIM, so the weight test excludes them.
@@ -383,9 +378,12 @@ func _segment_is_horizontal(seg: Array) -> bool:
 	return seg.size() == 2 and is_equal_approx(Vector2(seg[0]).y, Vector2(seg[1]).y) \
 		and not is_equal_approx(Vector2(seg[0]).x, Vector2(seg[1]).x)
 
-# CHAIN_MIN_N is 2 (owner call 2026-07-29): the shortest possible run — one player merge and one
-# automatic follow-up — IS a chain. It telegraphs at rest, it arms, and it auto-steps. It pays
-# nothing: chain_reward_code starts its chest ladder at 3, and that is deliberate, not an oversight.
+# THE SPLIT between the mechanic and the guide, on the one board where they disagree. CHAIN_MIN_N is
+# 2 (owner call 2026-07-29): the shortest possible run — one player merge and one automatic follow-up
+# — IS a chain. It arms and it auto-steps. GUIDE_MIN_N is 3 (owner call 2026-07-30): it is not
+# ADVERTISED, at rest or in flight. This test holds both halves at once, so a change that quietly
+# re-couples them fails here whichever way it moves. It pays nothing either: chain_reward_code starts
+# its chest ladder at 3, and that is deliberate, not an oversight.
 func _test_x2_ladder_arms_a_cascade() -> void:
 	var b := _open_board("cascade_x2_arms")
 	await process_frame
@@ -395,10 +393,21 @@ func _test_x2_ladder_arms_a_cascade() -> void:
 		Vector2i(3, 3): 102,
 	})
 	await process_frame
-	ok(_outline_ladder_count(b) == 1 and _outline_has_tag(b, "×2"), \
-		"a x2 ladder draws its own cascade telegraph (%s)" % str(_outline_label_texts(b)))
+	ok(_outline_marks(b).is_empty(), \
+		"a x2 ladder draws NO telegraph at rest — one rule, and 2 is under it (%s)" % str(_outline_marks(b)))
 	_drag_merge(b, Vector2i(3, 1), Vector2i(3, 2))
 	ok(b.chain_running() and b.animating, "the x2 merge arms a chain instead of resolving as one merge")
+	# …and it stays unlit while it walks. The run OWNS the display in MODE_RUN, so if the rule were
+	# applied only at rest this is where a x2 would light up.
+	var lit_frames := 0
+	var frames := 0
+	while (b.chain_running() or bool(b.animating)) and frames < 240:
+		if not _outline_marks(b).is_empty():
+			lit_frames += 1
+		frames += 1
+		await process_frame
+	ok(frames > 0 and lit_frames == 0, \
+		"…and it draws nothing while it RUNS either (%d of %d frames lit)" % [lit_frames, frames])
 	await _wait_for_idle(b, 3.0)
 	ok(not b.chain_running() and b.board.item_at(Vector2i(3, 3)) == 103 \
 		and _line_of(b.board.item_at(Vector2i(3, 2))) != 1, \
@@ -922,61 +931,38 @@ func _test_drag_stage_starts_from_single_tier_neighbors() -> void:
 	await process_frame
 	b.queue_free()
 
-func _test_runway_resting_outline_without_needed_tier_tag() -> void:
-	var b := _open_board("cascade_runway_outline")
+# The guide has ONE rule — a run of GUIDE_MIN_N or longer — so a same-line staircase with no equal
+# pair is not a chain and draws NOTHING, whatever it is one piece away from. That board used to carry
+# the second, fainter "runway" channel, and this is the scene-level proof it is gone: the mark list
+# published to the renderer is empty, not merely quieter. `BoardLogic.runways` itself is untouched —
+# the staging pads still read it — so a live runways() count beside an empty mark list is the point.
+func _test_a_staircase_with_no_pair_draws_nothing() -> void:
+	var b := _open_board("cascade_staircase_draws_nothing")
 	await process_frame
 	_blank_fixture(b, {
 		Vector2i(3, 1): 102,
 		Vector2i(3, 2): 103,
 		Vector2i(3, 3): 104,
 	})
-	ok(_outline_ladder_count(b) == 0 and _outline_runway_count(b) == 1 and _outline_label_texts(b).is_empty(),
-		"an inert runway draws only the glow, without a tN needed-tier label")
-	# "a runway is visibly weaker than an armed ladder" was asserted for a long time by calling
-	# `_mark_thickness` — a width helper the drawing never called, so it measured nothing that was on
-	# screen. The weakness is a WEIGHT now, and this reads it off the mark board.gd actually published,
-	# which is the number `_draw_mark` hands the glow as its strength.
-	var runway_weight := _outline_runway_weight(b)
-	ok(runway_weight > 0.0 and runway_weight < 1.0,
-		"a resting runway mark is visibly weaker than an armed ladder (weight %.2f)" % runway_weight)
-	ok(is_equal_approx(runway_weight, CascadeMarks.RUNWAY_WEIGHT),
-		"…and it is RUNWAY_WEIGHT that reached the renderer (%.2f vs %.2f)" % [runway_weight, CascadeMarks.RUNWAY_WEIGHT])
-	ok(_outline_stack_is_visible_between_board_and_items(b),
-		"runway outline keeps the cascade stack invariant")
+	await process_frame
+	ok(BoardLogic.runways(b.board, BoardScriptRef.RUNWAY_MIN_N).size() == 1,
+		"the fixture really is one piece from a ×3 — runways() still finds it for the staging pads")
+	ok(_outline_marks(b).is_empty() and _outline_label_texts(b).is_empty(),
+		"…and the guide draws nothing at all for it (got %s)" % str(_outline_marks(b)))
 
+	# The SAME staircase with a duplicate rung in front of it: now it is a real ×3 chain, and it draws
+	# at full strength. One fixture edit separates "draws nothing" from "draws loud".
 	_blank_fixture(b, {
 		Vector2i(3, 0): 102,
 		Vector2i(3, 1): 102,
 		Vector2i(3, 2): 103,
 		Vector2i(3, 3): 104,
 	})
-	ok(_outline_ladder_count(b) == 1 and _outline_runway_count(b) == 0 and _outline_has_tag(b, "×3") and not _outline_has_tag(b, "t2"),
-		"an armed ladder keeps the stronger xN mark instead of the runway tag")
-	b.queue_free()
-
-# The runway threshold is RUNWAY_MIN_N (3), NOT CHAIN_MIN_N (2). A chain ARMS at x2, but a runway is
-# the quiet "one piece away" telegraph and at 2 it fires on nearly every board (mean 3.2-7.4 marks
-# against 0.2-0.7; spec §11). The fixture holds one component of each kind, so re-coupling the two
-# constants changes the drawn count and fails here.
-func _test_runway_threshold_is_independent_of_chain_min_n() -> void:
-	var b := _open_board("cascade_runway_threshold")
-	await process_frame
-	_blank_fixture(b, {
-		Vector2i(3, 1): 102,   # t2·t3·t4 — one t2 away from a x3 run
-		Vector2i(3, 2): 103,
-		Vector2i(3, 3): 104,
-		Vector2i(6, 1): 202,   # t2·t3 on another line — one t2 away from a x2 run, and no further
-		Vector2i(6, 2): 203,
-	})
-	await process_frame
-	var at_chain_min: int = BoardLogic.runways(b.board, BoardScriptRef.CHAIN_MIN_N).size()
-	var at_runway_min: int = BoardLogic.runways(b.board, BoardScriptRef.RUNWAY_MIN_N).size()
-	ok(at_chain_min == 2 and at_runway_min == 1,
-		"the fixture separates the two thresholds: %d runways at CHAIN_MIN_N, %d at RUNWAY_MIN_N" % [at_chain_min, at_runway_min])
-	ok(_outline_runway_count(b) == at_runway_min and _outline_runway_count(b) != at_chain_min,
-		"the board draws the RUNWAY_MIN_N set, not the CHAIN_MIN_N set (drew %d)" % _outline_runway_count(b))
-	ok(BoardScriptRef.RUNWAY_MIN_N > BoardScriptRef.CHAIN_MIN_N,
-		"a runway needs a longer would-be run than the arming floor (%d vs %d)" % [BoardScriptRef.RUNWAY_MIN_N, BoardScriptRef.CHAIN_MIN_N])
+	ok(_outline_ladder_count(b) == 1 and _outline_has_tag(b, "×3"),
+		"a duplicate rung makes it a ×3 chain, drawn at full strength with its chip")
+	ok(_outline_full_strength(b), "…and nothing on the board is drawn at a half strength")
+	ok(_outline_stack_is_visible_between_board_and_items(b),
+		"the chain outline keeps the cascade stack invariant")
 	b.queue_free()
 
 func _test_drag_cascade_tag_sits_on_drop_target() -> void:
@@ -1032,23 +1018,36 @@ func _test_ready_ladder_glow_excludes_duplicate_tip_source() -> void:
 		"…and its ×3 rides that same cell, not the run's far end")
 	b.queue_free()
 
-func _test_runway_drag_guide_strengths_use_real_input() -> void:
-	var b := _open_board("cascade_runway_drag_guides")
+func _test_drag_guide_strengths_use_real_input() -> void:
+	var b := _open_board("cascade_drag_guides")
 	await process_frame
 	var from := Vector2i(6, 6)
-	# The guide's whole grammar, on the board the player reported: t2·t3·t4 in a row.
-	#   cascade = an occupied cell you drop ONTO whose merge really runs a chain (the only ×n)
+	# The guide's whole grammar through the REAL input path, on the board the player reported:
+	# t2·t3·t4 in a row.
+	#   cascade = an occupied cell you drop ONTO whose merge runs a chain the ONE RULE admits — the
+	#             only mark that carries a ×n
 	#   merge   = an ordinary same-code target, no number
 	#   stage   = an empty cell; placing there builds the ladder and fires nothing
-	# Holding a t2 is the payoff: ONE cascade mark on the t2 itself, and the staging cells around
-	# it are suppressed so the eye has one place to go. t1/t5 cannot merge with anything, so they
-	# only stage. At CHAIN_MIN_N = 2 the held t3 joins the t2 as a chain-maker — t3+t3 → t4 lands on
-	# the board's own t4 — so it too draws one cascade mark and suppresses its staging cells. Only
-	# the t4 still merges without running: t4+t4 → t5 and there is no t5 to catch it.
+	# Holding a t2 is the payoff: the drop runs t3 → t4 → t5, a ×3, so it takes ONE cascade mark and
+	# the staging cells around it are suppressed so the eye has one place to go. t1/t5 cannot merge
+	# with anything, so they only stage.
+	#
+	# The held t3 is the ONE RULE's own case, and the reason this test outlived the runway channel:
+	# t3 + t3 → t4 lands on the board's t4 and runs a ×2. It still FIRES — board.gd's CHAIN_MIN_N is
+	# still 2 — but the guide no longer advertises it, so it drops out of `cascade` and back to an
+	# ordinary `merge` target with no ×n, and its staging cells stop being suppressed: a merge the
+	# guide does not call a chain cannot claim the eye. The held t4 was always that case — t4 + t4 →
+	# t5 and there is no t5 to catch it.
+	#
+	# The two are NOT identical, and the difference is the thing the owner asked to keep untouched:
+	# the staging pads answer to board.gd's CHAIN_MIN_N, not to the guide's floor. A t3 dropped on any
+	# empty cell touching the t2·t3·t4 component makes a t3 + t3 pair that runs a ×2, which clears
+	# CHAIN_MIN_N — so all 8 cells ringing the component stage. A t4 makes only a t5 with nothing to
+	# catch it, so its pads come from the lone-neighbour seed rule instead and there are 2.
 	var want := {
 		1: {"cascade": 0, "merge": 0, "stage": 3},
 		2: {"cascade": 1, "merge": 0, "stage": 0},
-		3: {"cascade": 1, "merge": 0, "stage": 0},
+		3: {"cascade": 0, "merge": 1, "stage": 8},
 		4: {"cascade": 0, "merge": 1, "stage": 2},
 		5: {"cascade": 0, "merge": 0, "stage": 3},
 	}
@@ -1110,8 +1109,11 @@ func _test_ready_outline_and_flag_off() -> void:
 	b.board.place(Vector2i(3, 4), 0)
 	b._rebuild_all()
 	await process_frame
-	ok(_outline_ladder_count(b) == 1 and _outline_has_tag(b, "×2"), \
-		"removing the top rung shortens the mark to ×2 rather than clearing it (CHAIN_MIN_N = 2)")
+	# The floor is the GUIDE's, not the game's. Removing the top rung leaves a ×2 that still CASCADES
+	# — board.gd's CHAIN_MIN_N is 2 and untouched — but the guide no longer advertises it, so the mark
+	# goes entirely rather than shortening to a ×2 chip.
+	ok(_outline_ladder_count(b) == 0 and not _outline_has_tag(b, "×2"), \
+		"removing the top rung takes the mark away — a ×2 fires but is not advertised (GUIDE_MIN_N = 3)")
 	b.board.place(Vector2i(3, 3), 0)
 	b._rebuild_all()
 	await process_frame
@@ -1312,25 +1314,6 @@ func _test_landscape_outline_uses_transposed_geometry() -> void:
 		"the lit gutter turns with the transpose too")
 	wide.free()
 	tall.free()
-
-# A runway is the SAME mark, quieter — it will not fire until its piece arrives. The distinction is
-# now carried by the glow's own alphas and halo reach, so pin those, not just the legacy width knob.
-func _test_runway_glow_is_weaker_than_an_armed_ladder() -> void:
-	var outline := CascadeOutline.new()
-	outline.configure(Vector2(400, 400), 40.0, Callable(self, "_landscape_outline_pos"))
-	var m: Dictionary = Dictionary(outline.call("_chain_geometry", [Vector2i(1, 1), Vector2i(1, 2)]))["metrics"]
-	var armed: PackedFloat32Array = outline.call("_rail_offsets", m, 1.0)
-	var runway: PackedFloat32Array = outline.call("_rail_offsets", m, 0.78)
-	ok(armed[0] > runway[0] and runway[0] > 0.0,
-		"a runway's halo reaches less far than an armed ladder's (%.1f vs %.1f)" % [runway[0], armed[0]])
-	var gap_rail := CascadeOutline.RAILS.size() - 3
-	ok(is_equal_approx(armed[gap_rail], runway[gap_rail]),
-		"the hot line stays ON the tile edge at both strengths — only the halo scales")
-	var lit := Color(1, 1, 1)
-	var full: Color = outline.call("_tint", lit, Color(1, 1, 1), 0.9)
-	var half: Color = outline.call("_tint", lit, Color(1, 1, 1), 0.9 * 0.5)
-	ok(half.a < full.a, "the runway's light is half as strong at every rail")
-	outline.free()
 
 # The contour's INTENSITY has three named levels and a wider BAND_WIDTH is most of the step up
 # between them, so pin the two things a wider band can break:

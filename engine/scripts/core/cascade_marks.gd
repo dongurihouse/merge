@@ -18,12 +18,19 @@ const MODE_RUN := 2
 
 const NO_CELL := Vector2i(-1, -1)
 
-## Owner-facing knobs. REST_MAX and DRAG_DIM are new; the other three are today's `strength` and
-## `reach` literals moved here unchanged, so this refactor re-tunes nothing.
-const REST_MAX := 3                  # resting marks drawn at once, chains before runways
+## THE ONE RULE, and there is no other: a chain is marked if and only if its run is GUIDE_MIN_N cells
+## or longer. It holds in every mode — a ×2 gets no resting telegraph, is not a drag's chain winner,
+## and lights nothing while it runs. Brightness used to encode "will this fire", which read as
+## "how important" and made a 3-cell hint look weaker than a 2-cell one; now there is one strength.
+##
+## This is DISPLAY ONLY. board.gd's CHAIN_MIN_N still governs whether a cascade actually fires, and a
+## ×2 still cascades — it is simply not advertised beforehand.
+const GUIDE_MIN_N := 3
+
+## Owner-facing knobs. REST_MAX and DRAG_DIM are new; MERGE_WEIGHT is today's `strength` literal
+## moved here unchanged.
+const REST_MAX := 3                  # resting chains drawn at once
 const DRAG_DIM := 0.35               # weight of every non-winning mark while a piece is held
-const RUNWAY_WEIGHT := 0.50
-const RUNWAY_REACH := 0.78
 const MERGE_WEIGHT := 0.55
 
 ## One constructor, so every mark carries every key and no reader needs a default.
@@ -45,10 +52,11 @@ static func mark(role: String, run: Array, cell: Vector2i, line: int, n: int,
 ## returns `[to] + path`, RUN's own cells are `[head] + remaining`, and a drag winner's run is
 ## `[winner cell] + chain_path` — so this asks nothing new of any caller.
 ##
-## A RUNWAY is deliberately NOT built here and keeps the contour alone: it has no merge pair, so
-## there is no cell a bloom could sit on. That is a difference of STATE, not a second effect.
+## GUIDE_MIN_N is enforced HERE as well as at the two places a chain is selected, so a chain shorter
+## than the floor cannot be constructed by any mode, present or future — the rule is a property of
+## the effect stack, not a filter each caller has to remember to apply.
 static func chain_stack(run: Array, line: int, n: int, weight: float, tag: bool) -> Array:
-	if run.is_empty():
+	if run.is_empty() or n < GUIDE_MIN_N:
 		return []
 	var head := Vector2i(run[0])
 	return [
@@ -68,41 +76,33 @@ static func build(board, ctx: Dictionary) -> Array:
 			return _rest_marks(board, ctx)
 
 # --- REST -------------------------------------------------------------------------------------
-# Every armed chain, longest first, then every runway, truncated to REST_MAX.
+# Every chain at or above GUIDE_MIN_N, longest first, truncated to REST_MAX.
 static func _rest_marks(board, ctx: Dictionary) -> Array:
 	var out: Array = []
-	for raw in _rest_entries(board, ctx):
+	for raw in _rest_entries(board):
 		out.append_array(_rest_entry_marks(raw as Dictionary, 1.0, true))
 	return out
 
-## What the resting board has to say, in the order it says it: every armed chain longest first, then
-## every runway. The REST_MAX cap belongs HERE, over the entries, because it is a budget for how many
-## things the board may point at — a CHAIN counts once however many marks its effect stack takes.
-## Capping the mark list instead would silently halve the chains the moment a chain drew two marks.
-static func _rest_entries(board, ctx: Dictionary) -> Array:
-	var out: Array = []
-	for entry in _rest_chains(board, int(ctx.get("chain_min_n", 2))):
-		out.append({"kind": "chain", "entry": entry})
-	for raw in BoardLogic.runways(board, int(ctx.get("runway_min_n", 3))):
-		if raw is Dictionary:
-			out.append({"kind": "runway", "entry": raw})
-	return out.slice(0, REST_MAX)
+## What the resting board has to say, in the order it says it: every chain the one rule admits,
+## longest first. The REST_MAX cap belongs HERE, over the entries, because it is a budget for how
+## many things the board may point at — a CHAIN counts once however many marks its effect stack
+## takes. Capping the mark list instead would silently halve the chains the moment one drew two.
+static func _rest_entries(board) -> Array:
+	return _rest_chains(board, GUIDE_MIN_N).slice(0, REST_MAX)
 
-## One resting entry, at the loudness the caller is drawing it: a chain takes the whole stack, a
-## runway keeps the contour alone (it has no merge pair, so it has no cell to bloom on). REST and the
-## background of a DRAG both come through here, so a dimmed chain is this same stack at DRAG_DIM.
-static func _rest_entry_marks(item: Dictionary, weight: float, tag: bool) -> Array:
-	var e: Dictionary = item.get("entry", {})
-	var line := int(e.get("line", 0))
-	if String(item.get("kind", "")) == "runway":
-		# never louder than RUNWAY_WEIGHT, and a drag's DRAG_DIM still takes it down — which is exactly
-		# what the drag's old "duplicate the resting mark and overwrite the weight" did.
-		return [mark("runway", _run_of(e), NO_CELL, line, 0, minf(RUNWAY_WEIGHT, weight), RUNWAY_REACH, false, NO_CELL)]
-	return chain_stack(_run_of(e), line, int(e.get("n", 0)), weight, tag)
+## One resting entry, at the loudness the caller is drawing it. REST and the background of a DRAG
+## both come through here, so a dimmed chain is this same stack at DRAG_DIM.
+static func _rest_entry_marks(entry: Dictionary, weight: float, tag: bool) -> Array:
+	return chain_stack(_run_of(entry), int(entry.get("line", 0)), int(entry.get("n", 0)), weight, tag)
 
 ## The armed chains, longest first. The comparator carries its own row-major tie-break because
 ## sort_custom is NOT stable in Godot — relying on ready_ladders' own ordering to survive the sort
 ## would make the tie-break depend on the sort's internals.
+##
+## `min_n` stays a PARAMETER even though the guide has one rule: the staging-pad component list
+## (`_extension_pads`) is a different consumer with a different floor — board.gd's CHAIN_MIN_N — and
+## the owner kept those pads exactly as they are. The mark path passes GUIDE_MIN_N; the pad path
+## passes the caller's. Hard-coding the floor here would move the pads.
 static func _rest_chains(board, min_n: int) -> Array:
 	var chains: Array = []
 	for raw in BoardLogic.ready_ladders(board):
@@ -146,9 +146,10 @@ static func _run_marks(board, ctx: Dictionary) -> Array:
 
 # --- DRAG -------------------------------------------------------------------------------------
 # ONE place for the eye. Of everything the held piece could do, the LONGEST chain it would form is
-# the answer, so that target alone is loud and carries the ×n; every other chain, runway and merge
-# target is dimmed to DRAG_DIM. A held piece that forms no chain at all draws no chain light —
-# only its plain merge targets and the staging pads.
+# the answer, so that target alone is loud and carries the ×n; every other chain and merge target is
+# dimmed to DRAG_DIM. A held piece that forms no chain THE ONE RULE ADMITS draws no chain light —
+# a ×2 drop is an ordinary merge target here, at MERGE_WEIGHT and with no ×n — only its plain merge
+# targets and the staging pads.
 #
 # These marks depend on the HELD PIECE, never on the pointer, so board.gd builds them once at
 # pickup. Nothing here re-runs inside the gesture.
@@ -157,10 +158,11 @@ static func _drag_marks(board, ctx: Dictionary) -> Array:
 	var code := int(ctx.get("code", 0))
 	if from.x < 0 or code <= 0:
 		return []
-	var min_n := int(ctx.get("chain_min_n", 2))
 	var line := BoardModel.line_of(code)
 	var targets := _merge_targets(board, from, Array(ctx.get("targets", [])))
-	var win := _winner_index(targets, min_n)
+	# The winner is decided by the GUIDE's floor, never the caller's arming floor: a ×2 drop is not
+	# the drag's answer, so it falls through to the plain merge target below and the staging pads stay.
+	var win := _winner_index(targets, GUIDE_MIN_N)
 	var out: Array = []
 	if win < 0:
 		for raw in targets:
@@ -178,14 +180,14 @@ static func _drag_marks(board, ctx: Dictionary) -> Array:
 	# into something else — a dimmed chain keeps its bloom, so it stays the same effect at DRAG_DIM.
 	# The skip is per ENTRY, not per mark: the winner's own resting stack goes entirely, or its bloom
 	# would be stamped twice on the winning cell.
-	for raw in _rest_entries(board, ctx):
-		var item: Dictionary = raw
-		if _same_cells(_run_of(Dictionary(item.get("entry", {}))), win_run):
+	for raw in _rest_entries(board):
+		var entry: Dictionary = raw
+		if _same_cells(_run_of(entry), win_run):
 			continue
-		out.append_array(_rest_entry_marks(item, DRAG_DIM, false))
+		out.append_array(_rest_entry_marks(entry, DRAG_DIM, false))
 	# The winner's own stack, split around the losing targets so its bloom is emitted LAST and draws
 	# on top of them. Same two marks as everywhere else, in the same order.
-	var stack := chain_stack(win_run, line, int(winner.get("n", min_n)), 1.0, true)
+	var stack := chain_stack(win_run, line, int(winner.get("n", GUIDE_MIN_N)), 1.0, true)
 	out.append(stack[0])
 	for i in targets.size():
 		if i == win:

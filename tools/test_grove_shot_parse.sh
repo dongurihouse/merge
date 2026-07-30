@@ -158,7 +158,7 @@ run_flyaway() {
 # cascade STRIPS every generator after _rebuild_all() re-seeds them — gens MUST be 0. This is the
 # assertion the nesting bug fails the moment _rebuild_all seeds no gen NODE.
 run_mode cascade_run    0 0 cascade
-run_mode cascade_runway 0 0 cascade phase=runway
+run_mode cascade_staircase 0 0 cascade phase=staircase
 run_mode cascade_guide  0 0 cascade phase=guide
 CASCADE_GUIDE_LINE="$(grep -m1 '^CASCADE GUIDE ' "$CAP_LOG" || true)"
 [ -n "$CASCADE_GUIDE_LINE" ] || { cat "$CAP_LOG" >&2; fail "cascade_guide: no semantic guide proof line"; }

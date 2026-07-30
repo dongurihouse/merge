@@ -17,9 +17,9 @@ A mark:
 
 ```
 {
-  role:   "chain" | "runway" | "target" | "stage",
+  role:   "chain" | "target" | "stage",
   run:    Array[Vector2i],   # cells the contour light follows; empty for target/stage
-  cell:   Vector2i,          # the pad cell; Vector2i(-1,-1) for chain/runway
+  cell:   Vector2i,          # the pad cell; Vector2i(-1,-1) for chain
   line:   int,
   n:      int,               # run length; 0 where the role has none
   weight: float,             # 0..1 — alpha strength
@@ -32,29 +32,32 @@ A mark:
 `weight` and `reach` are the renderer's ONLY strength inputs. No loudness is derived from `role` in
 the renderer.
 
+## The one rule (owner call 2026-07-30)
+
+A chain is marked if and only if its run is `GUIDE_MIN_N` cells or longer. That is the whole
+eligibility rule, and it holds in REST, DRAG and RUN. There is one strength; a ×2 draws nothing in
+any mode. Display only — `CHAIN_MIN_N` still governs whether a cascade fires, and a ×2 still fires.
+
 ## Knobs
 
 ```
-REST_MAX       := 3      # resting marks drawn at once, chains first
+GUIDE_MIN_N    := 3      # the one rule: shortest run the guide marks
+REST_MAX       := 3      # resting chains drawn at once
 DRAG_DIM       := 0.35   # weight of every non-winning mark during a drag
-RUNWAY_WEIGHT  := 0.50   # today's runway strength
-RUNWAY_REACH   := 0.78   # today's runway reach
 MERGE_WEIGHT   := 0.55   # today's plain-merge target strength
 ```
 
-`CHAIN_MIN_N` and `RUNWAY_MIN_N` stay in `board.gd`.
+`CHAIN_MIN_N` and `RUNWAY_MIN_N` stay in `board.gd`. `RUNWAY_MIN_N` still feeds the staging-pad
+component list and the one-time cascade teach; it no longer produces a mark.
 
 ## Builder rules — `engine/scripts/core/cascade_marks.gd`, static and pure
 
 ### REST
 
-1. Chains: `BoardLogic.ready_ladders(board)` where `n >= CHAIN_MIN_N`. Sort `n` descending; tie
+1. Chains: `BoardLogic.ready_ladders(board)` where `n >= GUIDE_MIN_N`. Sort `n` descending; tie
    breaks on row-major `top_cell`.
-2. Runways: `BoardLogic.runways(board, RUNWAY_MIN_N)`, row-major on first cell, appended after ALL
-   chains.
-3. Truncate the combined list to `REST_MAX`.
-4. Chains: `weight 1.0`, `reach 1.0`, `tag true`. Runways: `RUNWAY_WEIGHT`, `RUNWAY_REACH`,
-   `tag false`.
+2. Truncate to `REST_MAX`.
+3. `weight 1.0`, `reach 1.0`, `tag true`.
 
 ### DRAG
 
@@ -63,20 +66,22 @@ Marks depend on the held piece only, never on pointer position, so they are buil
 Merge targets: every occupied cell where `board.can_merge(from, cell)`, each with
 `n = 1 + chain_path(board, from, cell).size()`.
 
-The winner is the target with the greatest `n` where `n >= CHAIN_MIN_N`; tie breaks on row-major cell.
+The winner is the target with the greatest `n` where `n >= GUIDE_MIN_N`; tie breaks on row-major cell.
+A target below that floor is not a winner: it falls through to the no-winner branch as an ordinary
+merge target, and the stage marks are emitted.
 
 Winner exists:
 
 1. Winner target: `role target`, `weight 1.0`, `tag true`, `n`.
 2. Winner run (`[winner cell] + chain_path`): `role chain`, `weight 1.0`, `tag false`.
 3. Every other merge target: `role target`, `weight DRAG_DIM`, `tag false`.
-4. Every REST chain and runway whose run is not the winner's: emitted at `weight DRAG_DIM`,
-   `tag false`. The `REST_MAX` cap applies to these as at rest.
+4. Every REST chain whose run is not the winner's: emitted at `weight DRAG_DIM`, `tag false`. The
+   `REST_MAX` cap applies to these as at rest.
 5. No stage marks.
 
 No winner:
 
-1. No `chain` and no `runway` marks.
+1. No `chain` marks.
 2. Merge targets: `role target`, `weight MERGE_WEIGHT`, `tag false`.
 3. Stage marks: today's three generators unchanged — `BoardLogic.chain_placements`,
    `_cascade_extension_pads`, `_single_neighbor_seed_pads` — `role stage`, `tag false`.
@@ -84,8 +89,8 @@ No winner:
 ### RUN
 
 Exactly one mark: `role chain`, `run = [head cell] + remaining run cells`, `weight 1.0`,
-`reach 1.0`, `tag true`, `n = total run length`. Nothing else is emitted in this mode, and the mark
-is republished at every step until `_finish_chain`.
+`reach 1.0`, `tag true`, `n = total run length` — and nothing at all when `n < GUIDE_MIN_N`. Nothing
+else is emitted in this mode, and the mark is republished at every step until `_finish_chain`.
 
 ### Tags
 
@@ -113,8 +118,9 @@ geometry cache, the travelling wave, `forced_phase`, `forced_level`, `LEVELS`.
 New API: `set_marks(marks: Array)`. It replaces `set_ladders`, `set_runways`, `set_drag_ladders`,
 `set_ghost_pads` and `clear_guides`.
 
-`_draw` iterates `marks` in order and dispatches on `role` to one function each. `_sync_process`
-runs the wave when any mark with `weight > 0` is present.
+`_draw` iterates `marks` in order and dispatches on `role` to one function each. `_sync_process` runs
+the wave when any mark with `weight > 0` is present. `reach` survives as the renderer's halo knob;
+every published mark passes `1.0`.
 
 Deleted: `ladders`, `runways`, `drag_ladders`, `ghost_pads`, `_active_ladders()`, every
 `if drag_ladders.is_empty()` precedence test, two of the three loops in `_rebuild_tags`,
@@ -144,9 +150,9 @@ Pre-roll pulse: the `modulate:a` tween stays, and `_publish_guide` kills it and 
 
 - REST ranks longest first and truncates at `REST_MAX`.
 - REST tie-breaks row-major on `top_cell`.
-- Runways rank after every chain and share the cap.
+- The one rule holds in all three modes: a run of 2 draws nothing, a run of 3 draws in each.
 - DRAG picks the longest chain target; every other mark carries `DRAG_DIM`.
-- DRAG with no chain emits no `chain` and no `runway` mark, and still emits stage marks.
+- DRAG with no chain emits no `chain` mark, and still emits stage marks.
 - RUN emits exactly one mark covering head plus remaining cells.
 - One tag per cell, first mark wins.
 
@@ -156,7 +162,8 @@ Pre-roll pulse: the `modulate:a` tween stays, and `_publish_guide` kills it and 
 - The run's glow survives every step: a mark with `weight > 0` covering the run exists on every
   frame from the drop until `chain_running()` goes false. This test MUST fail at the parent commit.
 - At rest at most `REST_MAX` marks, longest first.
-- The runway-weight assert reads the `weight` the renderer draws, not `_mark_thickness`.
+- A same-line staircase with no pair draws nothing, while `BoardLogic.runways` still finds it for
+  the staging pads.
 
 Registration: add the new suite to `ENGINE_TESTS` in the Makefile, to `CLAUDE.md` and to the README
 so `engine/tests/suite_registry_tests.gd` passes.
