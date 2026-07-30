@@ -4,6 +4,8 @@ extends "res://games/grove/tests/grove_test_base.gd"
 
 const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
 const Improvements = preload("res://engine/scripts/core/improvements.gd")
+const Mastery = preload("res://engine/scripts/core/mastery.gd")
+const ShopUI = preload("res://engine/scripts/ui/shop.gd")
 const SkyLogic = preload("res://engine/scripts/core/sky.gd")
 
 func _initialize() -> void:
@@ -15,6 +17,7 @@ func _initialize() -> void:
 	_test_weather_gate_needs_the_level()
 	_test_magnet_seed_cannot_drop_before_its_level()
 	_test_soil_ftue_level_comes_from_the_table()
+	_test_mastery_rank_is_clamped_until_revealed()
 	finish()
 
 ## Set the coin clock so G.level() reads exactly `lvl`.
@@ -79,3 +82,18 @@ func _test_magnet_seed_cannot_drop_before_its_level() -> void:
 func _test_soil_ftue_level_comes_from_the_table() -> void:
 	ok(int(G.FEATURE_LEVEL["soil"]) == 13,
 		"the soil teach's level is the table's 13, not the retired literal 6")
+
+func _test_mastery_rank_is_clamped_until_revealed() -> void:
+	fresh("gate_mastery_clamp")
+	_set_level(G.FEATURE_LEVEL["mastery"])
+	var line := int(G.ZONE_BASE_LINES[0])
+	# Bank a meter well past threshold 2 — the case that would otherwise dump scissors
+	# in the same beat as the mastery reveal.
+	Save.grove()["mastery"] = {str(line): int(G.MASTERY_THRESHOLDS[2])}
+	ok(Mastery.true_rank(line) >= 3, "the banked meter really is past rank 2")
+	ok(Mastery.rank(line) == 1, "rank reads 1 while mastery is unrevealed")
+	ok(not ShopUI.scissors_available(),
+		"scissors CANNOT unlock in the same beat as the mastery reveal")
+	FeatureGate.mark_revealed("mastery")
+	ok(Mastery.rank(line) == Mastery.true_rank(line), "the clamp lifts on reveal")
+	ok(ShopUI.scissors_available(), "scissors becomes available once mastery is revealed")
