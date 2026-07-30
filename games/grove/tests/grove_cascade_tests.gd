@@ -15,6 +15,7 @@ func _initialize() -> void:
 	await _test_x2_ladder_arms_a_cascade()
 	await _test_drag_merge_auto_runs_and_locks_input()
 	await _test_preroll_delays_first_auto_step_and_telegraphs_run()
+	await _test_x2_preroll_is_shorter_than_a_longer_run()
 	await _test_chain_step_timing_ramps()
 	await _test_chain_counter_anchors_at_run_origin()
 	await _test_chain_trigger_keeps_board_undimmed()
@@ -124,6 +125,15 @@ func _wait_for_idle(b: Node, timeout: float = 2.0) -> void:
 	while (bool(b.animating) or b.chain_running()) and waited < timeout:
 		await create_timer(0.05).timeout
 		waited += 0.05
+
+# Wall-clock milliseconds from the player's drop to the run's first AUTOMATIC step. The tipping
+# merge's own slide plus the pre-roll; used as a difference so only the pre-roll survives.
+func _ms_to_first_auto_step(b: Node, timeout_ms: int = 3000) -> float:
+	var t0 := Time.get_ticks_msec()
+	_drag_merge(b, Vector2i(3, 1), Vector2i(3, 2))
+	while not bool(b.get("_chain_auto_step")) and Time.get_ticks_msec() - t0 < timeout_ms:
+		await process_frame
+	return float(Time.get_ticks_msec() - t0)
 
 func _wait_for_auto_step_in_flight(b: Node, frames: int = 90) -> bool:
 	for _i in frames:
@@ -383,6 +393,49 @@ func _test_preroll_delays_first_auto_step_and_telegraphs_run() -> void:
 		"pre-roll keeps the next partner in place while the exact run is telegraphed")
 	await _wait_for_idle(b, 3.0)
 	b.queue_free()
+
+# A x2 run is one hop and is already entirely on screen, so its pre-roll is shortened
+# (CHAIN_PREROLL_X2_MS); x3 and longer keep the full CHAIN_PREROLL_MS telegraph. Same 0.16s probe as
+# the test above, on the same drag path: by then the x2 has already taken its automatic step, where
+# the x3 has not.
+func _test_x2_preroll_is_shorter_than_a_longer_run() -> void:
+	ok(int(BoardScriptRef.CHAIN_PREROLL_X2_MS) > 0 \
+		and int(BoardScriptRef.CHAIN_PREROLL_X2_MS) < int(BoardScriptRef.CHAIN_PREROLL_MS), \
+		"the x2 pre-roll constant is shorter than the full one (%d vs %d ms)" % \
+		[int(BoardScriptRef.CHAIN_PREROLL_X2_MS), int(BoardScriptRef.CHAIN_PREROLL_MS)])
+	var b := _open_board("cascade_preroll_x2")
+	await process_frame
+	ok(b.has_method("_chain_preroll_ms_for_n") \
+		and int(b.call("_chain_preroll_ms_for_n", 2)) == int(BoardScriptRef.CHAIN_PREROLL_X2_MS) \
+		and int(b.call("_chain_preroll_ms_for_n", 3)) == int(BoardScriptRef.CHAIN_PREROLL_MS) \
+		and int(b.call("_chain_preroll_ms_for_n", 6)) == int(BoardScriptRef.CHAIN_PREROLL_MS), \
+		"only x2 is shortened — x3 and longer keep the full pre-roll")
+	_blank_fixture(b, {
+		Vector2i(3, 1): 101,
+		Vector2i(3, 2): 101,
+		Vector2i(3, 3): 102,
+	})
+	var t_x2: float = await _ms_to_first_auto_step(b)
+	await _wait_for_idle(b, 3.0)
+	b.queue_free()
+
+	# Same tipping merge on the same cells, one rung longer — so the DIFFERENCE is the pre-roll and
+	# nothing else, and the test does not depend on how long the player's own merge slide takes.
+	var b3 := _open_board("cascade_preroll_x3")
+	await process_frame
+	_blank_fixture(b3, {
+		Vector2i(3, 1): 101,
+		Vector2i(3, 2): 101,
+		Vector2i(3, 3): 102,
+		Vector2i(3, 4): 103,
+	})
+	var t_x3: float = await _ms_to_first_auto_step(b3)
+	var want: float = float(int(BoardScriptRef.CHAIN_PREROLL_MS) - int(BoardScriptRef.CHAIN_PREROLL_X2_MS))
+	ok(t_x2 < t_x3 and absf((t_x3 - t_x2) - want) < 90.0, \
+		"the x2 run reaches its first step %.0f ms before the x3 run does (the pre-roll gap, %.0f ms)" % \
+		[t_x3 - t_x2, want])
+	await _wait_for_idle(b3, 3.0)
+	b3.queue_free()
 
 func _test_chain_step_timing_ramps() -> void:
 	var b := _open_board("cascade_step_ramp")
