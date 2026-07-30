@@ -40,6 +40,8 @@ const NAV_ROLE := {
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const FeatureGate = preload("res://engine/scripts/core/feature_gate.gd")
+const TeachRegistry = preload("res://engine/scripts/ui/teach_registry.gd")
+const HandHint = preload("res://engine/scripts/ui/hand_hint.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims earned premium here
 const VaultUI = preload("res://engine/scripts/ui/vault.gd")                  # T45: the diegetic piggy-bank jar (chrome entry point)
 const Login = preload("res://engine/scripts/core/login.gd")                  # T45: the forgiving daily-login calendar (auto-popup gate)
@@ -147,6 +149,9 @@ var _play_btn: Button                  # the MERGED Board tile: PLAY (board+acor
 # merges, a housed orb→the hand column brings out. A still-tap on a housed orb focuses it for Sell.
 var _hand_panel: Control = null            # the in-hand column (right side of the place-picker); null off the picker
 var _cells_grid: Control = null            # the bucket CELLS grid inside the dock — the place drop zone; null off the picker
+var _map_hand_hint: Control = null          # the one live map teach overlay, or null
+var _map_hand_hint_id := ""                 # the live map teach id ("rush")
+var _map_hand_hint_target: Control = null   # the CTA currently breathing under the hand hint
 var _hand_orbs: Array = []                 # [{node, idx, kind, tier}] — in-hand orbs (drag sources / merge targets)
 var _placed_orbs: Array = []               # [{node, z, map_id, idx, kind, tier}] — housed orbs (drag sources / merge + focus targets)
 var _drag: Dictionary = {}                 # the in-flight (or pending) spirit drag; {} when none. active=true once it lifts off
@@ -350,6 +355,7 @@ func _grid_card_locked(z: int) -> bool:
 # --- navigation: a map IS one image; discrete maps via the map-select -------------------
 
 func _open_map(z: int, animate := true) -> void:
+	_dismiss_map_hand_hint()
 	_view = "map"
 	_map_idx = z
 	_set_map_chrome_visible(true)         # a map wears its bottom chrome + drifting weather
@@ -379,6 +385,7 @@ func _open_select() -> void:
 # frontier as a large featured card (art + progress + CONTINUE), every other map as a locked
 # grid card. Cards only — the resident bucket stays on its own surface (_open_select).
 func _open_maps() -> void:
+	_dismiss_map_hand_hint()
 	_view = "maps"
 	_set_map_chrome_visible(false)        # the gallery is a calm chooser — no map chrome, no weather
 	_set_level_chip_visible(true)         # the Lv star rides the MAPS page (mock top-left)
@@ -662,6 +669,96 @@ func _build_select(animate := true) -> void:
 		_select_back.visible = true
 	if animate:
 		FX.pop_in(content)
+	_maybe_map_hand_hint()
+
+# The map's own ordered teach registry. Both eligibility and completion derive from this one
+# entry, so another map teach can be added without maintaining a second ledger list.
+func _teach_specs() -> Array:
+	return [
+		{
+			"id": "rush", "ledger": "unlock_rush",
+			"gate": func() -> bool: return FeatureGate.armed("rush"),
+			"ready": func() -> bool: return _expedition_button() != null,
+			"rects": func() -> Array:
+				var b := _expedition_button()
+				if b == null:
+					return []
+				return [Rect2(), _local_rect(b)],
+			"gesture": HandHint.GESTURE_TAP,
+		},
+	]
+
+func _expedition_button() -> Control:
+	var b := find_child("BucketExpeditionButton", true, false) as Control
+	if b != null and is_instance_valid(b) and not b.is_queued_for_deletion() and b.is_visible_in_tree():
+		return b
+	b = find_child("ResidentsExpeditionButton", true, false) as Control
+	if b != null and is_instance_valid(b) and not b.is_queued_for_deletion() and b.is_visible_in_tree():
+		return b
+	return null
+
+func _map_hand_hint_host_for(n: Control) -> Control:
+	var ancestor := n.get_parent()
+	while ancestor != null and ancestor != self:
+		if ancestor is Control and String(ancestor.name) == "ResidentsOverlay":
+			return ancestor as Control
+		ancestor = ancestor.get_parent()
+	return self
+
+func _local_rect(n: Control) -> Rect2:
+	var gr := n.get_global_rect()
+	var hint_host := _map_hand_hint_host_for(n)
+	return Rect2(gr.position - hint_host.get_global_rect().position, gr.size)
+
+# Re-evaluate only after layout settles. Rebuilds retarget one live overlay instead of stacking
+# another; a missing, hidden, completed, or disabled teach tears down both hand and CTA pulse.
+func _maybe_map_hand_hint() -> void:
+	if not Features.on("ftue_hand_hint"):
+		_dismiss_map_hand_hint()
+		return
+	if TeachRegistry.complete(_teach_specs()):
+		_dismiss_map_hand_hint()
+		return
+	await get_tree().process_frame
+	if not is_inside_tree():
+		return
+	var want := TeachRegistry.eligible(_teach_specs())
+	if want == "":
+		_dismiss_map_hand_hint()
+		return
+	var spec := TeachRegistry.spec_for(_teach_specs(), want)
+	var rects: Array = (spec.get("rects", Callable()) as Callable).call()
+	var target := _expedition_button()
+	if rects.size() < 2 or target == null:
+		_dismiss_map_hand_hint()
+		return
+	var hint_host := _map_hand_hint_host_for(target)
+	if _map_hand_hint != null and is_instance_valid(_map_hand_hint) \
+			and _map_hand_hint_id == want and _map_hand_hint.get_parent() == hint_host:
+		_map_hand_hint.retarget(rects[0], rects[1])
+		if _map_hand_hint_target != target:
+			if _map_hand_hint_target != null and is_instance_valid(_map_hand_hint_target):
+				FX.breathe_stop(_map_hand_hint_target)
+			_map_hand_hint_target = target
+			FX.breathe_once(_map_hand_hint_target)
+		return
+	_dismiss_map_hand_hint()
+	_map_hand_hint = HandHint.present(hint_host, String(spec.get("gesture", HandHint.GESTURE_TAP)), rects[0], rects[1])
+	_map_hand_hint_id = want if _map_hand_hint != null else ""
+	_map_hand_hint_target = target if _map_hand_hint != null else null
+	FX.breathe_once(_map_hand_hint_target)
+
+func _dismiss_map_hand_hint() -> void:
+	if _map_hand_hint_target != null and is_instance_valid(_map_hand_hint_target):
+		FX.breathe_stop(_map_hand_hint_target)
+	_map_hand_hint_target = null
+	if _map_hand_hint != null and is_instance_valid(_map_hand_hint):
+		_map_hand_hint.dismiss()
+	_map_hand_hint = null
+	_map_hand_hint_id = ""
+
+func _exit_tree() -> void:
+	_dismiss_map_hand_hint()
 
 
 # --- the MAPS page (maps_page_v2_cards_only mock) -------------------------------------------------
@@ -1916,6 +2013,9 @@ func _open_expedition(z: int = -1) -> void:
 	var Kit: GDScript = Game.kit_script()
 	if Kit == null:
 		return
+	if not Save.ftue_seen("unlock_rush"):
+		Save.mark_ftue_seen("unlock_rush")
+		_dismiss_map_hand_hint()
 	if z < 0:
 		z = _map_idx
 	var source_z := clampi(z, 0, G.MAPS.size() - 1)
@@ -2391,6 +2491,10 @@ func _open_residents() -> void:
 		# the acquire entry the bucket dock's chip used to own — same frontier-map target
 		"on_expedition": func() -> void:
 			_open_expedition(_frontier_map())})
+	var overlay := get_node_or_null("ResidentsOverlay")
+	if overlay != null and not overlay.tree_exiting.is_connected(_dismiss_map_hand_hint):
+		overlay.tree_exiting.connect(_dismiss_map_hand_hint, CONNECT_ONE_SHOT)
+	_maybe_map_hand_hint()
 
 func _open_daily() -> void:
 	Audio.play("button_tap", -2.0)

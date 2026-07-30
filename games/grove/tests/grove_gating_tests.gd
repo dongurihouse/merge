@@ -9,6 +9,8 @@ const Mastery = preload("res://engine/scripts/core/mastery.gd")
 const ShopUI = preload("res://engine/scripts/ui/shop.gd")
 const SkyLogic = preload("res://engine/scripts/core/sky.gd")
 const TeachRegistry = preload("res://engine/scripts/ui/teach_registry.gd")
+const HandHint = preload("res://engine/scripts/ui/hand_hint.gd")
+const FX = preload("res://engine/scripts/ui/fx.gd")
 
 func _initialize() -> void:
 	begin("grove · feature gating")
@@ -31,6 +33,11 @@ func _initialize() -> void:
 	_test_registry_picks_the_first_unseen_armed_ready_spec()
 	_test_registry_complete_is_derived_from_the_same_array()
 	_test_registry_complete_does_not_call_ready()
+	_test_rush_teach_needs_level_and_a_bucket_cell()
+	await _test_rush_teach_uses_the_player_reachable_residents_surface()
+	await _test_rush_map_teach_points_at_the_visible_expedition_button()
+	await _test_rush_map_teach_banks_on_the_real_open_and_does_not_replay()
+	await _test_rush_map_teach_leaves_with_its_visible_surface()
 	await _test_cascade_teach_waits_for_a_real_chain()
 	_test_cascade_teach_is_unarmed_below_its_level()
 	_test_weather_teach_requires_a_pair_inside_the_patch()
@@ -44,6 +51,170 @@ func _initialize() -> void:
 ## Set the coin clock so G.level() reads exactly `lvl`.
 func _set_level(lvl: int) -> void:
 	Save.earn_coins(G.coins_at_level(lvl) - Save.coins_earned_lifetime())
+
+func _live_map_hand_hint(map: Node) -> Control:
+	for c in map.find_children("*", "Control", true, false):
+		if c is Control and (c as Control).get_script() == HandHint and not bool(c.get("dismissed")):
+			return c as Control
+	return null
+
+func _settle_map_teach() -> void:
+	await process_frame
+	await process_frame
+
+func _test_rush_teach_needs_level_and_a_bucket_cell() -> void:
+	fresh("teach_rush")
+	_set_level(G.FEATURE_LEVEL["rush"])
+	ok(not FeatureGate.armed("rush"),
+		"L%d alone does not arm rush — a completed building (bucket cell) is still required" % int(G.FEATURE_LEVEL["rush"]))
+	complete_scene(0)
+	ok(FeatureGate.armed("rush"), "rush arms with both the level and a bucket cell")
+	ok(not FeatureGate.revealed("rush"), "armed is not revealed")
+
+func _test_rush_teach_uses_the_player_reachable_residents_surface() -> void:
+	fresh("teach_rush_residents_surface")
+	complete_scene(0)
+	_set_level(G.FEATURE_LEVEL["rush"])
+	var map := map_host()
+	var residents_tile := map.get_node_or_null("ResidentsTile") as Button
+	ok(residents_tile != null, "the real map chrome exposes the Residents player entry")
+	if residents_tile != null:
+		residents_tile.pressed.emit()
+	await _settle_map_teach()
+	var overlay := map.get_node_or_null("ResidentsOverlay") as Control
+	var exped := overlay.find_child("ResidentsExpeditionButton", true, false) as Control if overlay != null else null
+	var hint := _live_map_hand_hint(map)
+	ok(overlay != null and exped != null and exped.is_visible_in_tree(),
+		"the player-reachable Residents modal exposes its Expedition footer button")
+	ok(hint != null and hint.get_parent() == overlay,
+		"the Rush hand hint mounts inside the active modal so it renders over the visible footer")
+	if overlay != null and exped != null and hint != null:
+		var cutouts: Array = hint.cutouts()
+		var button_center: Vector2 = exped.get_global_rect().get_center() - overlay.get_global_rect().position
+		ok(cutouts.size() == 1 and (cutouts[0] as Rect2).has_point(button_center),
+			"the modal hint's bright cutout contains the reachable Residents Expedition button")
+		ok(exped.has_meta("_fx_breathing") == FX.breathe_active(),
+			"the reachable Residents Expedition CTA follows the existing breathe_cta treatment")
+	var close := overlay.find_child("DialogClose", true, false) as Button if overlay != null else null
+	ok(close != null, "the Residents modal exposes its real close button")
+	if close != null:
+		close.pressed.emit()
+	await _settle_map_teach()
+	ok(_live_map_hand_hint(map) == null and map._map_hand_hint == null,
+		"closing Residents tears down the map hint instead of stranding it over Home")
+	ok(not Save.ftue_seen("unlock_rush"),
+		"closing Residents without opening Expedition does not bank the Rush teach")
+	if residents_tile != null:
+		residents_tile.pressed.emit()
+	await _settle_map_teach()
+	overlay = map.get_node_or_null("ResidentsOverlay") as Control
+	var real_exped := overlay.find_child("ResidentsExpeditionButton", true, false) as Button if overlay != null else null
+	ok(real_exped != null and _live_map_hand_hint(map) != null,
+		"reopening Residents re-presents the unbanked teach on its real Expedition button")
+	if real_exped != null:
+		real_exped.pressed.emit()
+	ok(Save.ftue_seen("unlock_rush") and _live_map_hand_hint(map) == null,
+		"pressing Residents Expedition banks and dismisses through the real player path")
+	await drop(map)
+
+func _test_rush_map_teach_points_at_the_visible_expedition_button() -> void:
+	fresh("teach_rush_map_surface")
+	complete_scene(0)
+	_set_level(G.FEATURE_LEVEL["rush"] - 1)
+	var below := map_host()
+	below._open_select()
+	await _settle_map_teach()
+	ok(below.content.find_child("BucketExpeditionButton", true, false) == null,
+		"below L%d the real Bucket surface offers no Expedition button" % int(G.FEATURE_LEVEL["rush"]))
+	ok(_live_map_hand_hint(below) == null,
+		"below L%d the map cannot present the Rush hand hint" % int(G.FEATURE_LEVEL["rush"]))
+	await drop(below)
+
+	fresh("teach_rush_map_no_cell")
+	_set_level(G.FEATURE_LEVEL["rush"])
+	var no_cell := map_host()
+	no_cell._open_select()
+	await _settle_map_teach()
+	ok(no_cell.content.find_child("BucketExpeditionButton", true, false) == null,
+		"L%d without a bucket cell offers no Expedition button" % int(G.FEATURE_LEVEL["rush"]))
+	ok(_live_map_hand_hint(no_cell) == null,
+		"L%d without a bucket cell cannot present the Rush hand hint" % int(G.FEATURE_LEVEL["rush"]))
+	await drop(no_cell)
+
+	fresh("teach_rush_map_visible")
+	complete_scene(0)
+	_set_level(G.FEATURE_LEVEL["rush"])
+	var map := map_host()
+	map._open_select()
+	await _settle_map_teach()
+	var exped := map.content.find_child("BucketExpeditionButton", true, false) as Control
+	var hint := _live_map_hand_hint(map)
+	ok(exped != null and exped.visible,
+		"at L%d with a bucket cell the real dock exposes Bucket Expedition" % int(G.FEATURE_LEVEL["rush"]))
+	ok(hint != null and hint.gesture == HandHint.GESTURE_TAP,
+		"the visible Bucket Expedition button gets the map's tap hand hint")
+	if exped != null and hint != null:
+		var cutouts: Array = hint.cutouts()
+		var button_center: Vector2 = exped.get_global_rect().get_center() - map.get_global_rect().position
+		ok(cutouts.size() == 1 and (cutouts[0] as Rect2).has_point(button_center),
+			"the hint's one bright cutout contains the visible Expedition button")
+		ok(hint.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+			"the map hand hint remains input-transparent over the real button")
+		ok(exped.has_meta("_fx_breathing") == FX.breathe_active(),
+			"the taught Expedition CTA follows the existing breathe_cta treatment")
+		var hint_instance_id := hint.get_instance_id()
+		map._maybe_map_hand_hint()
+		await _settle_map_teach()
+		var retargeted := _live_map_hand_hint(map)
+		ok(retargeted != null and retargeted.get_instance_id() == hint_instance_id,
+			"re-evaluating the same visible target retargets one live hint instead of restarting it")
+	await drop(map)
+
+func _test_rush_map_teach_banks_on_the_real_open_and_does_not_replay() -> void:
+	fresh("teach_rush_map_bank")
+	complete_scene(0)
+	_set_level(G.FEATURE_LEVEL["rush"])
+	var map := map_host()
+	map._open_select()
+	await _settle_map_teach()
+	var exped := map.content.find_child("BucketExpeditionButton", true, false) as Button
+	var live := _live_map_hand_hint(map)
+	ok(exped != null and live != null and not Save.ftue_seen("unlock_rush"),
+		"setup: an unseen Rush teach points at the real Expedition button")
+	if exped != null:
+		exped.pressed.emit()
+	ok(Save.ftue_seen("unlock_rush"),
+		"pressing the visible Expedition button banks unlock_rush in the real open path")
+	ok(_live_map_hand_hint(map) == null and (live == null or live.dismissed),
+		"opening Expedition dismisses the live map hand hint immediately")
+	var overlay := map.get_node_or_null("ExpeditionOverlay")
+	if overlay != null:
+		overlay.queue_free()
+	map._open_map(0, false)
+	map._open_select()
+	await _settle_map_teach()
+	ok(_live_map_hand_hint(map) == null,
+		"a rebuilt Bucket surface does not replay the banked Rush teach")
+	map._open_residents()
+	await _settle_map_teach()
+	ok(_live_map_hand_hint(map) == null,
+		"opening the alternate Residents Expedition surface does not replay the banked teach")
+	await drop(map)
+
+func _test_rush_map_teach_leaves_with_its_visible_surface() -> void:
+	fresh("teach_rush_map_teardown")
+	complete_scene(0)
+	_set_level(G.FEATURE_LEVEL["rush"])
+	var map := map_host()
+	map._open_select()
+	await _settle_map_teach()
+	var live := _live_map_hand_hint(map)
+	ok(live != null, "setup: the Rush map hint is live over the Bucket surface")
+	map._open_map(0, false)
+	await _settle_map_teach()
+	ok(_live_map_hand_hint(map) == null and (live == null or live.dismissed),
+		"leaving the Bucket surface tears down its map hand hint")
+	await drop(map)
 
 func _test_table_thresholds() -> void:
 	for id in G.FEATURE_LEVEL:
