@@ -99,17 +99,10 @@ const INSET_ALPHA := 0.53             # its alpha at the contact row
 const INSET_FALLOFF := 3.0            # …spent as this power across the reach (CutPaperInsetShadow's curve)
 
 # THE WELL IS A CAPSULE: fully round ends, whatever the bar's length. Not a knob — a progress bar with
-# square ends is a different drawing — but spelled here so the caller does not have to know it.
+# square ends is a different drawing — but spelled here so the caller does not have to know it. Its caps
+# are the game's largest corner radius (half the bar's own height), and cut_paper samples every arc to a
+# fixed sagitta (`CutPaperPanel.ARC_TOL_PX`), so they come out round without asking for anything here.
 const CORNER_FRAC := 0.5
-
-# …and a capsule is the ONE shape in the game whose corner radius is half its own height, so it is the
-# one that cannot afford cut_paper's legacy arc sampling (see `arc_step` there: quarter-arcs get 0.45x
-# the point density straight edges get, at every radius). At the fill's 21.6px radius that formula spends
-# three segments per quadrant — an 11px chord — and the rim polyline draws a dark line along each flat,
-# so the cap photographed as a six-sided fan beside the mock's semicircle. Asked for at the edge
-# feather's own width the facet is narrower than the ramp that would have to reveal it: sagitta falls
-# from 0.74px to 0.02px.
-const ARC_STEP_PX := Paper.EDGE_FEATHER_PX
 
 
 # ── THE FILL ─────────────────────────────────────────────────────────────────────────────────────────
@@ -171,7 +164,6 @@ static func opts(bar_h: float, fill: Color, sheet: Color = Pal.CREAM) -> Diction
 		"crease": well.darkened(CREASE_DARKEN),
 		"crease_w": h * CREASE_W_FRAC,
 		"feather": Paper.EDGE_FEATHER_PX,
-		"arc_step": ARC_STEP_PX,
 		"inset_reach": h * INSET_REACH_FRAC,
 		"inset_alpha": INSET_ALPHA,
 		"inset_falloff": INSET_FALLOFF,

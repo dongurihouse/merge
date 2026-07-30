@@ -94,21 +94,6 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 # the silhouette does not move or grow; the rim, bevel and halo still key off the same `pts`.
 # 0 = off (the default everywhere): every torn surface draws the single flat polygon it always drew.
 @export var edge_feather: float = 0.0
-# HOW FINELY A CORNER ARC IS SAMPLED — the chord length in px between two points ON the arc.
-#
-# 0 keeps the legacy count (`_rect_base`), which is what every surface in the game renders at today and
-# is therefore the default. That formula spends `r * 0.7 / STEP` points on a quarter-arc where the same
-# STEP on a straight edge buys `len / STEP` — i.e. 0.7/(π/2) = 0.45x the density, at every radius. It is
-# invisible while a corner radius is small or a torn deckle is drawn over it (cut_paper's own note above
-# says the tear HIDES the arc's staircase), and it becomes the silhouette itself on the one shape whose
-# corner radius IS half its height: a capsule. Measured on the mock rig at the unlock bar's 21.6px fill
-# radius, the legacy formula spends the floor of 3.78 → THREE segments per quadrant, so the capsule's cap
-# is a six-sided fan with 11px chords and a 0.74px sagitta, and the rim polyline traces those flats in a
-# dark line. It photographs as an octagon beside the mock's semicircle.
-#
-# A surface that cares asks for a chord instead. Below the edge feather's own width the facet cannot
-# survive the ramp, which is what engine/scripts/ui/paper_progress.gd asks for.
-@export var arc_step: float = 0.0
 var paper_tex: Texture2D = null
 
 func _ready() -> void:
@@ -150,7 +135,6 @@ func configure(o: Dictionary, fill: Color, rim: Variant = null, tile: Texture2D 
 	if o.has("bevel_strength"):
 		bevel_strength = clampf(float(o["bevel_strength"]) / 100.0, 0.0, 1.0)
 	edge_feather = maxf(0.0, float(o.get("edge_feather", edge_feather)))
-	arc_step = maxf(0.0, float(o.get("arc_step", arc_step)))
 	paper_color = fill
 	# rim precedence: an explicit `rim` arg (a per-caller computed edge, e.g. the mail card's tinted rim)
 	# wins; otherwise the shared `rim_color` edge knob in the opts dict applies, so the workbench picker
@@ -304,6 +288,27 @@ func _base_perimeter(sz: Vector2, r: float) -> PackedVector2Array:
 
 const STEP := 4.0
 
+# HOW FINELY A CORNER ARC IS SAMPLED — bounded by the SAGITTA, the deepest a flat falls inside the true
+# arc, which is the error the eye actually sees. Every corner in the game is held to the same px error,
+# whatever its radius: small corners get the few segments they need, big ones get as many as they need.
+#
+# NOT a chord length. Sagitta ≈ c²/8r, so one chord is a different visible error at every radius — it
+# starves small corners and overspends on large ones.
+#
+# 0.10px keeps the project's own invisibility bound (the literal `< 0.15` in
+# engine/tests/unlock_bar_paper_tests.gd) with ~50% headroom. Cost is a non-issue: sampled over every
+# cut-paper surface the game builds, this is +94% perimeter points for +7% rebuild time — per-point work
+# is dwarfed by the per-rebuild fixed cost.
+const ARC_TOL_PX := 0.10
+
+## Segments per quarter-arc of radius `r` such that no flat bulges more than ARC_TOL_PX off the arc.
+## `half` is half the angle one flat may subtend before its midpoint misses the arc by the tolerance.
+func _arc_steps(r: float) -> int:
+	var half := acos(clampf(1.0 - ARC_TOL_PX / maxf(r, 0.001), -1.0, 1.0))
+	if half <= 0.0001:
+		return 3
+	return maxi(3, int(ceil(PI * 0.5 / (2.0 * half))))
+
 func _rect_base(sz: Vector2, r: float) -> PackedVector2Array:
 	r = clampf(r, 0.0, minf(sz.x, sz.y) * 0.5)
 	var pts := PackedVector2Array()
@@ -320,10 +325,7 @@ func _rect_base(sz: Vector2, r: float) -> PackedVector2Array:
 	for e in edges:
 		if e.has("arc"):
 			var c: Vector2 = e["c"]; var s: float = e["s"]
-			# `arc_step` is a CHORD length, so the count comes off the arc's own length; 0 keeps the
-			# legacy figure (see the knob's note — it is 0.45x the straight edges' density).
-			var steps := maxi(3, int(r * 0.7 / STEP)) if arc_step <= 0.0 \
-				else maxi(3, int(ceil(PI * 0.5 * r / arc_step)))
+			var steps := _arc_steps(r)
 			for i in range(steps + 1):
 				var ang := s + PI * 0.5 * (float(i) / float(steps))
 				pts.append(c + Vector2(cos(ang), sin(ang)) * r)

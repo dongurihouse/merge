@@ -14,8 +14,10 @@ extends "res://engine/tests/test_base.gd"
 ##     early on — so the directional halo the material exists to provide never drew. Probed on the rig
 ##     the head read 0.070 at 1px against the mock's 0.292, and the capsule looked printed into the well
 ##     rather than lying in it. Guard 7 is that one.
-##   * the capsule's cap was an OCTAGON. cut_paper samples a corner arc at 0.45x the density it samples
-##     a straight edge, which is invisible until a shape's corner radius is half its own height. Guard 8.
+##   * the capsule's cap was an OCTAGON. cut_paper used to sample a corner arc at 0.45x the density it
+##     samples a straight edge, which is invisible until a shape's corner radius is half its own height.
+##     It now holds every arc to a fixed SAGITTA instead. Guard 8 bounds this capsule's cap; guard 13
+##     bounds the rule across the whole radius range the game draws.
 ##
 ## EVERY BOUND HERE IS A LITERAL, deliberately (rule 12 of docs/design/verifying-against-a-mock.md): a
 ## bound spelled in terms of the constant under test passes whatever that constant becomes. What is
@@ -121,15 +123,14 @@ func _initialize() -> void:
 	ok(reach_px >= 7.0 and reach_px <= 14.0,
 		"the head's cast shadow reaches %.1fpx — the mock's dies by ~8 (bound 7-14)" % reach_px)
 
-	# 8) THE CAP IS ROUND. A capsule is the one shape whose corner radius is half its height, and
-	#    cut_paper's legacy arc sampling turns that into a visible polygon. Bound the SAGITTA — the
-	#    deepest a chord falls short of the true arc — not the knob that produces it.
-	ok(is_equal_approx(CutPaper.new().arc_step, 0.0),
-		"a fresh cut-paper panel samples arcs the legacy way — no other surface in the game moves")
-	ok(fill != null and fill.arc_step > 0.0, "the capsule asks for a chord-length arc instead")
-	ok(fill != null and _sagitta_px(fill.corner, fill.arc_step) < 0.15,
-		"…so its cap falls under 0.15px short of a true circle (the legacy count leaves 0.74)")
-	ok(track != null and _sagitta_px(track.corner, track.arc_step) < 0.15, "…and so do the well's own caps")
+	# 8) THE CAP IS ROUND. A capsule is the one shape whose corner radius is half its height, and a lazy
+	#    arc sampling turns that into a visible polygon. Bound the SAGITTA — the deepest a chord falls
+	#    short of the true arc — not the rule that produces it.
+	ok(fill != null and _panel_sagitta_px(fill) < 0.15,
+		"the capsule's cap falls %.3fpx short of a true circle (the legacy count left 0.749)"
+			% _panel_sagitta_px(fill))
+	ok(track != null and _panel_sagitta_px(track) < 0.15,
+		"…and so do the well's own caps (%.3fpx)" % _panel_sagitta_px(track))
 
 	# 9) THE CREASE IS A LINE, NOT A SLAB. Sectioned on the rig the mock's dark core is ~2 rows; the
 	#    first spelling drew 4 flat rows of it and the well read as a grey outline round a cream capsule.
@@ -175,16 +176,50 @@ func _initialize() -> void:
 	ok((gold["fill_color"] as Color).is_equal_approx(Pal.STRAW), "the affordable cue turns the fill gold")
 	ok(grim.r > grim.b, "…and its cut edge is a darker GOLD, derived from the face it edges")
 
+	# 13) THE RULE IS GAME-WIDE, not this capsule's favour. Every corner radius cut_paper draws — from a
+	#     2px chip to a 120px sheet — must stay under the same 0.15px facet, because the sampling is
+	#     bounded by the SAGITTA and not by a chord length (one chord is a different visible error at
+	#     every radius). Swept rather than spot-checked: a chord rule passes at one radius and fails at
+	#     the next.
+	var probe := CutPaper.new()
+	var worst_r := 0.0
+	var worst := 0.0
+	for i in range(2, 121):
+		var r := float(i)
+		var s := _sagitta_of(r, float(probe._arc_steps(r)))
+		if s > worst:
+			worst = s
+			worst_r = r
+	ok(worst < 0.15,
+		"the deepest facet over r=2..120px is %.3fpx at r=%.0f — under the 0.15px bound at every radius"
+			% [worst, worst_r])
+	# …and the guard is proved by a known-positive: the formula this replaced BREAKS that bound, so a
+	# revert cannot pass this file quietly.
+	var legacy_22 := _sagitta_of(22.0, _legacy_steps(22.0))
+	ok(legacy_22 > 0.15,
+		"the legacy count leaves %.3fpx at r=22 (the dialog frame's own radius) — over the bound" % legacy_22)
+	probe.free()
+
 	finish()
 
 
-## How far a quarter-arc of radius `r` falls short of the true circle — the depth of the facet the eye
-## sees. `step` is the requested chord length; `step <= 0` is cut_paper's LEGACY count, and modelling it
-## here rather than dividing by an epsilon is what makes the assertion above fail when the knob is taken
-## away (measured: with the guard spelled the lazy way, zeroing ARC_STEP_PX still passed it).
-func _sagitta_px(r: float, step: float) -> float:
-	if r <= 0.0:
+## How far a quarter-arc of radius `r` sampled in `steps` segments falls short of the true circle — the
+## depth of the facet the eye sees, in px.
+func _sagitta_of(r: float, steps: float) -> float:
+	if r <= 0.0 or steps <= 0.0:
 		return 0.0
-	var steps := maxf(3.0, floor(r * 0.7 / CutPaper.STEP)) if step <= 0.0 \
-		else maxf(3.0, ceil(PI * 0.5 * r / step))
 	return r * (1.0 - cos(PI * 0.5 / steps * 0.5))
+
+## The same thing for the arc a live panel really draws: the radius is the one `_rect_base` uses (it
+## clamps `corner` to half the shorter side), and the segment count is asked of CUT_PAPER ITSELF rather
+## than re-derived here, so a broken sampling rule cannot hide behind a healthy copy of it in the test.
+func _panel_sagitta_px(p: Control) -> float:
+	if p == null:
+		return 0.0
+	var r := clampf(p.corner, 0.0, minf(p.size.x, p.size.y) * 0.5)
+	return _sagitta_of(r, float(p.call("_arc_steps", r)))
+
+## cut_paper's LEGACY count for a quarter-arc — the formula this rule replaced, kept only so the sweep
+## above has a known-positive to fail on. Not reachable from any shipped path.
+func _legacy_steps(r: float) -> float:
+	return maxf(3.0, floor(r * 0.7 / CutPaper.STEP))
