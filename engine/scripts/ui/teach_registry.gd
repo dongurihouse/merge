@@ -14,6 +14,11 @@ extends RefCounted
 ##   rects   Callable() -> Array — [source_rect, target_rect], or [] when a node is missing
 ##   gesture HandHint.GESTURE_DRAG or GESTURE_TAP
 ##
+## Optional keys, read by the owning scene rather than by this file:
+##   bank_on_sell  improvement-seed teaches only: selling the unplaced seed banks `ledger` (default
+##                 false, because a ledger key shared with a feature-unlock record must not be
+##                 written by a sale — board.gd::_seed_teach_banks_on_sell states the rule).
+##
 ## ui/ layer: imports core/ and ui/ only, never scenes/. The specs come FROM the scene.
 
 const Save = preload("res://engine/scripts/core/save.gd")
