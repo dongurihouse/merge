@@ -610,7 +610,7 @@ static func with_shadow(node: Control, size: float, p: Dictionary, circular := f
 
 static var SWITCH_SKIN := kit("dialogs/settings/")   # cut-paper reskin: toggle_on/off.png
 # The code-drawn cut-paper panel, loaded at runtime (a preload const would be a cycle — cut_paper.gd
-# preloads this skin). Used for the rugged switch track + knob.
+# preloads this skin). Used for the cut-paper switch track + knob.
 const CUT_PAPER := "res://engine/scripts/ui/cut_paper.gd"
 
 static func toggle_switch(is_on: bool, on_changed: Callable, px_h: float = Tune.SWITCH_H, cp: Dictionary = {}) -> Button:
@@ -625,12 +625,16 @@ static func toggle_switch(is_on: bool, on_changed: Callable, px_h: float = Tune.
 	b.add_theme_stylebox_override("hover", empty)
 	b.add_theme_stylebox_override("pressed", empty)
 	b.set_meta("on", is_on)
-	# RUGGED cut-paper switch: the SAME shared edge knob set (Kit.cut_paper_opts_from_config, passed as `cp`)
-	# the dialog frame + settings rows wear, applied via CutPaperPanel.configure — a deckled capsule TRACK
-	# (leaf green ON / soft slate OFF) + a deckled cream KNOB that slides. `cp` empty → a sensible fallback.
-	var o: Dictionary = cp if not cp.is_empty() else {"deckle_amp": 3.0, "deckle_freq": 0.05, "rim_width": 1.5}
+	# CUT-PAPER switch: the SAME shared edge knob set (Kit.cut_paper_opts_from_config, passed as `cp`) the
+	# dialog frame + settings rows wear, applied via CutPaperPanel.configure — a cut capsule TRACK (leaf
+	# green ON / soft slate OFF) + a cut cream KNOB that slides. `cp` empty → a sensible fallback, which
+	# has to spell out BOTH halves of the smooth edge: no tear, and the feather band that antialiases the
+	# capsule's arc in its place. The width is the panel's own measured constant, never re-typed.
 	var CutPaper := load(CUT_PAPER)
-	var track = CutPaper.new()                     # the deckled capsule (recoloured per state)
+	var o: Dictionary = cp if not cp.is_empty() else {
+		"deckle_amp": 0.0, "deckle_freq": 0.05, "rim_width": 1.5,
+		"edge_feather": CutPaper.SMOOTH_FEATHER_PX}
+	var track = CutPaper.new()                     # the cut-paper capsule (recoloured per state)
 	track.name = "sw_track"
 	track.set_anchors_preset(Control.PRESET_FULL_RECT)
 	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -638,11 +642,11 @@ static func toggle_switch(is_on: bool, on_changed: Callable, px_h: float = Tune.
 	track.corner = px_h * 0.5                       # override: a capsule, not the block's rect corner
 	track.draw_shadow = false                       # override: the track sits flat; the knob carries the lift
 	b.add_child(track)
-	var knob = CutPaper.new()                       # the deckled cream knob (slid left/right per state)
+	var knob = CutPaper.new()                       # the cut cream knob (slid left/right per state)
 	knob.name = "sw_knob"
-	knob.seed = 4                                   # a different tear than the track
+	knob.seed = 4                                   # its own noise phase, if a tear is ever dialled back in
 	knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	knob.configure(o, Pal.CREAM, Color("#E7D6BC"), null, 0.6)   # amp_scale shrinks the tear at knob scale
+	knob.configure(o, Pal.CREAM, Color("#E7D6BC"), null, 0.6)   # amp_scale would shrink a tear at knob scale
 	knob.draw_shadow = false                        # CutPaperPanel's fixed px shadow is oversized at knob scale
 	b.add_child(knob)
 	_switch_paint(b, is_on, px_h)
@@ -654,8 +658,8 @@ static func toggle_switch(is_on: bool, on_changed: Callable, px_h: float = Tune.
 		on_changed.call(now))
 	return b
 
-## Repaint a rugged toggle_switch for `is_on`: recolour the deckled track (leaf green ON / soft slate
-## OFF) and slide the deckled knob to the on/off end.
+## Repaint a cut-paper toggle_switch for `is_on`: recolour the track (leaf green ON / soft slate OFF)
+## and slide the knob to the on/off end.
 static func _switch_paint(b: Button, is_on: bool, px_h: float) -> void:
 	var track := b.get_node_or_null("sw_track") as Control
 	var knob := b.get_node_or_null("sw_knob") as Control
@@ -667,7 +671,7 @@ static func _switch_paint(b: Button, is_on: bool, px_h: float) -> void:
 	track.queue_redraw()
 	var inset := Tune.SWITCH_KNOB_INSET
 	var d := px_h - inset * 2.0
-	knob.corner = d * 0.5           # a fully-rounded (deckled disc) knob
+	knob.corner = d * 0.5           # a fully-rounded disc knob
 	knob.custom_minimum_size = Vector2(d, d)
 	knob.size = Vector2(d, d)
 	var w := px_h * Tune.SWITCH_ASPECT

@@ -27,6 +27,10 @@ const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 # is still the nav row's own call site, so the pill borrows that from there.
 const Paper = preload("res://engine/scripts/ui/paper_button.gd")
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")
+# The panel every one of those surfaces is DRAWN by, for its constants only — the knob schema's feather
+# default is the panel's own measured band width, not a number re-typed here. Instantiation still goes
+# through `load(CUT_PAPER)` at the call sites (a script path, so the workbench can hot-reload the panel).
+const CutPaperEdge = preload("res://engine/scripts/ui/cut_paper.gd")
 
 # Nine-patch margins for the shared mail kit (sourced from the real recipe in inbox.gd).
 const CARD_TEX := Vector2(30, 30)
@@ -95,7 +99,10 @@ const CURRENCY_TINT_DEFAULTS := {"water": "sky", "coin": "gold", "gem": "coral",
 # against its own shadow rather than against the paper. `dy` and `blur` are fractions of the font size.
 const CURRENCY_NUM_SHADOW := {"dy": 0.06, "a": 0.34, "blur": 0.10}
 # The shared cut-paper edge defaults for the action button (same knob SET as button/frame; own corner).
-const ACTION_BUTTON_CP_DEFAULTS := {"deckle": true, "corner": 20, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+# No `deckle_amp` / `edge_feather` here on purpose: the SMOOTH cut is the schema's default now
+# (CUT_PAPER_KNOBS), so a component that says nothing gets it, and a component that overrode the tear
+# would be reintroducing one. Same for every other *_CP_DEFAULTS below.
+const ACTION_BUTTON_CP_DEFAULTS := {"deckle": true, "corner": 20, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 
 const BUTTON_PATCH := Vector4(34, 24, 34, 24)
 const BOARD_PATCH := Vector4(34, 34, 34, 34)
@@ -2426,7 +2433,12 @@ const ROW_SAGE_EDGE := Color("#BFD09E")   # a deeper sage for the torn cut-edge 
 const CUT_PAPER_KNOBS := [
 	{"key": "deckle",      "kind": "toggle", "label": "Cut-paper edge", "default": true},
 	{"key": "corner",      "kind": "slider", "label": "Corner",      "min": 0, "max": 60, "default": 16},
-	{"key": "deckle_amp",  "kind": "slider", "label": "Deckle amp",  "min": 0, "max": 20, "default": 5},
+	# THE TEAR, DEFAULTING TO NONE. Every paper surface in the game used to carry a deckled perimeter; the
+	# whole UI is a SMOOTH cut now, so the schema's default is 0 and a component gets the smooth edge by
+	# saying nothing at all. The machinery stays: a surface that wants a torn edge back sets this and
+	# renders exactly what it always did — but it is then opting out of the material, not inheriting it,
+	# and `engine/tests/smooth_paper_tests.gd` will say so.
+	{"key": "deckle_amp",  "kind": "slider", "label": "Deckle amp",  "min": 0, "max": 20, "default": 0},
 	{"key": "deckle_freq", "kind": "slider", "label": "Deckle freq", "min": 1, "max": 20, "default": 5, "freq": true},
 	{"key": "rim_width",   "kind": "slider", "label": "Rim width",   "min": 0, "max": 8,  "default": 2},
 	{"key": "rim_color",   "kind": "color",  "label": "Rim color",   "default": "E7D6BC"},
@@ -2450,8 +2462,10 @@ const CUT_PAPER_KNOBS := [
 	{"key": "flare",           "kind": "slider", "label": "Tab flare %",     "min": 0, "max": 30,  "default": 0, "freq": true},
 	# EDGE FEATHER (CutPaperPanel._draw_feathered_face): antialiasing for the drawn silhouette, in px.
 	# `draw_colored_polygon` computes no coverage, so a SMOOTH sheet's arc rasterizes as a stair-stepped
-	# binary edge; a torn one hides it. 0 = off, which is every surface that keeps its deckle.
-	{"key": "edge_feather",    "kind": "slider", "label": "Edge feather px", "min": 0, "max": 4,   "default": 0},
+	# binary edge. It defaults to the ONE measured band width (CutPaper.SMOOTH_FEATHER_PX) rather than to
+	# a number typed here, because it is the other half of `deckle_amp`'s default above: zeroing the tear
+	# without this renders the staircase the tear was hiding. 0 = off, honest only on a torn surface.
+	{"key": "edge_feather",    "kind": "slider", "label": "Edge feather px", "min": 0, "max": 4,   "default": CutPaperEdge.SMOOTH_FEATHER_PX},
 ]
 
 ## Read the shared cut-paper knob set from a component's config `block` into a NORMALIZED opts dict
@@ -2538,7 +2552,10 @@ const TORN_CELL_KNOBS := [
 	{"key": "well_fill",       "kind": "color",  "label": "Well color",     "default": "A6C486"},
 	{"key": "inner_inset",     "kind": "slider", "label": "Well inset",     "min": 2,  "max": 40,  "default": 14},
 	{"key": "inner_corner",    "kind": "slider", "label": "Well corner",    "min": 0,  "max": 50,  "default": 16},
-	{"key": "inner_amp",       "kind": "slider", "label": "Well deckle amp", "min": 0, "max": 20,  "default": 4},
+	# the well's own tear, defaulting to NONE like every other cut edge in the game. The well is the one
+	# cut-paper surface whose opts are a LITERAL dict rather than the shared knob set (see `torn_cell`), so
+	# its smooth default and its feather have to be spelled out there instead of inherited from the schema.
+	{"key": "inner_amp",       "kind": "slider", "label": "Well deckle amp", "min": 0, "max": 20,  "default": 0},
 	{"key": "inner_freq",      "kind": "slider", "label": "Well deckle freq", "min": 1, "max": 20, "default": 6, "freq": true},
 	{"key": "inner_rim",       "kind": "slider", "label": "Well rim width",  "min": 0,  "max": 8,   "default": 2},
 	# the inner well's cut edge as a whole: OFF = a clean smooth well (no deckle wobble, no rim)
@@ -2585,7 +2602,7 @@ const LOCK_ICON_PATHS := {
 ## plus this component's own inner-well + inner-shadow + fill knobs.
 static func torn_cell_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var d: Dictionary = cfg.get("torn_cell", {}) if cfg is Dictionary else {}
-	var o := {"outer": cut_paper_opts_from_config(cfg, "torn_cell", {"corner": 18, "deckle_amp": 5, "deckle_freq": 6})}
+	var o := {"outer": cut_paper_opts_from_config(cfg, "torn_cell", {"corner": 18, "deckle_freq": 6})}
 	for knob in TORN_CELL_KNOBS:
 		var k: String = knob["key"]
 		var raw: Variant = d.get(k, knob["default"])
@@ -2666,14 +2683,18 @@ static func torn_cell(opts: Dictionary) -> Control:
 	var iw := maxf(1.0, w - inset * 2.0)
 	var ih := maxf(1.0, h - inset * 2.0)
 	var well_fill: Color = opts.get("well_fill", Color("#A6C486"))
-	# Well edge OFF → a clean smooth well: no deckle wobble, no rim (the corner radius stays).
+	# Well edge OFF → no rim, and no tear even if one was dialled in (the corner radius stays).
+	# THIS DICT IS HAND-BUILT, not the shared knob set — the well's knobs are the cell's own `inner_*`
+	# family — so the two halves of the smooth cut have to be written here: a 0 tear by default AND the
+	# shared feather band, or the well's arc rasterizes as a staircase inside the card.
 	var inner_edge := bool(opts.get("inner_edge", true))
 	var inner_cp := {
 		"deckle": true, "corner": float(opts.get("inner_corner", 16.0)),
-		"deckle_amp": float(opts.get("inner_amp", 4.0)) if inner_edge else 0.0,
+		"deckle_amp": float(opts.get("inner_amp", 0.0)) if inner_edge else 0.0,
 		"deckle_freq": float(opts.get("inner_freq", 0.06)),
 		"rim_width": float(opts.get("inner_rim", 2.0)) if inner_edge else 0.0,
 		"edge_shadow": false,
+		"edge_feather": CutPaperEdge.SMOOTH_FEATHER_PX,
 	}
 	var inner: Control = load(CUT_PAPER).new()
 	inner.name = "TornCellWell"
@@ -2765,15 +2786,15 @@ static func _paper_role_tile(surface: Dictionary) -> Texture2D:
 ## Per-component fallback defaults for the shared cut-paper edge (used as `overrides` for the reader; the
 ## saved config wins over these, and the schema default wins when a component omits a key). Only the values
 ## that differ from the schema need listing — the SET of knobs is fixed once in CUT_PAPER_KNOBS.
-const ROW_CP_DEFAULTS := {"corner": 20, "deckle_amp": 3, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
-const FRAME_CP_DEFAULTS := {"deckle": false, "corner": 22, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
-const BUTTON_CP_DEFAULTS := {"deckle": true, "corner": 16, "deckle_amp": 5, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+const ROW_CP_DEFAULTS := {"corner": 20, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+const FRAME_CP_DEFAULTS := {"deckle": false, "corner": 22, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+const BUTTON_CP_DEFAULTS := {"deckle": true, "corner": 16, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 # The wallet pill wears the SAME shared cut-paper edge; `corner` seeds the capsule roundness to the old
 # pill_h * 0.35 look (35 at the default 100px height) so an untuned pill is visually unchanged.
-const PILL_CP_DEFAULTS := {"deckle": true, "corner": 35, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
-# The MAIL / reward-row card wears the SAME shared cut-paper edge, in its own tint + content. A finer tear at
-# card scale (amp 4) than the big frame page. `tint` (the paper fill) lives on the card's own config block.
-const MAIL_CP_DEFAULTS := {"deckle": true, "corner": 18, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+const PILL_CP_DEFAULTS := {"deckle": true, "corner": 35, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+# The MAIL / reward-row card wears the SAME shared cut-paper edge, in its own tint + content, at its own
+# corner. `tint` (the paper fill) lives on the card's own config block.
+const MAIL_CP_DEFAULTS := {"deckle": true, "corner": 18, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 const MAIL_TINT_DEFAULT := Pal.CREAM   # the reward card's default paper fill
 
 ## Read the mail / reward-row card's shared edge + its own tint from `cfg` (the workbench passes live
@@ -3690,10 +3711,10 @@ static func _daily_reward(reward: Dictionary, px: float = 40.0, shadow: bool = f
 		icon_id = "star"
 	return daily_icon(icon_id, px, shadow)
 
-# The daily card wears the SAME shared cut-paper edge as every other paper component — a finer tear at
-# card scale (amp 4). corner is derived from the card WIDTH per-call (a small cell and the wide capstone
-# read with the same rounded proportion), so it is intentionally omitted here.
-const DAILY_CARD_CP_DEFAULTS := {"deckle": true, "corner": 22, "deckle_amp": 4, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
+# The daily card wears the SAME shared cut-paper edge as every other paper component. corner is derived
+# from the card WIDTH per-call (a small cell and the wide capstone read with the same rounded proportion),
+# so it is intentionally omitted here.
+const DAILY_CARD_CP_DEFAULTS := {"deckle": true, "corner": 22, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 # The two tones the daily face uses, straight from the shared paper roles — no new palette.
 const DAILY_CREAM_FILL := Pal.CREAM   # = PAPER_SURFACES["cream"] — days 1-6 + the today top layer
 const DAILY_GOLD_FILL := Pal.GOLD     # = PAPER_SURFACES["gold"]  — the today under-layer + day 7

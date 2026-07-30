@@ -144,10 +144,15 @@ static func _dress_cell(cell: Control, d: Dictionary, idx: int, Kit: GDScript) -
 	cell.resized.connect(dock)
 	dock.call_deferred()
 
+## The status pill's edge: the shared mail-card cut-paper set, shrunk for a ~20px-tall chip. The pill is a
+## fifth the height of the card the knobs are tuned on, so `corner` and `rim_width` are capped here.
+## The TEAR's own cap is gone with the tear: the shared edge is a smooth cut, so `deckle_amp` arrives as 0
+## and `minf(0, 2)` was a clamp on a value that can no longer occur. Should one component ever be given a
+## torn edge back, this chip inherits it scaled by the `amp_scale` the caller already passes (0.46) — the
+## same rule every other borrowed edge follows — and `engine/tests/smooth_paper_tests.gd` names the source.
 static func _status_paper_opts(Kit: GDScript) -> Dictionary:
 	var cp: Dictionary = Kit.cut_paper_opts_from_config(Game.kit_config(), "mail_card", Kit.MAIL_CP_DEFAULTS)
 	cp["corner"] = 10.0
-	cp["deckle_amp"] = minf(float(cp.get("deckle_amp", 2.0)), 2.0)
 	cp["rim_width"] = minf(float(cp.get("rim_width", 1.0)), 1.0)
 	cp["edge_shadow"] = false
 	return cp

@@ -1,23 +1,43 @@
 extends Control
 ## A cut-paper PANEL drawn entirely in code — no fixed-size backdrop PNG. A rounded rectangle with a
-## torn / deckled edge, filled with a small TILING paper-fibre texture, a warm cut-edge rim, and a soft
-## downward drop shadow. It sizes to ANY dimensions with no stretch: the deckle is regenerated for the
-## current size and the paper fibre tiles at its native scale, so the edge and grain stay crisp whether
-## the panel is a tiny cell or a full dialog sheet.
+## SMOOTH, antialiased cut edge, filled with a small TILING paper-fibre texture, a warm cut-edge rim, and
+## a soft downward drop shadow. It sizes to ANY dimensions with no stretch: the outline is regenerated for
+## the current size and the paper fibre tiles at its native scale, so the edge and grain stay crisp
+## whether the panel is a tiny cell or a full dialog sheet.
+##
+## THE EDGE IS SMOOTH BY DEFAULT, and it was not always: the panel shipped a torn / deckled perimeter
+## (`deckle_amp` 5) on every paper surface in the game. Both halves of that changed at once and they are
+## inseparable — see `deckle_amp` and `edge_feather` below, and SMOOTH_FEATHER_PX for the measurement.
+## The deckle machinery is kept, not deleted: `deckle_amp > 0` still tears any single surface that wants
+## it, and the shadow's own tear low-pass still applies.
 ##
 ## Usage: add as a background Control (full-rect) behind a dialog's content, set `paper_tex`, and it
-## repaints on resize. `content_inset()` reports how far in from the deckled edge content should sit.
+## repaints on resize. `content_inset()` reports how far in from the cut edge content should sit.
 
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 const Look = preload("res://engine/scripts/ui/skin.gd")
 
+## THE BAND WIDTH A SMOOTH CUT NEEDS, owned here because `deckle_amp` and `edge_feather` are two halves
+## of ONE decision — nothing may zero the tear without asking for the coverage the rasterizer skips.
+## Measured on the like-for-like rig (`make shot-mock`; docs/design/verifying-against-a-mock.md) across a
+## nav tile's top-left arc, as the count of pixels per row whose value lands between the ground and the
+## fill: unfeathered ours ran 0.00 (a pure binary step) against the mock's 1.68 on its own 931px canvas —
+## ~1.95 at our 1080. At 2.0px ours renders 1.22 per row; 2.5px measured 1.39 and stops reading as a cut,
+## starting to read as a soft glow. `engine/scripts/ui/paper_button.gd` re-exports this as
+## EDGE_FEATHER_PX and `games/grove/ui_kit.gd`'s knob schema defaults to it — no second copy of the number.
+const SMOOTH_FEATHER_PX := 2.0
+
 # The torn edge: perimeter points displaced outward by fractal noise. amp = bump height (px), the noise
 # frequency sets how often the deckle wobbles along the edge. Small values read as hand-torn cardstock.
+# ZERO IS THE DEFAULT and the whole UI's setting — a clean cut sheet, not a torn one. Anything > 0 owes
+# nothing extra to the drawing (the tear is louder than the rasterizer's stairs and hides them), but
+# anything AT 0 needs `edge_feather` or the smooth arc comes out as a staircase. That is why the two knobs
+# are documented as one decision and why SMOOTH_FEATHER_PX lives on this script.
 @export_enum("rect", "poly", "blob", "tab") var shape: String = "rect"
 @export var sides: int = 5          # for shape == "poly" (pentagon, hexagon, …)
 @export var corner: float = 30.0    # rect corner radius
-@export var deckle_amp: float = 5.0
+@export var deckle_amp: float = 0.0
 @export var deckle_freq: float = 0.05
 @export var seed: int = 1
 @export var paper_color: Color = Pal.CREAM
@@ -85,24 +105,15 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 @export var flare: float = 0.0
 # EDGE FEATHER — ANTIALIASING for the drawn silhouette. `draw_colored_polygon` rasterizes with no
 # antialiasing at all: a pixel is either wholly inside the outline or wholly outside it, so a smooth
-# arc comes out as a hard, stair-stepped binary edge. The torn deckle HIDES that (the tear is louder
-# than the stairs), which is why it never showed until a surface asked for a smooth edge — on a nav
-# tab, whose `deckle_amp` is 0, the aliasing IS the silhouette, and a card's defining quality is a
-# clean cut edge. When this is > 0 the face is drawn as an opaque CORE inset past the edge plus a quad
-# strip that ramps the paper's alpha 1 → 0 across `edge_feather` px CENTRED on the true outline —
-# which is the coverage term the rasterizer skipped. The 50% point lands exactly on the outline, so
-# the silhouette does not move or grow; the rim, bevel and halo still key off the same `pts`.
-# 0 = off (the default everywhere): every torn surface draws the single flat polygon it always drew.
-@export var edge_feather: float = 0.0
-## THE BAND WIDTH A SMOOTH CUT NEEDS, owned here because `deckle_amp` and `edge_feather` are two halves
-## of ONE decision — nothing may zero the tear without asking for the coverage the rasterizer skips.
-## Measured on the like-for-like rig (`make shot-mock`; docs/design/verifying-against-a-mock.md) across a
-## nav tile's top-left arc, as the count of pixels per row whose value lands between the ground and the
-## fill: unfeathered ours ran 0.00 (a pure binary step) against the mock's 1.68 on its own 931px canvas —
-## ~1.95 at our 1080. At 2.0px ours renders 1.22 per row; 2.5px measured 1.39 and stops reading as a cut,
-## starting to read as a soft glow. `engine/scripts/ui/paper_button.gd` re-exports this as
-## EDGE_FEATHER_PX rather than keeping a second copy of the number.
-const SMOOTH_FEATHER_PX := 2.0
+# arc comes out as a hard, stair-stepped binary edge. The torn deckle HID that (the tear is louder
+# than the stairs), which is why it never showed while every surface was torn. When this is > 0 the face
+# is drawn as an opaque CORE inset past the edge plus a quad strip that ramps the paper's alpha 1 → 0
+# across `edge_feather` px CENTRED on the true outline — which is the coverage term the rasterizer
+# skipped. The 50% point lands exactly on the outline, so the silhouette does not move or grow; the rim,
+# bevel and halo still key off the same `pts`.
+# ON by default, at the width below, because a SMOOTH edge is the default and a smooth edge without this
+# is a staircase. 0 = off, which is only honest on a surface that has a tear to hide it.
+@export var edge_feather: float = SMOOTH_FEATHER_PX
 var paper_tex: Texture2D = null
 
 func _ready() -> void:
@@ -310,6 +321,26 @@ func _base_perimeter(sz: Vector2, r: float) -> PackedVector2Array:
 
 const STEP := 4.0
 
+## HOW FLAT A CORNER IS ALLOWED TO READ, in px — the chord's sagitta, i.e. how far the straight segment
+## between two sampled points falls short of the true arc at its middle. THE TEAR WAS HIDING THE
+## TESSELLATION as well as the aliasing: the arc step used to be `r * 0.7 / STEP`, which on a 36px toggle
+## knob (r = 18, a full circle) gives 3 segments per quarter — a TWELVE-SIDED polygon whose facets are
+## 0.61px deep and plainly visible as flats at 2x, once the deckle stopped breaking the outline up. A
+## 2px feather blurs a facet a fifth of that but not one three times it. Solving `sagitta ≈ L² / 8r` for
+## the segment length at this bound and dividing into the quarter-arc gives 7 segments on that knob and
+## 10 on a 46px board corner (where the old rule already gave 8) — so the cost lands on the small radii
+## that needed it, and a big sheet, whose vertex count is dominated by its straight edges, barely moves.
+const MAX_ARC_SAGITTA := 0.15
+
+## Segments per QUARTER arc of radius `r` — enough that no chord dips further than MAX_ARC_SAGITTA from
+## the true curve. Pulled out as a static so the bound can be ASSERTED headlessly against the geometry it
+## produces (engine/tests/smooth_paper_tests.gd) rather than trusted from the algebra.
+static func arc_steps(r: float) -> int:
+	if r <= 0.0:
+		return 3
+	var seg := sqrt(8.0 * r * MAX_ARC_SAGITTA)      # chord length whose sagitta IS the bound
+	return maxi(3, int(ceil(r * PI * 0.5 / maxf(seg, 0.001))))
+
 func _rect_base(sz: Vector2, r: float) -> PackedVector2Array:
 	r = clampf(r, 0.0, minf(sz.x, sz.y) * 0.5)
 	var pts := PackedVector2Array()
@@ -326,7 +357,7 @@ func _rect_base(sz: Vector2, r: float) -> PackedVector2Array:
 	for e in edges:
 		if e.has("arc"):
 			var c: Vector2 = e["c"]; var s: float = e["s"]
-			var steps := maxi(3, int(r * 0.7 / STEP))
+			var steps := arc_steps(r)
 			for i in range(steps + 1):
 				var ang := s + PI * 0.5 * (float(i) / float(steps))
 				pts.append(c + Vector2(cos(ang), sin(ang)) * r)
