@@ -30,6 +30,7 @@ const BoardScript = preload("res://engine/scripts/scenes/board.gd")
 const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
+const CascadeOutline = preload("res://engine/scripts/ui/cascade_outline.gd")
 
 ## tool name (and its `make shot TOOL=` path) → the script the batch runs for it.
 const BATCHABLE := {
@@ -102,6 +103,11 @@ func _reset(tree: SceneTree) -> void:
 	BoardScript.forced_rng_seed = -1
 	Debug.force = false
 	Ambient.forced_weather = ""
+	CascadeOutline.forced_phase = -1.0
+	# `grove cascade phase=run` freezes the clock to hold a mid-run frame still for its capture. Left
+	# frozen, every `create_timer` the NEXT item awaits never fires and the batch hangs — so the clock
+	# is part of the global state a reset has to put back.
+	Engine.time_scale = 1.0
 	# The cozy UI theme installs itself ONCE per process onto the root (ui_font.apply, latched by
 	# its `_done`). A tool that never asks for it — widget_shot renders on a bare root — therefore
 	# came out with the game font in a batch and the engine default on its own: MEASURED, the two

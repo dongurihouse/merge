@@ -17,6 +17,13 @@ WHAT IT ASSERTS
      between, gives byte-identical PNGs. This is the property that makes a batch trustworthy at all.
   2. AGREEMENT WITH THE SINGLE-SHOT PATH — the batch's first item equals the same capture taken in
      its own process.
+  3. THE CASCADE GLOW'S PINNED PHASE — `grove cascade` draws light that TRAVELS around the chain's
+     contour, so where in its loop the light sits depends on how many frames have gone by, which
+     differs between a warm batch process and a fresh boot. engine/scripts/ui/cascade_outline.gd's
+     `forced_phase` (set by shot_base.begin) is what makes it capturable at all, and this is the
+     guard on it: the batched cascade shot must equal both its twin later in the same batch AND the
+     same shot taken alone. Without the pin the two paths differ, so a regression that unpins it
+     fails here rather than silently rewriting every cascade capture's bytes.
 
 WHAT IT DELIBERATELY DOES NOT ASSERT. Every item of a long batch is NOT byte-identical to its cold
 single-shot twin. A mode whose fixture is still ANIMATING at the capture instant (measured:
@@ -24,7 +31,8 @@ single-shot twin. A mode whose fixture is still ANIMATING at the capture instant
 than in a freshly booted one — 1726 pixels of a 2.07-million-pixel image, by at most 30/255. Such a
 mode is self-consistent inside the batch path (the same hash at position 3 and position 6) and
 self-consistent inside the single path; it is the two paths that disagree. So: compare like with
-like — a before/after pair must be captured the same way, both batched or both single.
+like — a before/after pair must be captured the same way, both batched or both single. `grove
+cascade` is in the compared set precisely because its animation is PINNED, not exempt.
 
 SKIPS (exit 0) when there is nothing to measure: no `godot`, no GUI session, or another quiet run
 already owns override.cfg. The real renderer is required — the batch is about pixels.
@@ -43,6 +51,7 @@ ROOT = Path(__file__).resolve().parents[1]
 QUIET = ROOT / "engine" / "tools" / "quiet_godot.sh"
 BATCH = "res://engine/tools/shot_batch.gd"
 WIDGET = "res://games/grove/tools/widget_shot.gd"
+GROVE = "res://games/grove/tools/grove_shot.gd"
 TIMEOUT_S = 300
 
 
@@ -87,24 +96,30 @@ def main() -> int:
     plan.write_text(
         f"widget {tmp}/widget_1.png 104 104:glow\n"
         f"grove hud {tmp}/grove_1.png\n"
+        f"grove cascade {tmp}/cascade_1.png phase=runway\n"
         f"widget {tmp}/widget_2.png 104 104:glow\n"
-        f"grove hud {tmp}/grove_2.png\n")
+        f"grove hud {tmp}/grove_2.png\n"
+        f"grove cascade {tmp}/cascade_2.png phase=runway\n")
 
     batched = run(["-s", BATCH, "--", str(plan)])
     single = run(["-s", WIDGET, "--", str(tmp / "widget_single.png"), "104", "104:glow"])
+    cascade_single = run(["-s", GROVE, "--", "cascade", str(tmp / "cascade_single.png"), "phase=runway"])
 
     failures = []
-    for name, proc in (("batch", batched), ("single", single)):
+    for name, proc in (("batch", batched), ("single", single), ("cascade single", cascade_single)):
         if proc.returncode != 0:
             failures.append(f"the {name} run exited {proc.returncode} — this guard proves nothing\n"
                             f"{proc.stdout[-2000:]}{proc.stderr[-2000:]}")
-    wanted = ["widget_1.png", "widget_2.png", "grove_1.png", "grove_2.png", "widget_single.png"]
+    wanted = ["widget_1.png", "widget_2.png", "grove_1.png", "grove_2.png", "widget_single.png",
+              "cascade_1.png", "cascade_2.png", "cascade_single.png"]
     missing = [w for w in wanted if not (tmp / w).exists()]
     if missing:
         failures.append(f"missing capture(s): {missing} — nothing was rendered to compare")
 
     if not failures:
-        pairs = [("widget", "widget_1.png", "widget_2.png"), ("grove hud", "grove_1.png", "grove_2.png")]
+        pairs = [("widget", "widget_1.png", "widget_2.png"),
+                 ("grove hud", "grove_1.png", "grove_2.png"),
+                 ("grove cascade", "cascade_1.png", "cascade_2.png")]
         for label, a, b in pairs:
             if sha(tmp / a) != sha(tmp / b):
                 failures.append(
@@ -116,6 +131,12 @@ def main() -> int:
                 f"the batch's first item does not match the same capture taken on its own "
                 f"(widget_1.png vs widget_single.png). `make shot-batch` is meant to be a drop-in "
                 f"for `make shot`. Files kept at {tmp}.")
+        if sha(tmp / "cascade_1.png") != sha(tmp / "cascade_single.png"):
+            failures.append(
+                f"a batched `grove cascade` does not match the same capture taken on its own "
+                f"(cascade_1.png vs cascade_single.png). The cascade glow's travelling light is "
+                f"landing on a different phase in a warm process — check that shot_base.begin still "
+                f"pins engine/scripts/ui/cascade_outline.gd's `forced_phase`. Files kept at {tmp}.")
 
     if failures:
         for f in failures:
