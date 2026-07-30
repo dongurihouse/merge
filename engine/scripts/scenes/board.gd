@@ -5077,6 +5077,8 @@ func _line_color(line: int) -> Color:
 func _attach_mastery_chrome(gn: Control, gid: String) -> void:
 	if not Features.on("mastery"):
 		return
+	if not FeatureGate.revealed("mastery"):
+		return
 	var line := _gen_line(gid)
 	if line <= 0 or Mastery.meter(line) <= 0:
 		return
@@ -5092,7 +5094,10 @@ func _attach_mastery_chrome(gn: Control, gid: String) -> void:
 	_add_mastery_trim(gn, Mastery.rank(line))
 
 func _refresh_mastery_chrome() -> void:
-	if not Features.on("mastery"):
+	if not Features.on("mastery") or not FeatureGate.revealed("mastery"):
+		for gn in gen_nodes.values():
+			if gn != null and is_instance_valid(gn):
+				_remove_mastery_chrome(gn)
 		return
 	for cell in gen_nodes:
 		var gn: Control = gen_nodes[cell]
@@ -5101,8 +5106,7 @@ func _refresh_mastery_chrome() -> void:
 		var line := _gen_line(board.gen_id_at(cell))
 		var ring := gn.get_node_or_null("MasteryRing") as MasteryRing
 		if Mastery.meter(line) <= 0:
-			if ring != null:
-				ring.queue_free()
+			_remove_mastery_chrome(gn)
 			continue
 		if ring == null:
 			_attach_mastery_chrome(gn, board.gen_id_at(cell))
@@ -5110,6 +5114,12 @@ func _refresh_mastery_chrome() -> void:
 			ring.ring_color = _line_color(line)
 			ring.progress = Mastery.rank_progress(line)
 		_refresh_mastery_trim(gn, Mastery.rank(line))
+
+func _remove_mastery_chrome(gn: Control) -> void:
+	for child_name in ["MasteryRing", "MasteryTrim"]:
+		var child := gn.get_node_or_null(child_name)
+		if child != null:
+			child.queue_free()
 
 func _add_mastery_trim(gn: Control, rank: int) -> void:
 	var trim := _mastery_trim(rank)
@@ -5441,6 +5451,26 @@ func _on_release(pos: Vector2) -> void:
 ## A generator was dragged (T17). A still tap pops it; otherwise it MOVES to empty ground
 ## (#1) or EVOLVES onto the predecessor it upgrades (#2 — the grant→old merge). A generator
 ## is never sold and never normal-merges; any other drop snaps it back.
+# THE MASTERY REVEAL — no gesture to teach (the player already taps generators), so this is a
+# reward beat: the ring sweeps up to the value the meter has quietly held since L1, and the
+# rank clamp lifts behind it.
+func _maybe_mastery_reveal(cell: Vector2i) -> void:
+	if not FeatureGate.armed("mastery") or FeatureGate.revealed("mastery"):
+		return
+	var line := _gen_line(board.gen_id_at(cell))
+	if line <= 0 or Mastery.meter(line) <= 0:
+		return
+	FeatureGate.mark_revealed("mastery")
+	_refresh_mastery_chrome()
+	var gn: Control = gen_nodes.get(cell)
+	if gn == null or not is_instance_valid(gn):
+		return
+	var ring := gn.get_node_or_null("MasteryRing") as MasteryRing
+	if ring != null:
+		ring.sweep_to(Mastery.rank_progress(line), 0.9)
+	if Features.on("big_moment_shake"):
+		FX.celebrate_at(self, _cell_local_rect(cell).get_center(), "", _line_color(line))
+
 func _release_gen(pos: Vector2) -> void:
 	_drag_is_gen = false
 	var target := _pos_to_cell(pos)
@@ -5460,6 +5490,7 @@ func _release_gen(pos: Vector2) -> void:
 	if target == from and pos.distance_to(_press_pos) <= _drag_slop_px():
 		if node != null:
 			node.position = _cell_pos(from)
+		_maybe_mastery_reveal(from)
 		if G.is_accumulator(board.gen_id_at(from)):
 			_collect_accumulator(from)        # §6.C an accumulator banks a resource — a tap collects it
 			if board.is_gen(from):

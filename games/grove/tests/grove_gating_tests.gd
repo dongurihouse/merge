@@ -25,6 +25,9 @@ func _initialize() -> void:
 	await _test_magnet_stage_falls_back_to_the_bag()
 	_test_soil_ftue_level_comes_from_the_table()
 	_test_mastery_rank_is_clamped_until_revealed()
+	await _test_mastery_ring_hidden_until_revealed()
+	await _test_mastery_reveal_sweeps_on_real_generator_tap()
+	await _test_mastery_reveal_skips_ineligible_real_generator_taps()
 	_test_registry_picks_the_first_unseen_armed_ready_spec()
 	_test_registry_complete_is_derived_from_the_same_array()
 	_test_registry_complete_does_not_call_ready()
@@ -271,6 +274,115 @@ func _test_mastery_rank_is_clamped_until_revealed() -> void:
 	FeatureGate.mark_revealed("mastery")
 	ok(Mastery.rank(line) == Mastery.true_rank(line), "the clamp lifts on reveal")
 	ok(ShopUI.scissors_available(), "scissors becomes available once mastery is revealed")
+
+func _test_mastery_ring_hidden_until_revealed() -> void:
+	fresh("reveal_mastery")
+	_set_level(G.FEATURE_LEVEL["mastery"])
+	Save.mark_ftue_seen("merge")
+	Save.mark_ftue_seen("gen_tap")
+	Save.mark_board_tutorial_seen()
+	var line := int(G.ZONE_BASE_LINES[0])
+	Save.grove()["mastery"] = {str(line): int(G.MASTERY_THRESHOLDS[0])}
+	var h = board_host()
+	await process_frame
+	var rings_before := _count_nodes_named(h, "MasteryRing")
+	ok(rings_before == 0, "no mastery ring is attached while the feature is unrevealed")
+	FeatureGate.mark_revealed("mastery")
+	h._refresh_mastery_chrome()
+	await process_frame
+	ok(_count_nodes_named(h, "MasteryRing") > 0, "the ring attaches once revealed")
+	fresh("reveal_mastery_reset")
+	_set_level(G.FEATURE_LEVEL["mastery"])
+	Save.grove()["mastery"] = {str(line): int(G.MASTERY_THRESHOLDS[0])}
+	h._refresh_mastery_chrome()
+	await process_frame
+	ok(_count_nodes_named(h, "MasteryRing") == 0,
+		"refresh tears down stale mastery chrome after the reveal ledger is reset")
+	h.queue_free()
+
+func _count_nodes_named(n: Node, want: String) -> int:
+	var c := 0
+	if n.name == want:
+		c += 1
+	for ch in n.get_children():
+		c += _count_nodes_named(ch, want)
+	return c
+
+func _test_mastery_reveal_sweeps_on_real_generator_tap() -> void:
+	fresh("reveal_mastery_tap")
+	_set_level(G.FEATURE_LEVEL["mastery"])
+	Save.mark_ftue_seen("merge")
+	Save.mark_ftue_seen("gen_tap")
+	Save.mark_board_tutorial_seen()
+	var line := int(G.ZONE_BASE_LINES[0])
+	# 40 is exactly halfway from rank-1's threshold (20) to rank-2's (60):
+	# the reveal sweep must visibly settle at 0.5, independently of the production helper.
+	Save.grove()["mastery"] = {str(line): 40}
+	var h = board_host()
+	await process_frame
+	var gen_cell := _mastery_gen_cell(h, line)
+	ok(gen_cell.x >= 0, "fixture: the live board has the mastery line's generator")
+	ok(_count_nodes_named(h, "MasteryRing") == 0,
+		"the real tap starts with mastery armed, banked, and unrevealed")
+	var meter_before := Mastery.meter(line)
+	var pops_before := int(Save.grove().get("pops", 0))
+	if gen_cell.x >= 0:
+		_tap_board(h, h._cell_pos(gen_cell) + Vector2(h.csz, h.csz) / 2.0)
+	ok(FeatureGate.revealed("mastery"),
+		"a real still-tap through the board input surface reveals mastery")
+	var ring: Control = h.gen_nodes.get(gen_cell).get_node_or_null("MasteryRing") if gen_cell.x >= 0 else null
+	ok(ring != null, "the same generator tap attaches its mastery ring")
+	await create_timer(0.18).timeout
+	if ring != null:
+		ok(ring.progress > 0.02 and ring.progress < 0.48,
+			"the attached ring is visibly mid-sweep instead of snapping to its banked value")
+	await create_timer(0.85).timeout
+	if ring != null:
+		ok(absf(ring.progress - 0.5) < 0.03,
+			"the reveal sweep settles at the banked rank progress over its 0.9-second beat")
+	ok(Mastery.meter(line) == meter_before,
+		"revealing mastery does not accrue or consume any mastery")
+	ok(int(Save.grove().get("pops", 0)) > pops_before,
+		"the reveal runs before, without consuming, the existing generator tap")
+	await drop(h)
+
+func _test_mastery_reveal_skips_ineligible_real_generator_taps() -> void:
+	var line := int(G.ZONE_BASE_LINES[0])
+	fresh("reveal_mastery_zero")
+	_set_level(G.FEATURE_LEVEL["mastery"])
+	Save.mark_ftue_seen("merge")
+	Save.mark_ftue_seen("gen_tap")
+	Save.mark_board_tutorial_seen()
+	var empty_h = board_host()
+	await process_frame
+	var empty_cell := _mastery_gen_cell(empty_h, line)
+	if empty_cell.x >= 0:
+		_tap_board(empty_h, empty_h._cell_pos(empty_cell) + Vector2(empty_h.csz, empty_h.csz) / 2.0)
+	ok(not FeatureGate.revealed("mastery"),
+		"a real generator tap with no banked meter does not reveal mastery")
+	await drop(empty_h)
+
+	fresh("reveal_mastery_low")
+	_set_level(G.FEATURE_LEVEL["mastery"] - 1)
+	Save.mark_ftue_seen("merge")
+	Save.mark_ftue_seen("gen_tap")
+	Save.mark_board_tutorial_seen()
+	Save.grove()["mastery"] = {str(line): 40}
+	var low_h = board_host()
+	await process_frame
+	var low_cell := _mastery_gen_cell(low_h, line)
+	if low_cell.x >= 0:
+		_tap_board(low_h, low_h._cell_pos(low_cell) + Vector2(low_h.csz, low_h.csz) / 2.0)
+	ok(not FeatureGate.revealed("mastery"),
+		"a real generator tap below the mastery level does not reveal a banked meter")
+	await drop(low_h)
+
+func _mastery_gen_cell(h: Node, line: int) -> Vector2i:
+	for raw_cell in h.board.gens:
+		var cell := Vector2i(raw_cell)
+		if h._gen_line(h.board.gen_id_at(cell)) == line:
+			return cell
+	return Vector2i(-1, -1)
 
 func _spec(id: String, ledger: String, gate: bool, ready: bool) -> Dictionary:
 	return {
