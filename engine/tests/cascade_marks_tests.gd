@@ -9,7 +9,8 @@ const CascadeOutline = preload("res://engine/scripts/ui/cascade_outline.gd")
 func _initialize() -> void:
 	print("== cascade guide marks ==")
 	_test_the_one_rule_is_run_length_in_every_mode()
-	_test_rest_ranks_longest_first_and_caps()
+	_test_rest_finds_remote_actionable_chains()
+	_test_rest_ranks_longest_first_and_keeps_all()
 	_test_every_mode_draws_the_same_chain_stack()
 	_test_a_dimmed_chain_is_the_same_stack_turned_down()
 	_test_drag_keeps_only_the_longest_chain_loud()
@@ -44,6 +45,21 @@ func _roles(marks: Array) -> Array:
 	for m in marks:
 		out.append(String((m as Dictionary).get("role", "")))
 	return out
+
+# The break this catches is REST consulting only ready_ladders(): the exact ×3 that DRAG finds stays
+# invisible until pickup when its duplicate source is elsewhere on the board.
+func _test_rest_finds_remote_actionable_chains() -> void:
+	var b := _blank_board()
+	b.place(Vector2i(8, 0), 101) # remote source
+	b.place(Vector2i(3, 1), 101) # target
+	b.place(Vector2i(3, 2), 102)
+	b.place(Vector2i(3, 3), 103)
+	var marks := CascadeMarks.build(b, {"mode": CascadeMarks.MODE_REST})
+	ok(_roles(marks) == ["chain", "target"],
+		"REST shows the remote actionable ×3 (got %s)" % str(_roles(marks)))
+	var run: Array = Array((marks[0] as Dictionary).get("run", [])) if not marks.is_empty() else []
+	ok(run == [Vector2i(3, 1), Vector2i(3, 2), Vector2i(3, 3)],
+		"REST follows the same target-first route as DRAG (got %s)" % str(run))
 
 # THE ONE RULE, in all three modes: a chain is marked if and only if its run is GUIDE_MIN_N cells or
 # longer. There is nothing else to know about the guide's eligibility — the second, fainter "runway"
@@ -102,7 +118,7 @@ func _test_the_one_rule_is_run_length_in_every_mode() -> void:
 			"DRAG: the drop cell is %s (weight %.2f)"
 				% ["the loud chain winner" if draws else "an ordinary merge target", drop_weight])
 
-func _test_rest_ranks_longest_first_and_caps() -> void:
+func _test_rest_ranks_longest_first_and_keeps_all() -> void:
 	var b := _blank_board()
 	_put_ladder(b, 0, 1, 3)     # n = 3
 	_put_ladder(b, 2, 2, 5)     # n = 5
@@ -126,18 +142,19 @@ func _test_rest_ranks_longest_first_and_caps() -> void:
 		and Vector2i(bloom.get("tag_cell", CascadeMarks.NO_CELL)) == head
 		and not bool(contour.get("tag", false)),
 		"the bloom and the ×n both sit on run[0] — the cell the tipping merge lands on")
-	_put_ladder(b, 6, 4, 6)     # a fourth chain, over the cap
-	var capped := CascadeMarks.build(b, {"mode": CascadeMarks.MODE_REST, "chain_min_n": 2, "runway_min_n": 3})
+	_put_ladder(b, 6, 4, 6)     # a fourth chain: REST must keep every qualifying route
+	var all_marks := CascadeMarks.build(b, {"mode": CascadeMarks.MODE_REST, "chain_min_n": 2, "runway_min_n": 3})
 	var chains := 0
-	for m in capped:
+	for m in all_marks:
 		if String((m as Dictionary).get("role", "")) == "chain":
 			chains += 1
-	ok(chains == CascadeMarks.REST_MAX,
-		"REST_MAX counts CHAINS, not marks (got %d chains in %d marks)" % [chains, capped.size()])
-	ok(capped.size() == CascadeMarks.REST_MAX * 2,
-		"…and every chain that survives the cap keeps its whole stack (got %d marks)" % capped.size())
-	var top := int((capped[0] as Dictionary).get("n", 0))
-	ok(top == 6, "the cap keeps the LONGEST chains, not the first found (got %d)" % top)
+	ok(chains == 4,
+		"REST keeps every chain at or above the guide floor (got %d chains in %d marks)"
+			% [chains, all_marks.size()])
+	ok(all_marks.size() == 8,
+		"every resting chain keeps its contour and target bloom (got %d marks)" % all_marks.size())
+	var top := int((all_marks[0] as Dictionary).get("n", 0))
+	ok(top == 6, "REST still ranks the longest chain first (got %d)" % top)
 
 # THE ONE EFFECT STACK. A chain is drawn with the same effects whatever the board is doing: the
 # contour over its run, the target bloom on run[0], and the ×n chip on that same cell. Only `weight`
