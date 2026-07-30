@@ -709,8 +709,11 @@ static func demo_shop() -> Array:
 
 ## Resolve an icon id to a real sprite Control. Most ids ride the shared Look.icon; "bluegem" is the
 ## faceted premium gem (not the grove's acorn), loaded directly.
-static func make_icon(id: String, px: float) -> Control:
-	var node := _icon_rect(_icon_tex(id), px)   # polished (defringe + feather), via the shared resolver
+## `cap` is the POLISH resolution (the baked mirror's own @N). It defaults to the glyph cap every caller
+## has always used; a surface that draws an icon far LARGER than that passes its own — the storefront's
+## market stall stands its goods ~420px tall, where a 192px mirror upscales 2.2x and reads soft.
+static func make_icon(id: String, px: float, cap: int = ICON_TEX_CAP) -> Control:
+	var node := _icon_rect(_icon_tex(id, cap), px)   # polished (defringe + feather), via the shared resolver
 	return node if node != null else Look.icon(id, px)   # glyph fallback when no sprite
 
 ## A polished texture wrapped as the SHARED icon rect: a centred, mouse-transparent square that fills its
@@ -1293,9 +1296,12 @@ static func _icon_path(id: String) -> String:
 			return p
 	return ""
 
-static func _icon_tex(id: String) -> Texture2D:
+## THE DEFAULT glyph polish resolution — a wallet pill, a nav tab, a price chip. Named because a second
+## cap now exists (the storefront's hero goods) and two literals would drift.
+const ICON_TEX_CAP := 192
+static func _icon_tex(id: String, cap: int = ICON_TEX_CAP) -> Texture2D:
 	var p := _icon_path(id)
-	return clean_tex_path(p, 192) if p != "" else null      # defringe + feather the rough-cut icon
+	return clean_tex_path(p, cap) if p != "" else null      # defringe + feather the rough-cut icon
 
 ## The icon, padded to a SQUARE canvas (centred), so its bounding box is identical for every icon id.
 ## A button using this with a fixed icon_max_width then keeps a CONSTANT layout whatever icon is shown —

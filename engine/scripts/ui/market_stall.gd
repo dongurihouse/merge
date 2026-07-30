@@ -68,6 +68,15 @@ const PRICE_GAP := 0.010       # tag bottom → price button top
 const PLAQUE_H := 0.047        # a caption plaque's height
 const PLAQUE_PAD_X := 0.028
 
+## THE GOODS' OWN POLISH RESOLUTION. The mock stands a container most of a shelf bay tall — ~420px on a
+## 1080-wide screen — and the shared glyph mirror is 192px, so the hero art came back upscaled 2.2x and
+## visibly soft (only a 2x crop showed it; at 1x it merely looks slightly out of focus). The storefront
+## therefore bakes and draws its eight goods at their own cap. `Shop.bake_sprites()` declares the set so
+## `make bake-textures` writes those mirrors and kit_bake_freshness_tests holds them fresh — without that
+## the polish would run live on the main thread on every first shop open, which is the freeze the bake
+## exists to remove.
+const GOODS_TEX_CAP := 384
+
 ## THE HIT REGION, named so the debug overlay and the suites read the region the game really hit-tests
 ## rather than re-deriving where it ought to be. ONE rectangle per offer: the offer's half of its shelf
 ## bay, from the top of the goods zone down to the bottom of the shelf's front lip. Everything drawn for
@@ -263,7 +272,7 @@ static func _slot(Kit: GDScript, stall: Control, w: float, cell: Rect2, card: Di
 	var vis_w: float = cell.size.x * (0.92 if counter else 0.86) * scale_knob
 	var art_px: float = minf(vis_h / maxf(frame.size.y, 0.05), vis_w / maxf(frame.size.x, 0.05))
 	art_px = minf(art_px, goods_h / maxf(frame.end.y, 0.05))     # …and never taller than its own shelf bay
-	var art: Control = Kit.make_icon(icon_id, art_px)
+	var art: Control = Kit.make_icon(icon_id, art_px, GOODS_TEX_CAP)
 	art.custom_minimum_size = Vector2(art_px, art_px)
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if art is TextureRect and (art as TextureRect).texture != null:
@@ -460,7 +469,7 @@ static func _art_frame(Kit: GDScript, icon_id: String) -> Rect2:
 	var frame := Rect2(0.0, 0.0, 1.0, 1.0)
 	# the SAME resolver `make_icon` draws through (the polished / baked mirror), so the rect measured is
 	# the rect rendered — reading the raw source instead would be measuring a different image.
-	var tex: Texture2D = Kit._icon_tex(icon_id)
+	var tex: Texture2D = Kit._icon_tex(icon_id, GOODS_TEX_CAP)
 	if tex != null:
 		var img := tex.get_image()
 		if img != null and img.get_width() > 0 and img.get_height() > 0:

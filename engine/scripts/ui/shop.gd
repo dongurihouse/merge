@@ -467,6 +467,18 @@ static func _premium_sections(refs: Dictionary) -> Array:
 			"on_buy": func() -> void: _confirm_cash(host, refs, i)})
 	return [{"caption": Strings.t("shop.premium.acorn_pouches_caption"), "cards": packs}]
 
+## THE STOREFRONT'S BAKEABLE SPRITES: [icon_id, polish cap] for every good the stall can stand on a shelf
+## — the watering can, the coin pouch, and one per ladder tier. games/tools/bake_targets.gd drives
+## `clean_tex_path` over these so `make bake-textures` writes their mirrors and
+## engine/tests/kit_bake_freshness_tests.gd holds them fresh. Declared HERE, off the live ladder, so a
+## grove that adds a pack tier bakes its art with no second list to remember.
+## (The same shape as LevelPopup.bake_sprites, for the same reason.)
+static func bake_sprites() -> Array:
+	var out: Array = [["shop_can", Stall.GOODS_TEX_CAP], ["shop_pouch", Stall.GOODS_TEX_CAP]]
+	for i in CASH_PACKS.size():
+		out.append([_pack_icon_id(i), Stall.GOODS_TEX_CAP])
+	return out
+
 # The escalating acorn-pack art id for ladder pack i (pack_t1… — the cut-paper container ladder from
 # shop_item_icons_v1), falling back to the plain gem when the grove has more packs than tier sprites.
 static func _pack_icon_id(i: int) -> String:
