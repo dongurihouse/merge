@@ -51,7 +51,7 @@
   "close": {
     "rect": [892, 155, 133, 133],
     "drawn": [912, 175, 93, 93],
-    "note": "The coral X the picture draws is 93px across — 33.6pt on a 390pt-wide phone, under the 44pt platform floor. The hit rect is opened to 133px (48pt) around the SAME centre. It cannot reach any offer: the topmost cell starts at y=372, 84px below this rect's bottom."
+    "note": "The coral X the picture draws is 93px across — 33.6pt on a 390pt-wide phone, under the 44pt platform floor. The hit rect is opened to 133px (48pt) around the SAME centre. It cannot reach any offer: the topmost cell starts at y=372, 84px below this rect's bottom. Both halves are checked, not asserted: test_shop_screen_regions.py measures these rects against each other, and grove_shop_tests.gd's `close_region` re-checks the overlap on the BUILT screen, taps the centre (it dismisses) and taps 8px past each edge (it does not). The debug overlay draws BOTH rects — the dashed tap area and the drawn disc inside it — so the difference is visible rather than described."
   },
 
   "offers": [

@@ -53,6 +53,18 @@ const CLOSE_NODE := "DialogClose"        ## the same node name every other sheet
 ## dictionary that supplies `on_buy`, so a label and a purchase cannot disagree by construction.
 const SLOT_META := "shop_slot"
 const OFFER_META := "shop_offer"
+## THE ✕ IS A REGION TOO. It sells nothing, so it carries neither purchase meta — and that alone made it
+## invisible to the hit overlay, which collected those two metas and nothing else. It carries its own
+## identity now, stamped in the SAME branch that connects the dismiss callable, so the overlay names it
+## from the live wiring rather than from the registry it would otherwise have to re-read.
+const CLOSE_META := "shop_close"
+## …and, beside it, the disc the PICTURE draws, in the built screen's own px. The hit rect is deliberately
+## bigger than that disc (the painted ✕ is under the platform's fingertip floor), and the GAP between the
+## two is the thing worth seeing, so the overlay is handed both instead of measuring one and guessing.
+const CLOSE_DRAWN_META := "shop_close_drawn"
+## What the ✕ resolves to. Not an offer id — deliberately, so a region that dismisses can never be
+## mistaken for one that charges.
+const CLOSE_ID := "close"
 ## Offer ids the live storefront produced that this picture has no region for. Stamped on the root so a
 ## test can read it off the built screen instead of re-deriving what "unplaced" means.
 const UNPLACED_META := "shop_unplaced"
@@ -165,6 +177,10 @@ static func build(box: Vector2, offers: Dictionary, opts: Dictionary = {}) -> Co
 	if on_close.is_valid():
 		var close: Dictionary = reg.get("close", {})
 		var b := _button(CLOSE_NODE, _to_local(close.get("rect", []), art, size))
+		# the identity and the callable are set in ONE branch: a ✕ that dismisses is a ✕ the overlay can
+		# name, and a ✕ that does nothing is never built at all.
+		b.set_meta(CLOSE_META, true)
+		b.set_meta(CLOSE_DRAWN_META, _to_local(close.get("drawn", []), art, size))
 		b.pressed.connect(func() -> void: on_close.call())
 		root.add_child(b)
 	return root

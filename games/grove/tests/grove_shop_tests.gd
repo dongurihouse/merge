@@ -860,6 +860,9 @@ func _initialize() -> void:
 	# what the WALLET did, not on which callable was wired.
 	await _test_stall_hit_regions()
 
+	# ── …and the ✕, which buys nothing and therefore had no such check ──────────────────────────────
+	await _test_close_region()
+
 	# ── the region ↔ purchase OVERLAY (the owner's read-out) ────────────────────────────────────────
 	await _test_hit_overlay_is_gated_and_honest()
 
@@ -1229,6 +1232,117 @@ func _region_for(host: Control, offer_id: String, via: String) -> Control:
 			return c
 	return null
 
+# ── the ✕ ("what about the close button", 2026-07-30) ──────────────────────────────────────────────
+## THE CLOSE REGION, driven through the real input path like every purchase — plus the check the offers
+## do not need: that a tap just OUTSIDE it does NOT dismiss. That is the half a shifted rect or a drifted
+## wiring actually breaks; the centre tap passes almost however wrong the region is.
+##
+## THE SCREEN IS BUILT STANDALONE HERE, on a bare host with no modal, and that is load-bearing. On the
+## live shop the painting stops nothing of its own (the art and the screen root are both
+## MOUSE_FILTER_IGNORE), so a tap that misses every region falls through to the modal's dismiss veil and
+## the storefront closes ANYWAY. A "just outside" assertion run inside the modal would therefore pass
+## wherever the ✕ was — it would be measuring the veil. With the screen alone, the ONLY thing that can
+## call on_close is the ✕, so the assertion is about the ✕.
+func _test_close_region() -> void:
+	fresh("close_region")
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host)
+	var tally := {"close": 0, "buy": 0}
+	var offers := {}
+	for id in ShopScreen.offer_ids():
+		offers[String(id)] = {"on_buy": func() -> void: tally.buy += 1}
+	var screen: Control = ShopScreen.build(host.get_viewport_rect().size, offers,
+		{"on_close": func() -> void: tally.close += 1})
+	host.add_child(screen)
+	await process_frame
+	var close := screen.find_child(ShopScreen.CLOSE_NODE, true, false) as Button
+	ok(close != null, "the storefront builds a ✕ region")
+	if close == null:
+		host.queue_free()
+		return
+	var cr := close.get_global_rect()
+
+	# IT IS BIGGER THAN THE DISC THE PICTURE DRAWS, around the same centre. The overlay draws both, and
+	# it is handed this rect rather than re-reading the registry — so this is the number it will show.
+	var drawn: Rect2 = close.get_meta(ShopScreen.CLOSE_DRAWN_META, Rect2())
+	ok(drawn.size.x > 0.0 and drawn.size.x < close.size.x and drawn.size.y < close.size.y,
+		"…over a SMALLER painted disc (%.0fx%.0f drawn inside a %.0fx%.0f tap rect)"
+			% [drawn.size.x, drawn.size.y, close.size.x, close.size.y])
+	ok(drawn.get_center().distance_to(Rect2(close.position, close.size).get_center()) <= 1.0,
+		"…grown around the SAME centre, so the ✕ stays under the finger")
+	ok(cr.size.x >= 44.0 and cr.size.y >= 44.0,
+		"…and the tap rect clears the fingertip floor (%.0fx%.0f)" % [cr.size.x, cr.size.y])
+
+	# IT STEALS NOTHING. The widened rect sits top-right, above every shelf; if it ever grew down into an
+	# offer it would be selling a dismiss where a purchase is painted.
+	var overlaps: Array = []
+	for n in screen.find_children("*", "Control", true, false):
+		var c := n as Control
+		if c == close or String(c.get_meta(ShopScreen.OFFER_META, "")) == "":
+			continue
+		if c.get_global_rect().intersects(cr):
+			overlaps.append("%s/%s" % [String(c.get_meta(ShopScreen.OFFER_META, "")), c.name])
+	ok(overlaps.is_empty(), "…and overlaps no offer region (%s)"
+		% ("none" if overlaps.is_empty() else ",".join(PackedStringArray(overlaps))))
+
+	# A TAP AT ITS CENTRE DISMISSES…
+	_push_tap(cr.get_center())
+	await process_frame
+	await process_frame
+	ok(tally.close == 1 and tally.buy == 0,
+		"a tap at the ✕'s centre dismisses, once, and buys nothing (close=%d buy=%d)" % [tally.close, tally.buy])
+
+	# …AND A TAP JUST OUTSIDE IT DOES NOT. Eight px beyond each edge's midpoint — outside on one axis,
+	# squarely inside on the other, so a rect that has slid in any direction is caught.
+	var out := 8.0
+	var probes := {
+		"above": Vector2(cr.get_center().x, cr.position.y - out),
+		"below": Vector2(cr.get_center().x, cr.end.y + out),
+		"left": Vector2(cr.position.x - out, cr.get_center().y),
+		"right": Vector2(cr.end.x + out, cr.get_center().y),
+	}
+	for where in probes:
+		var before: int = tally.close
+		_push_tap(probes[where])
+		await process_frame
+		await process_frame
+		ok(tally.close == before,
+			"…and a tap %s it (%.0f,%.0f) does not (%d dismisses)"
+				% [where, probes[where].x, probes[where].y, tally.close - before])
+	ok(tally.buy == 0, "…nor does any of them buy anything (%d)" % tally.buy)
+	host.queue_free()
+
+	# …WHICH IS NOT THE SAME AS "NOTHING HAPPENS" ON THE LIVE SHOP. Same miss, real modal: the painting
+	# stops no taps of its own, so a point inside no region reaches the veil under it and the storefront
+	# dismisses. The overlay labels those points "veil · dismisses" from the veil's own gui_input
+	# connection; this asserts the BEHAVIOUR, so the label is backed by a tap and not by an inference.
+	fresh("close_region_miss")
+	var live := Control.new()
+	live.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(live)
+	ShopS.open(live, {})
+	await create_timer(0.25).timeout
+	var lscreen: Control = live.find_child(ShopScreen.ROOT_NODE, true, false) as Control
+	ok(lscreen != null, "the live storefront opens")
+	if lscreen != null:
+		# the hung signboard's own centre — painted, prominent, and part of no offer's cell
+		var art := ShopScreen.art_size()
+		var box := lscreen.get_global_rect()
+		var pt := box.position + Vector2(557.5 / art.x * box.size.x, 271.0 / art.y * box.size.y)
+		var claimed := ""
+		for n in lscreen.find_children("*", "Control", true, false):
+			var c := n as Control
+			if c.mouse_filter != Control.MOUSE_FILTER_IGNORE and c.get_global_rect().has_point(pt):
+				claimed = c.name
+		ok(claimed == "", "the signboard's centre is inside no region (%s)" % ("none" if claimed == "" else claimed))
+		_push_tap(pt)
+		await process_frame
+		await process_frame
+		ok(live.find_child(ShopScreen.ROOT_NODE, true, false) == null,
+			"…and a tap there dismisses the storefront through the modal's veil — a MISS is not inert on this screen")
+	live.queue_free()
+
 # ── the HIT-REGION OVERLAY (deliverable 3) ─────────────────────────────────────────────────────────
 ## The overlay must be ABSENT from an ordinary run and PRESENT (and honest) under the authoring gate.
 ## "Honest" is the whole point: it reports what the ENGINE's picker returns for points inside each
@@ -1255,21 +1369,50 @@ func _test_hit_overlay_is_gated_and_honest() -> void:
 	ok(ov != null, "the authoring gate mounts the hit overlay over the storefront")
 	if ov != null:
 		var regions: Array = ov.call("regions_for_test")
-		var slots := 0
-		var prices := 0
+		var by_kind := {}
 		var mismatched: Array = []
+		var close_region := {}
 		for r in regions:
 			var d := r as Dictionary
-			if String(d["kind"]) == "slot":
-				slots += 1
-			else:
-				prices += 1
+			var k := String(d["kind"])
+			by_kind[k] = int(by_kind.get(k, 0)) + 1
+			if k == "close":
+				close_region = d
 			if not bool(d["good"]):
 				mismatched.append("%s->%s" % [String(d["declared"]), ",".join(PackedStringArray(d["resolved"]))])
-		ok(slots == 8, "…covering all eight offers' shelf cells (%d)" % slots)
-		ok(prices == 8, "…and all eight price buttons (%d)" % prices)
+		ok(int(by_kind.get("slot", 0)) == 8, "…covering all eight offers' shelf cells (%d)" % int(by_kind.get("slot", 0)))
+		ok(int(by_kind.get("price", 0)) == 8, "…and all eight price buttons (%d)" % int(by_kind.get("price", 0)))
+		# THE ✕ IS IN THE PICTURE TOO. It carries neither purchase meta, and collecting only those two is
+		# exactly what kept it out of the owner's read-out until they asked "what about the close button".
+		ok(int(by_kind.get("close", 0)) == 1, "…and the ✕, which is not a purchase (%d)" % int(by_kind.get("close", 0)))
+		ok(int(by_kind.get("?", 0)) == 0,
+			"…and nothing hit-testable is left unlabelled (%d unnamed regions)" % int(by_kind.get("?", 0)))
 		ok(mismatched.is_empty(),
 			"…and every region resolves, through the engine's own picker, to the purchase it is labelled with (%s)"
 				% ("none mismatched" if mismatched.is_empty() else ",".join(PackedStringArray(mismatched))))
+		# THE LABEL COMES FROM THE PICKER, not from the registry: `good` above already required the five
+		# probes inside the ✕ to come back as the ✕, and this names the answer so a silent "—" cannot pass.
+		ok(not close_region.is_empty()
+			and String(close_region.get("declared", "")) == ShopScreen.CLOSE_ID
+			and PackedStringArray(close_region.get("resolved", [])) == PackedStringArray([ShopScreen.CLOSE_ID]),
+			"…the ✕'s own probes resolve, through that picker, to `%s` (%s)" % [ShopScreen.CLOSE_ID,
+				"absent" if close_region.is_empty() else ",".join(PackedStringArray(close_region.get("resolved", [])))])
+		# …and it is drawn as an ENLARGED tap target over the smaller disc the picture paints. Both rects
+		# must reach the overlay or the gap — the whole reason the region was opened up — is invisible.
+		var hit_rect: Rect2 = close_region.get("rect", Rect2())
+		var drawn_rect: Rect2 = close_region.get("drawn", Rect2())
+		ok(drawn_rect.size.x > 0.0 and hit_rect.encloses(drawn_rect) and drawn_rect.size.x < hit_rect.size.x,
+			"…and the overlay is handed BOTH the tap rect (%.0fpx) and the disc inside it (%.0fpx)"
+				% [hit_rect.size.x, drawn_rect.size.x])
+		# WHAT A MISS DOES. The painting stops no taps of its own, so most of this screen is the modal's
+		# veil — and the overlay says so instead of showing a screen that looks nine-tenths inert.
+		var elsewhere: Array = ov.call("elsewhere_for_test")
+		var answers: Array = []
+		for e in elsewhere:
+			if not answers.has(String((e as Dictionary)["hit"])):
+				answers.append(String((e as Dictionary)["hit"]))
+		ok(elsewhere.size() > 0, "…the overlay also probes where there is NO region (%d points)" % elsewhere.size())
+		ok(answers == ["veil · dismisses"],
+			"…and every one of them resolves to the modal's dismiss veil (%s)" % ",".join(PackedStringArray(answers)))
 	host.queue_free()
 	DebugUI.force = false                    # never leave the gate armed for a later suite
