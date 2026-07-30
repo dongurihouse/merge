@@ -18,6 +18,7 @@ func _initialize() -> void:
 	_test_revealed_is_separate_from_armed()
 	_test_weather_gate_needs_the_level()
 	_test_magnet_seed_cannot_drop_before_its_level()
+	_test_magnet_staging_waits_before_granting()
 	_test_soil_ftue_level_comes_from_the_table()
 	_test_mastery_rank_is_clamped_until_revealed()
 	_test_registry_picks_the_first_unseen_armed_ready_spec()
@@ -91,6 +92,17 @@ func _test_magnet_seed_cannot_drop_before_its_level() -> void:
 				seen_below += 1
 	ok(seen_below == 0,
 		"the magnet seed line never drops while the gate is unarmed (%d hits over 59 seeds)" % seen_below)
+
+func _test_magnet_staging_waits_before_granting() -> void:
+	fresh("teach_magnet_stage")
+	_set_level(G.FEATURE_LEVEL["magnet"])
+	ok(FeatureGate.armed("magnet"), "magnet arms at its level")
+	ok(not Save.magnet_stage_due(),
+		"the staging grant does NOT fire the moment the gate arms — the drop path gets its window")
+	for _i in range(int(G.MAGNET_STAGE_MERGES)):
+		Save.bump_magnet_armed_merges()
+	ok(Save.magnet_stage_due(),
+		"after %d armed merges with no seed held, the teach grants one outright" % int(G.MAGNET_STAGE_MERGES))
 
 func _test_soil_ftue_level_comes_from_the_table() -> void:
 	ok(int(G.FEATURE_LEVEL["soil"]) == 13,

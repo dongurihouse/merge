@@ -246,6 +246,19 @@ static func grove_write() -> void:
 	_ensure_loaded()
 	save_now()
 
+# --- magnet teach staging (spec 2026-07-29 §5) -----------------------------
+# Merges counted since the magnet gate armed. The teach prefers the seed to arrive as a DROP;
+# this counter is how long it waits before giving up and granting one.
+static func magnet_armed_merges() -> int:
+	return int(grove().get("magnet_armed_merges", 0))
+
+static func bump_magnet_armed_merges() -> void:
+	grove()["magnet_armed_merges"] = magnet_armed_merges() + 1
+	save_now()
+
+static func magnet_stage_due() -> bool:
+	return magnet_armed_merges() >= int(Game.DATA.MAGNET_STAGE_MERGES)
+
 # The single cumulative progression total (replaces stars_earned + the spendable balance).
 # Only ever increases; every world unlock gates on reaching a threshold of it.
 static func exp_total() -> int:

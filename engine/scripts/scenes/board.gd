@@ -1417,6 +1417,27 @@ func _teach_specs() -> Array:
 				return [Rect2(), _cell_local_rect(seed_cell[0])],
 			"gesture": HandHint.GESTURE_TAP,
 		},
+		{
+			"id": "magnet_place", "ledger": "unlock_magnet",
+			"gate": func() -> bool: return FeatureGate.armed("magnet"),
+			"ready": _magnet_place_hint_ready,
+			"rects": func() -> Array:
+				if not _magnet_place_hint_ready():
+					return []
+				return [_cell_local_rect(_selected_cell), _local_rect(_info_seed_place)],
+			"gesture": HandHint.GESTURE_TAP,
+		},
+		{
+			"id": "magnet_seed", "ledger": "unlock_magnet",
+			"gate": func() -> bool: return FeatureGate.armed("magnet"),
+			"ready": func() -> bool: return not _magnet_seed_hint_cell().is_empty(),
+			"rects": func() -> Array:
+				var seed_cell := _magnet_seed_hint_cell()
+				if seed_cell.is_empty():
+					return []
+				return [Rect2(), _cell_local_rect(seed_cell[0])],
+			"gesture": HandHint.GESTURE_TAP,
+		},
 	]
 
 func _merge_teach_rects() -> Array:
@@ -1513,6 +1534,22 @@ func _soil_place_hint_ready() -> bool:
 
 func _soil_seed_hint_cell() -> Array:
 	var code := Improvements.seed_code_for_kind(Improvements.KIND_SOIL)
+	for cell in piece_nodes.keys():
+		if board.item_at(cell) == code:
+			var n: Control = piece_nodes.get(cell)
+			if n != null and is_instance_valid(n):
+				return [cell]
+	return []
+
+func _magnet_place_hint_ready() -> bool:
+	if _selected_cell.x < 0:
+		return false
+	if board.item_at(_selected_cell) != Improvements.seed_code_for_kind(Improvements.KIND_MAGNET):
+		return false
+	return _info_seed_place != null and is_instance_valid(_info_seed_place) and _info_seed_place.visible
+
+func _magnet_seed_hint_cell() -> Array:
+	var code := Improvements.seed_code_for_kind(Improvements.KIND_MAGNET)
 	for cell in piece_nodes.keys():
 		if board.item_at(cell) == code:
 			var n: Control = piece_nodes.get(cell)
@@ -3361,6 +3398,8 @@ func _place_seed(cell: Vector2i) -> bool:
 		return false
 	if seed_kind == Improvements.KIND_SOIL:
 		_end_hand_hint("soil_seed")
+	elif seed_kind == Improvements.KIND_MAGNET:
+		_end_hand_hint("unlock_magnet")
 	Audio.play("button_tap", -2.0)
 	_rebuild_all()
 	_after_board_change()
@@ -3756,6 +3795,30 @@ func _maybe_soil_ftue() -> void:
 		_maybe_hand_hint()
 	if is_inside_tree():
 		FX.floating_text(self, Vector2(get_global_rect().get_center().x - 260, 220), "A seed of good earth! Tap it to choose a spot.", CREAM, FS.BODY)
+
+# The magnet teach prefers the seed to ARRIVE — armed, it is back in the drop table, so a merge
+# eventually shakes one loose and it reads as loot. This is the giving-up path: after
+# G.MAGNET_STAGE_MERGES armed merges with no seed ever held, grant one so the teach is not
+# hostage to the RNG. The caller is _after_merge, after lucky drops and before its one shared
+# _after_board_change; this helper must not invoke that fan-out itself.
+func _maybe_magnet_stage() -> void:
+	if Save.ftue_seen("unlock_magnet") or not FeatureGate.armed("magnet"):
+		return
+	if _has_unplaced_seed(Improvements.KIND_MAGNET) \
+		or board.improvement_count(Improvements.KIND_MAGNET) > 0:
+		return
+	Save.bump_magnet_armed_merges()
+	if not Save.magnet_stage_due():
+		return
+	var code := Improvements.seed_code_for_kind(Improvements.KIND_MAGNET)
+	for c in board.empty_ground_cells():
+		if board.can_build_improvement(c):
+			board.place(c, code)
+			_rebuild_all()
+			return
+	if bag.size() < _bag_capacity():
+		_bag_append(code)
+		_rebuild_bag()
 
 func _has_unplaced_seed(kind: String) -> bool:
 	var code := Improvements.seed_code_for_kind(kind)
@@ -5906,6 +5969,10 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control, was_
 				_drop_coin_near(b, code)
 			else:
 				_drop_special_near(b, code)
+	# Count the completed merge only after its real lucky-drop path had the first chance to land a
+	# Magnet seed. This seam runs once per player/cascade merge; rebuild and the shared fan-out below
+	# never call it, so a staging grant cannot recursively increment the counter.
+	_maybe_magnet_stage()
 	if _hand_hint_id == "weather" and SkyLogic.gate_open() and SkyLogic.in_patch(_sky_state, b):
 		_end_hand_hint("unlock_weather")
 	_chain_auto_step = false
