@@ -69,6 +69,36 @@ const RAILS := [
 	[ANCHOR_CORNER, -0.920, Color(1.000, 0.757, 0.337), 0.000, 1.00],
 ]
 
+## …and the profile as it is DRAWN. The solved table reproduces the reference's own composite, but
+## the reference is not this tray: in the game the band's amber (253,178,74) lands on a tray of
+## (213,163,35), so more opacity only converges on a colour barely separated from the ground —
+## MEASURED against real captures, ×1.6 on every alpha bought at most 34 channel levels and the mark
+## still read faint. Two knobs close the gap, applied ONCE to the solved table above:
+##   ALPHA_LIFT   every rail's alpha, clamped — the band goes opaque where the profile peaked. It
+##                multiplies the table, never the flow, so the travelling wave still modulates it.
+##   CREAM_PULL   the gap rails OUTSIDE the tile edge — the ones riding the tray gutter — pulled
+##                toward cream, so the mark separates from the tray by hue and value and not by
+##                opacity alone. The hot line AT the tile edge (offset -1.000) is already near-cream
+##                and it is the tile's own cut edge, so its colour is left exactly as solved; the two
+##                rails inside it sit on the lit tile face, not on the tray, and are left too.
+const ALPHA_LIFT := 1.6
+const CREAM_PULL := 0.35
+
+static var _lit_rails: Array = []
+
+static func lit_rails() -> Array:
+	if not _lit_rails.is_empty():
+		return _lit_rails
+	var out: Array = []
+	for raw in RAILS:
+		var rail: Array = raw
+		var colour: Color = rail[2]
+		if int(rail[0]) == ANCHOR_GAP and float(rail[1]) > -1.0:
+			colour = colour.lerp(Pal.CREAM, CREAM_PULL)
+		out.append([rail[0], rail[1], colour, minf(float(rail[3]) * ALPHA_LIFT, 1.0), rail[4]])
+	_lit_rails = out
+	return _lit_rails
+
 # The chain's own tiles, lit from underneath: a warm wash that is brightest at the tile edge and
 # fades to the middle. Per CELL on purpose — the tiles ARE per-cell rounded squares, so this is the
 # board's own geometry, not a second outline (the contour above is the only outline).
@@ -256,7 +286,7 @@ func _draw_chain_glow(raw_cells: Array, base: Color, strength: float, reach: flo
 ## the inward spill stays inside the corner radius whatever the mark's strength.
 func _rail_offsets(m: Dictionary, reach: float) -> PackedFloat32Array:
 	var offs := PackedFloat32Array()
-	for raw in RAILS:
+	for raw in lit_rails():
 		var rail: Array = raw
 		var anchor := int(rail[0])
 		var unit: float = float(m["pitch"]) * reach if anchor == ANCHOR_PITCH \
@@ -280,8 +310,9 @@ func _draw_contour_strip(loop: Dictionary, offs: PackedFloat32Array, glow: Color
 	var pts: PackedVector2Array = loop["pts"]
 	var norm: PackedVector2Array = loop["off"]
 	var mottle: PackedFloat32Array = loop["mottle"]
+	var table := lit_rails()
 	var n := pts.size()
-	var rails := RAILS.size()
+	var rails := table.size()
 	if n < 3:
 		return
 	var points := PackedVector2Array()
@@ -295,7 +326,7 @@ func _draw_contour_strip(loop: Dictionary, offs: PackedFloat32Array, glow: Color
 			+ FLOW_RIPPLE * (0.5 + 0.5 * sin(TAU * (u * WAVE_CYCLES * RIPPLE_MULT - phase * RIPPLE_RATE)))
 		flow *= 1.0 + MOTTLE_DEPTH * mottle[i]
 		for k in rails:
-			var rail: Array = RAILS[k]
+			var rail: Array = table[k]
 			var wave := float(rail[4])
 			points[i * rails + k] = pts[i] + norm[i] * offs[k]
 			colours[i * rails + k] = _tint(glow, rail[2],
@@ -381,7 +412,7 @@ func _chain_geometry(raw_cells: Array) -> Dictionary:
 			"pts": pts,
 			"off": Contour.mitre_offsets(pts, _lattice_side()),
 			"mottle": mottle,
-			"idx": _grid_indices(pts.size(), RAILS.size()),
+			"idx": _grid_indices(pts.size(), lit_rails().size()),
 		})
 	var inset := cell_size * TILE_INSET_FRAC
 	var faces: Array = []
