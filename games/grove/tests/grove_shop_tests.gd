@@ -777,10 +777,16 @@ func _initialize() -> void:
 	ok(rhost.find_children("ShopFooterNote", "", true, false).is_empty(), "no first-buy footer note")
 	rhost.queue_free()
 
-	# The card + art shadows. A blurred rounded-RECT cast cannot shadow a cut-paper element: its
-	# feather escapes sideways by (blur + spread − |offset_x|) and offset_x is 0, so it rings the
-	# sheet with a grey halo at ANY tuning — measured at 4px of grey down both card edges — and the
-	# sprite's transparent margin exposes more still. Both cards and art cast their own silhouette.
+	# THE OFFER CARD IS THE SHARED CODE-DRAWN CUT-PAPER SHEET, and its shadow is that sheet's own.
+	#
+	# It used to be one of three baked nine-patch PNGs with a torn edge PAINTED into them, handed a
+	# SpritePanel.wrap cast of stepped copies of that nine-patch because a flat sprite casts nothing —
+	# and no shared knob can reach a painted edge, so when the whole UI's paper went smooth the shop's
+	# outer sheet followed and its cards stayed frilly. What is asserted now is the relationship that
+	# makes that impossible to repeat: every card draws a CutPaperPanel, read back off the built node.
+	# The edge VALUES are pinned by engine/tests/smooth_paper_tests.gd (the material's own guard, which
+	# builds this card too); what this asserts, per card, is that the card IS on the shared component.
+	# Control geometry is float32 → is_equal_approx, never ==.
 	fresh("card_shadow_shape")
 	var dhost := Control.new()
 	dhost.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -789,32 +795,95 @@ func _initialize() -> void:
 	await create_timer(0.15).timeout
 	var cards := dhost.find_children("ShopOfferCard", "", true, false)
 	ok(cards.size() >= 4, "the storefront builds its offer cards (%d)" % cards.size())
-	var face_cast := 0     # cards casting a copy of their own baked face
+	var cp_script := load("res://engine/scripts/ui/cut_paper.gd")
+	var drawn := 0         # cards whose face is the shared code-drawn panel
+	var smooth := 0        # …with the shared SMOOTH antialiased edge, not a torn one
+	var self_shadow := 0   # …casting its own shadow, so no wrapper has to
+	var seated := 0        # …with its content inside that sheet's own edge allowance
 	var art_cast := 0      # item art casting a copy of its own sprite
-	var wrong_face := 0    # a cast copy drawing something other than the element's own face
 	var haloed := 0        # a cast reaching ABOVE or LEFT of the element — a ring, not a drop
 	for c in cards:
 		var card := c as Control
-		var copies := (card.get_parent() as Control).find_children( \
-			"%s*" % SpritePanel.CARD_SHADOW, "Panel", false, false)
-		face_cast += 1 if copies.size() >= SpritePanel.LADDER_MIN else 0
-		for sh in copies:
-			# a shape-true cast draws the card's OWN 9-slice, so it can never ring the torn edge
-			if (sh as Panel).get_theme_stylebox("panel") != card.get_theme_stylebox("panel"):
-				wrong_face += 1
-			if (sh as Control).position.x < -0.01 or (sh as Control).position.y < -0.01:
-				haloed += 1
+		var sheet := card.find_child(ShopS.CARD_SURFACE_NODE, false, false) as Control
+		if sheet == null or sheet.get_script() != cp_script:
+			continue
+		drawn += 1
+		if is_equal_approx(float(sheet.get("deckle_amp")), 0.0) and float(sheet.get("edge_feather")) > 0.0:
+			smooth += 1
+		if bool(sheet.get("draw_shadow")) and float(sheet.get("shadow_reach")) > 0.0 \
+				and float(sheet.get("shadow_alpha")) > 0.0:
+			self_shadow += 1
+		# the content host is inset at least as far as the sheet says its own edge eats (the corner arc
+		# plus the inner half of the antialias band) — content on partly-transparent paper is the failure.
+		var host := card.find_child("ShopOfferCardBody", false, false) as MarginContainer
+		var want: float = float(sheet.call("content_inset"))
+		if host != null and float(host.get_theme_constant("margin_left")) >= floorf(want) \
+				and float(host.get_theme_constant("margin_top")) >= floorf(want):
+			seated += 1
 		var art := card.find_children("%s*" % SpritePanel.SPRITE_SHADOW, "TextureRect", true, false)
 		art_cast += 1 if art.size() >= SpritePanel.LADDER_MIN else 0
 		for sh in art:
 			if (sh as Control).position.x < -0.01 or (sh as Control).position.y < -0.01:
 				haloed += 1
-	ok(face_cast == cards.size(), "every card casts a dense stack of its own face (%d/%d)" % [face_cast, cards.size()])
+	ok(drawn == cards.size(), "every card's face is the shared cut_paper.gd panel (%d/%d)" % [drawn, cards.size()])
+	ok(smooth == cards.size(), "…wearing the shared SMOOTH antialiased cut, not a torn edge (%d/%d)" % [smooth, cards.size()])
+	ok(self_shadow == cards.size(), "…casting its own shared drop shadow (%d/%d)" % [self_shadow, cards.size()])
+	ok(seated == cards.size(), "…with its content seated inside that sheet's own edge inset (%d/%d)" % [seated, cards.size()])
 	ok(art_cast == cards.size(), "every card's item art casts its own silhouette (%d/%d)" % [art_cast, cards.size()])
-	ok(wrong_face == 0, "no cast copy draws a shape other than the element it shadows")
 	ok(haloed == 0, "no cast reaches above or left of its element (a drop, never a halo)")
+	# …and NOT ALSO a wrapper cast. The drawn sheet carries its own shadow, so the SpritePanel.wrap stack
+	# the baked card needed would be a SECOND shadow under every card — this is the assertion that says the
+	# old one was removed rather than left stacked under the new one.
+	ok(dhost.find_children("%s*" % SpritePanel.CARD_SHADOW, "Panel", true, false).is_empty(),
+		"no card wears a second, wrapper-drawn cast on top of the sheet's own")
 	ok(dhost.find_children("%s*" % SpritePanel.PANEL_SHADOW, "Panel", true, false).is_empty(),
 		"no cut-paper element falls back to the rounded-rect cast that rings it")
+	# THE BAKED CARD ART IS NO LONGER READ. A grep proves nothing about a runtime load, so ask the loader:
+	# the three nine-patch frames may still sit on disk (a separate sweep removes them) but nothing in the
+	# storefront may be drawing one, or "the cards inherit the shared material" is only half true.
+	var baked := 0
+	for tr in dhost.find_children("*", "TextureRect", true, false):
+		var tex: Texture2D = (tr as TextureRect).texture
+		if tex != null and String(tex.resource_path).contains("/dialogs/shop/card_"):
+			baked += 1
+	for pc in dhost.find_children("*", "PanelContainer", true, false):
+		var sb: StyleBox = (pc as PanelContainer).get_theme_stylebox("panel")
+		if sb is StyleBoxTexture and (sb as StyleBoxTexture).texture != null \
+				and String((sb as StyleBoxTexture).texture.resource_path).contains("/dialogs/shop/card_"):
+			baked += 1
+	ok(baked == 0, "no card frame is painted from a baked nine-patch any more (%d found)" % baked)
+	# THE RE-DERIVED CORNER, in literal px, and ONE number. It is measured off the mock's own arc
+	# (Kit.SHOP_CARD_CP_DEFAULTS carries the fit) at 22 layout px; shop.gd keeps a Kit-less fallback for a
+	# caller that hands `shop_layout` no config, and the two drifting apart is how a card built by the
+	# workbench and a card built by the game stop matching. Bounded by what is SEEN — the radius the sheet
+	# actually draws — not by restating the constant that produces it.
+	ok(is_equal_approx(float(ShopS.CARD_CORNER), float(Kit.SHOP_CARD_CP_DEFAULTS["corner"])),
+		"the card corner is one number: shop.gd's fallback matches the kit's default (%.1f / %.1f)"
+			% [float(ShopS.CARD_CORNER), float(Kit.SHOP_CARD_CP_DEFAULTS["corner"])])
+	var lay: Dictionary = ShopS.shop_layout(Kit.load_config(Kit.CONFIG_PATH))
+	ok(float(lay.get("corner", 0.0)) >= 21.0 and float(lay.get("corner", 0.0)) <= 23.0,
+		"…and the SHIPPING config draws that corner, not the baked art's 18 (%.1f)" % float(lay.get("corner", 0.0)))
+	var one := cards[0].find_child(ShopS.CARD_SURFACE_NODE, false, false) as Control
+	ok(one != null and is_equal_approx(float(one.get("corner")), float(lay.get("corner", 0.0))),
+		"…and the drawn sheet really rounds by it (%.1f)" % (float(one.get("corner")) if one != null else -1.0))
+	# THE LAST CARD'S SHADOW MUST CLEAR THE SCROLL'S CLIP. The baked card cast through a wrapper INSIDE the
+	# card's own rect; the drawn sheet casts BELOW it, into the frame's own tail pad — so the bottom card of
+	# a scrolling storefront is the one that gets sliced if that pad is ever shorter than the reach.
+	ok(one != null and Kit.CONTENT_TAIL_PAD >= float(one.get("shadow_reach")),
+		"the frame's tail pad clears the card's shadow reach, so the last card is not sliced (%.0f ≥ %.1f)"
+			% [Kit.CONTENT_TAIL_PAD, (float(one.get("shadow_reach")) if one != null else -1.0)])
+	# …and the storefront really is a SCROLLING list capped to the viewport, not a sheet that grew: the cards
+	# are ~4px taller each now (the drawn sheet's own content inset is deeper than the baked art's pad), and
+	# the thing that must absorb that is the scroll, not the dialog.
+	var scrolls := dhost.find_children("*", "ScrollContainer", true, false)
+	var caps := 0
+	for s in scrolls:
+		var sc := s as ScrollContainer
+		if sc.get_child_count() > 0 and sc.size.y > 0.0 \
+				and (sc.get_child(0) as Control).get_combined_minimum_size().y > sc.size.y:
+			caps += 1
+	ok(not scrolls.is_empty(), "the storefront rides a scrolling list (%d)" % scrolls.size())
+	ok(caps > 0, "…and the ladder overflows it, so the taller list scrolls rather than stretching the sheet")
 	dhost.queue_free()
 
 	finish()

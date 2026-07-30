@@ -548,7 +548,7 @@
 	},
 	"shop": {
 		"card_pad": 12.0,
-		"corner": 18.0,
+		"corner": 22.0,
 		"grid_gap": 14.0,
 		"icon_size": 100.0,
 		"shadow": true

@@ -90,6 +90,16 @@ and the reveal is unreachable in game. Code + dialog + workbench preview all sta
 
 ## Low priority — parking lot
 
+- **Dead baked art sweep — the shop's offer-card frames.** `games/grove/assets/ui/dialogs/shop/` still
+  holds the four nine-patch skins the storefront used to paint its cards and CTA from:
+  `card_wide.png` (458 KB), `card_tall.png` (358 KB), `card_pouch.png` (265 KB) and `button_green.png`
+  (136 KB) — 1.2 MB in total, plus their `.import` sidecars. Nothing loads any of them any more: the cards
+  are the shared code-drawn cut-paper sheet (`shop.gd` / `Kit.SHOP_CARD_CP_DEFAULTS`) and the green CTA has
+  been `Kit.pill_button` since the cut-paper-buttons pass, so `button_green` was already dead before the
+  cards were. Deliberately NOT deleted with the card change — a delete belongs in a sweep that checks the
+  export rules rather than a grep, and `grove_shop_tests` already asserts at runtime that no card frame is
+  painted from one. Fold into the pending `ui/nav/nav_*.png` sweep.
+
 - **Push notifications + re-engagement (§18).** Local + remote pushes (energy-full, yield-ready, event
   beat, win-back) — opt-in, calm, capped, prompted after a rewarding moment (never cold launch), per-type
   Settings toggle. No code today. Build engine scheduling + a remote hook + opt-in/quiet-hours/caps;

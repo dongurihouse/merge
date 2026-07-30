@@ -299,7 +299,24 @@ func _check_built_surfaces() -> void:
 	# checking a knob dict the game never uses.
 	var daily_opts: Dictionary = Kit.daily_opts_from_config(cfg)
 	daily_opts["cut_paper"] = true      # what `daily_grid` sets: the calendar draws the CODE-DRAWN face
-	# (the SHOP grid is the other daily_card caller and leaves this off — its cells are a nine-patch)
+	# THE SHOP'S OFFER CARDS ARE IN THIS NET TOO, and were not: they were three baked nine-patch PNGs with
+	# a torn edge painted in, so this suite could pass while the storefront rendered a smooth sheet full of
+	# frilly cards — which is exactly what shipped. They are the shared code-drawn panel now, built here
+	# through the SHIPPING call (Shop.build_body on Shop.shop_layout, the same pair the storefront and the
+	# workbench both use) at all THREE of its shapes, because the shape picks the box and nothing else may
+	# depend on it: `wide` is the Free-refill row, a `title` makes the tall Quick-help card, and neither
+	# makes the landscape pouch.
+	var Shop := load("res://engine/scripts/ui/shop.gd")
+	var shop_lay: Dictionary = Shop.shop_layout(cfg)
+	var shop_cards: Array = [
+		{"caption": "Free refill", "cards": [{"icon": "shop_can", "count": 100, "price": "Free", "wide": true}]},
+		{"caption": "Quick help", "cards": [
+			{"title": "Coin pouch", "icon": "shop_pouch", "count": 150, "price": "5", "price_icon": "gem"},
+			{"title": "Fill water", "icon": "shop_can", "count": 100, "price": "25", "price_icon": "gem"}]},
+		{"caption": "Acorn pouches", "cards": [
+			{"icon": "gem", "count": 80, "price": "$0.99", "cash": true},
+			{"icon": "gem", "count": 450, "price": "$4.99", "cash": true}]},
+	]
 	var built := {
 		"the dialog frame": Kit.dialog_frame(Label.new(), 800.0, Kit.dialog_opts_from_config(cfg)),
 		"a mail / reward card": Kit.mail_card({"title": "Acorns", "body": "a note", "icon": "gem"},
@@ -313,6 +330,8 @@ func _check_built_surfaces() -> void:
 		"a daily card (today, two layers)": Kit.daily_card({"state": "today", "day": 1, "label": "Day 1",
 			"reward": {"coins": 50}}, daily_opts),
 		"a daily card face on its own fallback cp": Kit.daily_card_face(Vector2(160, 180), "cream"),
+		"the shop's offer cards (wide · tall · pouch)": Shop.build_body(Kit, 760.0, shop_cards, shop_lay),
+		"a shop offer card on its own fallback cp": Shop.build_body(Kit, 760.0, shop_cards),
 	}
 	for label in built:
 		var node: Node = built[label]
@@ -326,6 +345,14 @@ func _check_built_surfaces() -> void:
 		for p in found:
 			n += 1
 			_assert_smooth(p, "%s sheet %d/%d" % [label, n, found.size()])
+	# …and the shop entry must really have built ALL FIVE cards (one wide, two tall, two pouch). A loop that
+	# found one sheet passes every assertion above while four shapes go unchecked, and the shape is what used
+	# to pick which baked PNG got painted — so the count is the thing that says the sweep is complete. Counted
+	# by the CARD sheet's own node name: the ten panels each body draws are five cards and five green price
+	# pills, and only the cards are what this entry was added for.
+	for label in ["the shop's offer cards (wide · tall · pouch)", "a shop offer card on its own fallback cp"]:
+		var faces := (built[label] as Node).find_children(Shop.CARD_SURFACE_NODE, "Control", true, false)
+		ok(faces.size() == 5, "%s — all five cards drew a sheet (%d)" % [label, faces.size()])
 	# THE TOGGLE SWITCH is built by the engine skin, not the Kit, and its opts dict is the hand-written
 	# fallback layer 4 scans for — so build it BOTH ways: through the config the game passes, and with the
 	# empty dict that selects the literal.

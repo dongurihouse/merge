@@ -350,7 +350,12 @@ func _default_params() -> Dictionary:
 		"mystery": {"preview": "day 7 · revealed"},
 		# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells, its own scroll cap
 		# (list_max_h 0 = no scroll, show every item), and the GAME's real items.
-		"shop": {"icon_size": 100, "card_pad": 12, "grid_gap": 14, "corner": 18},
+		# …its offer card being the SHARED code-drawn cut-paper sheet, its edge knobs are seeded from the
+		# card's OWN defaults (Kit.SHOP_CARD_CP_DEFAULTS — the mock-measured corner, and no rim) rather than
+		# from the schema. `_cut_paper_section` seeds an unsaved knob from the SCHEMA default, which for a
+		# component that overrides one would open the inspector on a value the game does not render and then
+		# write it back on the next Save: the shop's rim is 0 and the schema's is 2.
+		"shop": {"icon_size": 100, "card_pad": 12, "grid_gap": 14}.merged(Kit.SHOP_CARD_CP_DEFAULTS),
 		# the LEVEL dialog — the game's REAL sheet (level_popup.gd), screen-fraction sized off the shared
 		# frame-width knob: NO own saved knobs (the old parchment level_dialog's fonts/pads are retired).
 		# preview_level / into / span / mode are workbench-only preview state; the game sets them from save.
@@ -1724,7 +1729,10 @@ func _element_sidebar(_id: String) -> void:
 			_sidebar_body.add_child(_slider_row(["icon_size", 50, 160]))   # product art size, % of default
 			_sidebar_body.add_child(_slider_row(["card_pad", 2, 40]))      # inner padding (px)
 			_sidebar_body.add_child(_slider_row(["grid_gap", 2, 48]))      # gap / margin between cards + sections (px)
-			_sidebar_body.add_child(_slider_row(["corner", 0, 40]))        # card corner radius (px)
+			# the offer card is the shared code-drawn cut-paper sheet now, not a baked nine-patch, so its
+			# edge is tunable here like every other paper surface. `corner` is one of these knobs — it is
+			# NOT listed separately above, or the same key would carry two sliders.
+			_cut_paper_section("shop")
 		"level":
 			# the sheet is the game's real level_popup.gd. Each element's SIZE (% of its default) and its
 			# vertical NUDGE (px, +down) are SAVED — the game reads them from the level config, so tuning

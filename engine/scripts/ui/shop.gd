@@ -31,7 +31,7 @@ const Tune = preload("res://engine/scripts/core/tuning.gd").Shop   # the engine'
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
-const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")   # cut-paper drop shadow wrap
+const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")   # the item art's shape-true cast (wrap_sprite)
 const OVERLAY_NAME := "ShopOverlay"
 const CONFIRM_NAME := "ShopCashConfirmOverlay"   ## the cash confirm raised over an open shop
 
@@ -204,10 +204,8 @@ static func _open(host: Control, opts: Dictionary) -> void:
 	var vw: float = host.get_viewport_rect().size.x
 	var cfg: Dictionary = Game.kit_config()
 	var width: float = vw * Kit.DIALOG_DESIGN_PCT["shop"] / 100.0
-	# the CONTENT lays out at the design width MINUS the sheet's insets (the frame scales it by
-	# content_scale, so the pads count at 1/scale in layout space) — the residents.gd idiom.
 	var cscale: float = maxf(0.01, Kit.dialog_content_scale(cfg, "shop"))
-	var inner: float = width - 2.0 * float(Kit.frame_border("parchment")["pad_x"]) / cscale
+	var inner: float = grid_inner_w(Kit, cfg, vw)
 
 	var refs := {
 		"coin": hud_wallet.get("coin", {"node": null, "label": null}),
@@ -243,29 +241,17 @@ static func _open(host: Control, opts: Dictionary) -> void:
 # Colours sampled from the mock; the sheet/title/✕ come from the shared frame and are NOT re-specified.
 const SAGE := Color("#E4DEBD")        # an offer card's sage face
 const PILL_GREEN := Color("#5C8A57")  # the price pill
-const CARD_CORNER := 18.0
+# THE OFFER CARD'S CORNER, re-derived for the CODE-DRAWN sheet (it was 18 — the baked nine-patch's painted
+# radius). The measurement lives with the card's other shared edge knobs on the kit
+# (Kit.SHOP_CARD_CP_DEFAULTS); this is the Kit-less fallback for a caller that hands `shop_layout` no
+# config at all, and must not drift from it (games/grove/tests/grove_shop_tests.gd pins the pair).
+const CARD_CORNER := 22.0
 const GRID_GAP := 14.0
 
-# Cut-paper RE-SKIN textures (extracted from the shop mock): the blank green button and the empty card
-# frames at their three sizes. Worn as a 9-sliced StyleBoxTexture so a card/button stretches to any size
-# with crisp torn corners. Absent files fall back to the drawn flat styleboxes.
-static var SKIN_DIR := Look.kit("dialogs/shop/")
-static func _skin_tex(key: String) -> Texture2D:
-	var p := SKIN_DIR + key + ".png"
-	return load(p) as Texture2D if ResourceLoader.exists(p) else null
-
-## A 9-sliced StyleBoxTexture from a cut-paper frame sprite: the corner caps (frac of the texture) stay
-## crisp while the middle stretches. `pad` sets the inner content margins (px, in design space).
-static func _tex_box(tex: Texture2D, pad_x: float, pad_y: float, cap_frac := 0.30) -> StyleBoxTexture:
-	var st := StyleBoxTexture.new()
-	st.texture = tex
-	var mx := tex.get_width() * cap_frac
-	var my := tex.get_height() * cap_frac
-	st.texture_margin_left = mx; st.texture_margin_right = mx
-	st.texture_margin_top = my; st.texture_margin_bottom = my
-	st.content_margin_left = pad_x; st.content_margin_right = pad_x
-	st.content_margin_top = pad_y; st.content_margin_bottom = pad_y
-	return st
+## The offer card's own cut-paper SHEET, by node name — the shared code-drawn panel
+## (engine/scripts/ui/cut_paper.gd) that replaced the baked nine-patch card frames. Named so the suites can
+## read the rendered edge off it rather than off the knob dict handed to it.
+const CARD_SURFACE_NODE := "ShopCardDeckleSurface"
 
 # The whole scrolling body: each section's header + offer grid.
 static func _build_body(refs: Dictionary) -> Control:
@@ -279,12 +265,34 @@ static func _build_body(refs: Dictionary) -> Control:
 ## card corner. Absent keys reproduce the mock-measured constants exactly.
 static func shop_layout(cfg: Dictionary) -> Dictionary:
 	var sh: Dictionary = (cfg as Dictionary).get("shop", {}) if cfg is Dictionary else {}
-	return {
+	var o := {
 		"icon_size": float(sh.get("icon_size", 100)) / 100.0,   # art size, % of the default
 		"card_pad": float(sh.get("card_pad", 12)),              # inner padding (px)
 		"grid_gap": float(sh.get("grid_gap", GRID_GAP)),        # gap between cards + sections (px)
 		"corner": float(sh.get("corner", CARD_CORNER)),         # card corner radius (px)
 	}
+	# …and the card's EDGE, from the SHARED cut-paper knob set read off the same `shop` block. Kept here
+	# rather than in `_offer_card` so the whole storefront resolves its look in one place, and so the
+	# workbench's live _params flow through the identical reader the game uses.
+	var Kit: GDScript = Game.kit_script()
+	if Kit != null:
+		o["cp"] = Kit.shop_card_cp_from_config(cfg)
+	return o
+
+## The offer grid's INNER width, in LAYOUT px: the shop dialog's design width less the sheet's own insets,
+## which count at 1/content_scale because the frame scales the whole body (the residents.gd idiom).
+## Pulled out of `_open` so there is ONE derivation of it — the storefront's, and the one the mock rig
+## builds a card at (rule 3 of docs/design/verifying-against-a-mock.md: take the size from the shipping
+## path, not from a number typed beside it).
+static func grid_inner_w(Kit: GDScript, cfg: Dictionary, vw: float) -> float:
+	var width: float = vw * Kit.DIALOG_DESIGN_PCT["shop"] / 100.0
+	var cscale: float = maxf(0.01, Kit.dialog_content_scale(cfg, "shop"))
+	return width - 2.0 * float(Kit.frame_border("parchment")["pad_x"]) / cscale
+
+## The layout width ONE offer card gets inside a grid `inner` px wide: a `wide` card (the Free-refill lead,
+## and any lone offer) takes the whole row; the rest pair up either side of the grid gap.
+static func card_layout_w(inner: float, gap: float, wide: bool) -> float:
+	return inner if wide else (inner - gap) * 0.5
 
 static func build_body(Kit: GDScript, w: float, sections: Array, lay: Dictionary = {}) -> Control:
 	var col := VBoxContainer.new()
@@ -319,7 +327,7 @@ static func _offer_grid(Kit: GDScript, cards: Array, w: float, lay: Dictionary =
 	col.name = "ShopOfferGrid"
 	col.add_theme_constant_override("separation", int(GRID_GAP))
 	var gap: float = float(lay.get("grid_gap", GRID_GAP))
-	var half: float = (w - gap) * 0.5
+	var half: float = card_layout_w(w, gap, false)
 	var row: HBoxContainer = null
 	for c in cards:
 		var d := c as Dictionary
@@ -345,23 +353,37 @@ static func _offer_card(Kit: GDScript, d: Dictionary, w: float, wide: bool, lay:
 	var card := PanelContainer.new()
 	card.name = "ShopOfferCard"
 	var pad: float = float(lay.get("card_pad", 12))
-	# reskin: the baked cut-paper card frame for this card's size — wide (Free refill), tall (titled
-	# Quick-help pair), or landscape pouch (Acorn pouches) — 9-sliced so it stretches without distorting
-	# the torn corners. Falls back to the drawn sage stylebox.
-	var card_key := "card_wide" if wide else ("card_tall" if String(d.get("title", "")) != "" else "card_pouch")
-	var card_tex := _skin_tex(card_key)
-	if card_tex != null:
-		card.add_theme_stylebox_override("panel", _tex_box(card_tex, pad, pad * 0.67))
-	else:
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = SAGE
-		sb.set_corner_radius_all(int(float(lay.get("corner", CARD_CORNER))))
-		sb.content_margin_left = pad; sb.content_margin_right = pad
-		sb.content_margin_top = pad * 0.67; sb.content_margin_bottom = pad * 0.67
-		_mock_shadow(sb)
-		card.add_theme_stylebox_override("panel", sb)
+	# THE CARD FACE IS THE SHARED CODE-DRAWN CUT-PAPER SHEET (engine/scripts/ui/cut_paper.gd) — the same
+	# component the dialog's own sheet, the mail rows and the daily calendar's day cells are made of. It used
+	# to be one of three baked nine-patch PNGs (card_wide / card_tall / card_pouch) with a torn edge PAINTED
+	# into them, and no shared knob can reach a painted edge: when the whole UI's paper went from a torn
+	# deckle to a smooth antialiased cut, the storefront's outer sheet followed and its cards did not.
+	# Reading the edge from Kit.shop_card_cp_from_config is what makes the shop inherit this change — and
+	# every future one — with no shop-specific work.
+	# The PanelContainer keeps its node identity and an EMPTY stylebox (no margins of its own), so it stacks
+	# the sheet and the padded content host into the same rect: the mail card's idiom exactly.
+	card.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	var cp: Dictionary = (lay.get("cp", {}) as Dictionary).duplicate()
+	if cp.is_empty():
+		cp = Kit.shop_card_cp_from_config({})   # a caller that handed us no config still gets the shared edge
+	var surface: Control = Kit.rugged_paper_surface(card, CARD_SURFACE_NODE, Vector2.ZERO, SAGE,
+		Kit.PAPER_EDGE, float(lay.get("corner", CARD_CORNER)), cp)
 	card.custom_minimum_size = Vector2(w, h)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	# CONTENT PADDING, re-derived for the drawn sheet. The old pads were tuned against the baked art's own
+	# transparent margin; a drawn sheet states its own allowance — `content_inset()` = the corner arc's bite
+	# plus the inner half of the antialias band, which is the paper that is only partly opaque. The authored
+	# pad still applies where it is the larger of the two, so the workbench slider keeps its meaning.
+	var inset: float = surface.content_inset() if surface != null else 0.0
+	var host := MarginContainer.new()
+	host.name = "ShopOfferCardBody"
+	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.add_theme_constant_override("margin_left", int(maxf(pad, inset)))
+	host.add_theme_constant_override("margin_right", int(maxf(pad, inset)))
+	host.add_theme_constant_override("margin_top", int(maxf(pad * 0.67, inset)))
+	host.add_theme_constant_override("margin_bottom", int(maxf(pad * 0.67, inset)))
+	card.add_child(host)
 
 	var body := HBoxContainer.new()
 	body.add_theme_constant_override("separation", 8)
@@ -431,11 +453,14 @@ static func _offer_card(Kit: GDScript, d: Dictionary, w: float, wide: bool, lay:
 		titled.add_child(tl)
 		body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		titled.add_child(body)
-		card.add_child(titled)
+		host.add_child(titled)
 	else:
-		card.add_child(body)
-	# a textured card gains the cut-paper drop shadow (shadow copies behind the StyleBoxTexture card)
-	return SpritePanel.wrap(card, card_tex) if card_tex != null else card
+		host.add_child(body)
+	# NO wrapper shadow. The baked card was a flat sprite and had to be handed one (SpritePanel.wrap stepped
+	# copies of its nine-patch face behind it); the drawn sheet casts its OWN, from the same shared knobs
+	# (`edge_shadow` · `shadow_reach` · `shadow_strength`) as every other paper surface. Keeping the wrapper
+	# would put two shadows under one card.
+	return card
 
 # The GREEN price pill — the card's buy CTA (a real-money price, a 💎 cost, or a free claim). Carries the
 # `shop_buy` meta the UI-shape smoke counts, plus `shop_cash` on a real-money pack (the capture tool taps it).
@@ -495,11 +520,6 @@ static func _amount_label(text: String, size: int) -> Label:
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
-
-# The mock's tinted drop shadow, applied ON the element's own StyleBoxFlat so it follows the exact
-# rounded corners (the same values residents.gd uses — one house shadow, not a parallel one).
-static func _mock_shadow(sb: StyleBoxFlat) -> void:
-	Look.apply_box_shadow(sb)
 
 # Thousands separators on a pack's amount ("13000" → "13,000"), as the mock prints them.
 static func _commas(n: int) -> String:

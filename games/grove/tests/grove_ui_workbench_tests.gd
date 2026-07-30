@@ -39,6 +39,7 @@ func _initialize() -> void:
 	_quest_card_shadow_blur_shape_and_card_cast()
 	_shared_shadow_spread_outruns_offset()
 	_torn_cell_page_hides_knobs_the_face_ignores()
+	_shop_page_carries_the_shared_edge_once()
 	_dialog_cells_cast_independently_of_the_board()
 	_one_progress_style_drives_level_board_and_workbench()
 	_gold_pill_backer_tracks_face_width()
@@ -522,6 +523,40 @@ func _torn_cell_page_hides_knobs_the_face_ignores() -> void:
 		"cell_shadow off removes it (the knob is wired, not decorative)")
 	with_sh.free()
 	no_sh.free()
+
+func _shop_page_carries_the_shared_edge_once() -> void:
+	# THE SHOP'S OFFER CARD IS THE SHARED CUT-PAPER SHEET now, not a baked nine-patch, so its edge has to be
+	# tunable here like every other paper surface — that is half of what makes "the shop follows the material
+	# automatically" true rather than aspirational. And exactly ONCE: `corner` is a member of the shared knob
+	# set, so the standalone Corner slider the page used to carry would be a second control writing the same
+	# config key, where the last one built silently wins.
+	var view := UIWorkbenchView.new()
+	view._selected = "shop"
+	view._sidebar_body = VBoxContainer.new()
+	view._element_sidebar("shop")
+	var labels := _row_labels(view._sidebar_body)
+	ok(labels.has("Cut-paper edge (shared)"), "the Shop page carries the shared cut-paper edge section")
+	for knob in ["Corner", "Deckle Amp", "Edge Feather", "Shadow Reach"]:
+		ok(labels.has(knob), "…including its %s row" % knob)
+	var corners := 0
+	for l in labels:
+		if l == "Corner":
+			corners += 1
+	ok(corners == 1, "…and the card corner has exactly ONE slider writing shop.corner (%d)" % corners)
+	# the page's own layout knobs are untouched — this section was added beside them, not instead of them
+	for knob in ["Icon Size", "Card Pad", "Grid Gap"]:
+		ok(labels.has(knob), "…and the Shop page keeps its %s knob" % knob)
+	# …and the page OPENS ON WHAT THE GAME RENDERS. `_cut_paper_section` seeds an unsaved knob from the
+	# SCHEMA default, so a component that overrides one (the shop's rim is 0 where the schema's is 2) would
+	# otherwise show — and, on the next Save, WRITE — a value the game never drew. Read off the live params,
+	# after the section has had its chance to seed them.
+	var block: Dictionary = view._params["shop"]
+	for pair in [["corner", 22.0], ["rim_width", 0.0]]:
+		ok(is_equal_approx(float(block.get(String(pair[0]), -1.0)), float(pair[1])),
+			"the Shop page opens on the card's OWN %s, not the schema's (%.1f)"
+				% [String(pair[0]), float(block.get(String(pair[0]), -1.0))])
+	view._sidebar_body.free()
+	view.free()
 
 ## Every visible row label in a built sidebar (rows are HBox(Label, control) or a bare Label).
 func _row_labels(body: Node) -> Array[String]:
