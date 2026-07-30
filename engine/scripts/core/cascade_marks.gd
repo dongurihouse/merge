@@ -34,6 +34,28 @@ static func mark(role: String, run: Array, cell: Vector2i, line: int, n: int,
 		"weight": weight, "reach": reach, "tag": tag, "tag_cell": tag_cell,
 	}
 
+## THE CHAIN EFFECT STACK, and there is only one. A chain is the contour glow over its whole run,
+## the target bloom on run[0], and the ×n chip on that same cell — in that order, so the bloom sits
+## over the contour. Every mode builds its chains through here, so "how loud" is the ONLY thing a
+## mode may vary: pass a lower `weight` and the same effect is turned down, never swapped for
+## another one. That is the bug this replaces — only a DRAG used to emit the bloom, so the resting
+## and mid-run chains were a second, far fainter effect nobody chose.
+##
+## run[0] is the same semantic everywhere: the cell the tipping merge lands on. `BoardLogic._run_cells`
+## returns `[to] + path`, RUN's own cells are `[head] + remaining`, and a drag winner's run is
+## `[winner cell] + chain_path` — so this asks nothing new of any caller.
+##
+## A RUNWAY is deliberately NOT built here and keeps the contour alone: it has no merge pair, so
+## there is no cell a bloom could sit on. That is a difference of STATE, not a second effect.
+static func chain_stack(run: Array, line: int, n: int, weight: float, tag: bool) -> Array:
+	if run.is_empty():
+		return []
+	var head := Vector2i(run[0])
+	return [
+		mark("chain", run, NO_CELL, line, n, weight, 1.0, false, NO_CELL),
+		mark("target", [], head, line, n, weight, 1.0, tag, head if tag else NO_CELL),
+	]
+
 static func build(board, ctx: Dictionary) -> Array:
 	if board == null:
 		return []
@@ -46,21 +68,37 @@ static func build(board, ctx: Dictionary) -> Array:
 			return _rest_marks(board, ctx)
 
 # --- REST -------------------------------------------------------------------------------------
-# Every armed chain, longest first, then every runway, truncated to REST_MAX. The cap is over the
-# combined list on purpose: it is a budget for how much the resting board may say at once.
+# Every armed chain, longest first, then every runway, truncated to REST_MAX.
 static func _rest_marks(board, ctx: Dictionary) -> Array:
 	var out: Array = []
+	for raw in _rest_entries(board, ctx):
+		out.append_array(_rest_entry_marks(raw as Dictionary, 1.0, true))
+	return out
+
+## What the resting board has to say, in the order it says it: every armed chain longest first, then
+## every runway. The REST_MAX cap belongs HERE, over the entries, because it is a budget for how many
+## things the board may point at — a CHAIN counts once however many marks its effect stack takes.
+## Capping the mark list instead would silently halve the chains the moment a chain drew two marks.
+static func _rest_entries(board, ctx: Dictionary) -> Array:
+	var out: Array = []
 	for entry in _rest_chains(board, int(ctx.get("chain_min_n", 2))):
-		var e: Dictionary = entry
-		var top := Vector2i(e.get("top_cell", NO_CELL))
-		out.append(mark("chain", _run_of(e), NO_CELL, int(e.get("line", 0)), int(e.get("n", 0)),
-			1.0, 1.0, true, top))
+		out.append({"kind": "chain", "entry": entry})
 	for raw in BoardLogic.runways(board, int(ctx.get("runway_min_n", 3))):
 		if raw is Dictionary:
-			var e: Dictionary = raw
-			out.append(mark("runway", _run_of(e), NO_CELL, int(e.get("line", 0)), 0,
-				RUNWAY_WEIGHT, RUNWAY_REACH, false, NO_CELL))
+			out.append({"kind": "runway", "entry": raw})
 	return out.slice(0, REST_MAX)
+
+## One resting entry, at the loudness the caller is drawing it: a chain takes the whole stack, a
+## runway keeps the contour alone (it has no merge pair, so it has no cell to bloom on). REST and the
+## background of a DRAG both come through here, so a dimmed chain is this same stack at DRAG_DIM.
+static func _rest_entry_marks(item: Dictionary, weight: float, tag: bool) -> Array:
+	var e: Dictionary = item.get("entry", {})
+	var line := int(e.get("line", 0))
+	if String(item.get("kind", "")) == "runway":
+		# never louder than RUNWAY_WEIGHT, and a drag's DRAG_DIM still takes it down — which is exactly
+		# what the drag's old "duplicate the resting mark and overwrite the weight" did.
+		return [mark("runway", _run_of(e), NO_CELL, line, 0, minf(RUNWAY_WEIGHT, weight), RUNWAY_REACH, false, NO_CELL)]
+	return chain_stack(_run_of(e), line, int(e.get("n", 0)), weight, tag)
 
 ## The armed chains, longest first. The comparator carries its own row-major tie-break because
 ## sort_custom is NOT stable in Godot — relying on ready_ladders' own ordering to survive the sort
@@ -102,8 +140,9 @@ static func _run_marks(board, ctx: Dictionary) -> Array:
 	for raw in remaining:
 		cells.append(Vector2i(raw))
 	var n := int(ctx.get("n", cells.size()))
-	return [mark("chain", cells, NO_CELL, BoardModel.line_of(board.item_at(head)), n,
-		1.0, 1.0, true, Vector2i(cells[cells.size() - 1]))]
+	# cells[0] IS the head, so the stack's bloom and chip land on the cell this step's merge is
+	# landing in — the same place a drag puts them, because it is the same cell.
+	return chain_stack(cells, BoardModel.line_of(board.item_at(head)), n, 1.0, true)
 
 # --- DRAG -------------------------------------------------------------------------------------
 # ONE place for the eye. Of everything the held piece could do, the LONGEST chain it would form is
@@ -135,23 +174,26 @@ static func _drag_marks(board, ctx: Dictionary) -> Array:
 	var win_run: Array = [win_cell]
 	for raw in Array(winner.get("path", [])):
 		win_run.append(Vector2i(raw))
-	# background first: the resting marks this drag is NOT about
-	for raw in _rest_marks(board, ctx):
-		var m: Dictionary = (raw as Dictionary).duplicate(true)
-		if _same_cells(Array(m.get("run", [])), win_run):
+	# Background first: the resting marks this drag is NOT about, each turned DOWN rather than turned
+	# into something else — a dimmed chain keeps its bloom, so it stays the same effect at DRAG_DIM.
+	# The skip is per ENTRY, not per mark: the winner's own resting stack goes entirely, or its bloom
+	# would be stamped twice on the winning cell.
+	for raw in _rest_entries(board, ctx):
+		var item: Dictionary = raw
+		if _same_cells(_run_of(Dictionary(item.get("entry", {}))), win_run):
 			continue
-		m["weight"] = DRAG_DIM
-		m["tag"] = false
-		m["tag_cell"] = NO_CELL
-		out.append(m)
-	out.append(mark("chain", win_run, NO_CELL, line, int(winner.get("n", min_n)), 1.0, 1.0, false, NO_CELL))
+		out.append_array(_rest_entry_marks(item, DRAG_DIM, false))
+	# The winner's own stack, split around the losing targets so its bloom is emitted LAST and draws
+	# on top of them. Same two marks as everywhere else, in the same order.
+	var stack := chain_stack(win_run, line, int(winner.get("n", min_n)), 1.0, true)
+	out.append(stack[0])
 	for i in targets.size():
 		if i == win:
 			continue
 		var t: Dictionary = targets[i]
 		out.append(mark("target", [], Vector2i(t.get("cell", NO_CELL)), line,
 			int(t.get("n", 1)), DRAG_DIM, 1.0, false, NO_CELL))
-	out.append(mark("target", [], win_cell, line, int(winner.get("n", min_n)), 1.0, 1.0, true, win_cell))
+	out.append(stack[1])
 	return out
 
 ## Every occupied cell the held piece can merge onto, row-major, with the chain length that merge

@@ -180,12 +180,17 @@ func _outline(b: Node) -> Control:
 
 ## The guide is ONE ordered mark list now, so the suite's old channel vocabulary is read back off
 ## roles. Nothing here recomputes a rule — every helper reads what the renderer was handed:
-##   ladder        role "chain" carrying its own ×n tag   (armed at rest, or the run in flight)
-##   drag ladder   role "chain", untagged and above DRAG_DIM — the ONE chain a held piece would form
+##   ladder        role "chain" above DRAG_DIM  (armed at rest, held in a drag, or the run in flight)
 ##   runway        role "runway"
 ##   pad "stage"   role "stage"    — an empty cell to build into
-##   pad "cascade" role "target" WITH the tag — the occupied drop whose merge really runs a chain
-##   pad "merge"   role "target" without it   — an ordinary same-code target
+##   pad "cascade" role "target" WITH the tag — the cell the tipping merge lands on, which is where
+##                 the ×n chip rides too
+##   pad "merge"   role "target" without it   — an ordinary same-code target, or a backgrounded
+##                 chain's own bloom
+##
+## A chain is TWO marks: the contour over its run and the bloom on run[0]. The ×n rides the bloom in
+## every mode, so "the chain mark carrying the tag" — what these helpers used to look for — now
+## matches nothing at all.
 func _outline_marks(b: Node) -> Array:
 	var o := _outline(b)
 	if o == null:
@@ -200,10 +205,13 @@ func _marks_with_role(b: Node, role: String) -> Array:
 			out.append(raw)
 	return out
 
+## The chains drawn at full loudness — one per armed ladder at rest, or the one a drag has focused.
+## The backgrounded chains a drag keeps sit AT DRAG_DIM and are excluded by the weight, exactly as
+## `_outline_drag_ladders` does; both read the same property because they are the same mark now.
 func _outline_ladder_count(b: Node) -> int:
 	var n := 0
 	for raw in _marks_with_role(b, "chain"):
-		if bool((raw as Dictionary).get("tag", false)):
+		if float((raw as Dictionary).get("weight", 0.0)) > CascadeMarks.DRAG_DIM + 0.001:
 			n += 1
 	return n
 
@@ -219,13 +227,13 @@ func _outline_runway_weight(b: Node) -> float:
 		return float((raw as Dictionary).get("weight", 0.0))
 	return -1.0
 
-## The drag's focused chain: untagged (its ×n rides the drop target instead) and loud. The dimmed
-## resting chains a drag keeps in the background sit AT DRAG_DIM, so the weight test excludes them.
+## The drag's focused chain: the loud one. The dimmed resting chains a drag keeps in the background
+## sit AT DRAG_DIM, so the weight test excludes them.
 func _outline_drag_ladders(b: Node) -> Array:
 	var out: Array = []
 	for raw in _marks_with_role(b, "chain"):
 		var m: Dictionary = raw
-		if not bool(m.get("tag", false)) and float(m.get("weight", 0.0)) > CascadeMarks.DRAG_DIM + 0.001:
+		if float(m.get("weight", 0.0)) > CascadeMarks.DRAG_DIM + 0.001:
 			out.append(m)
 	return out
 
@@ -237,10 +245,8 @@ func _outline_drag_ladder_run(b: Node) -> Array:
 	return Array((found[0] as Dictionary).get("run", [])) if not found.is_empty() else []
 
 func _outline_ready_ladder_run(b: Node) -> Array:
-	for raw in _marks_with_role(b, "chain"):
-		if bool((raw as Dictionary).get("tag", false)):
-			return Array((raw as Dictionary).get("run", []))
-	return []
+	var found := _outline_drag_ladders(b)
+	return Array((found[0] as Dictionary).get("run", [])) if not found.is_empty() else []
 
 func _pad_kind_of(m: Dictionary) -> String:
 	match String(m.get("role", "")):
@@ -873,7 +879,10 @@ func _test_drag_focuses_the_held_cascade_path() -> void:
 		"drag focus puts the cascade number on the occupied drop target, not the chain end")
 	_input_release(b, from)
 	await process_frame
-	ok(_outline_drag_ladder_count(b) == 0 and _outline_has_tag(b, "×5"),
+	# The drag's chain and a resting chain are the SAME mark now, so "no drag ladder" is no longer a
+	# thing to count — what tells them apart is which chain is drawn. The ×5 tag hidden during the
+	# drag (asserted above) is back, and it is the component's own best run again, not the ×3.
+	ok(_outline_ladder_count(b) == 1 and _outline_has_tag(b, "×5") and not _outline_has_tag(b, "×3"),
 		"releasing the drag restores the resting ready-ladder outline")
 	b.queue_free()
 
@@ -1002,6 +1011,14 @@ func _test_ready_ladder_glow_excludes_duplicate_tip_source() -> void:
 		"1,1,2,3 still arms a ready ladder")
 	ok(_cells_equal(_outline_ready_ladder_run(b), [target, t2, t3]),
 		"the ready glow outlines the merge destination onward, excluding the duplicate source")
+	# ONE effect stack in every mode, checked through the real board rather than the rule module: a
+	# chain AT REST carries the target bloom a drag shows, on run[0] — the cell the tipping merge
+	# lands on — and its ×n rides that same cell instead of the top of the ladder.
+	ok(_outline_has_pad_kind_at(b, "cascade", target) and not _outline_has_pad_kind_at(b, "cascade", t3),
+		"a RESTING chain blooms on the cell its tipping merge lands on (got %s)"
+			% str(_outline_pad_cells_by_kind(b, "cascade")))
+	ok(_outline_has_tag_at(b, "×3", target) and not _outline_has_tag_at(b, "×3", t3),
+		"…and its ×3 rides that same cell, not the run's far end")
 	b.queue_free()
 
 func _test_runway_drag_guide_strengths_use_real_input() -> void:

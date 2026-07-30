@@ -9,6 +9,8 @@ const CascadeOutline = preload("res://engine/scripts/ui/cascade_outline.gd")
 func _initialize() -> void:
 	print("== cascade guide marks ==")
 	_test_rest_ranks_longest_first_and_caps()
+	_test_every_mode_draws_the_same_chain_stack()
+	_test_a_dimmed_chain_is_the_same_stack_turned_down()
 	_test_drag_keeps_only_the_longest_chain_loud()
 	_test_drag_winner_is_the_longest_not_the_first_that_qualifies()
 	_test_drag_without_a_chain_hides_every_chain_mark()
@@ -50,18 +52,110 @@ func _test_rest_ranks_longest_first_and_caps() -> void:
 	var marks := CascadeMarks.build(b, {"mode": CascadeMarks.MODE_REST, "chain_min_n": 2, "runway_min_n": 3})
 	var ns: Array = []
 	for m in marks:
-		ns.append(int((m as Dictionary).get("n", 0)))
+		if String((m as Dictionary).get("role", "")) == "chain":
+			ns.append(int((m as Dictionary).get("n", 0)))
 	ok(ns == [4, 3, 2], "rest ranks chains longest first (got %s)" % str(ns))
-	ok(_roles(marks) == ["chain", "chain", "chain"], "rest emits chain marks (got %s)" % str(_roles(marks)))
-	var first: Dictionary = marks[0]
-	ok(is_equal_approx(float(first.get("weight", 0.0)), 1.0) and bool(first.get("tag", false)),
-		"a rest chain is full weight and carries its tag")
-	ok(Vector2i(first.get("tag_cell", Vector2i(-1, -1))).x >= 0, "a rest chain names the cell its tag sits on")
+	ok(_roles(marks) == ["chain", "target", "chain", "target", "chain", "target"],
+		"every resting chain draws the WHOLE stack, contour then bloom (got %s)" % str(_roles(marks)))
+	var contour: Dictionary = marks[0]
+	var bloom: Dictionary = marks[1]
+	ok(is_equal_approx(float(contour.get("weight", 0.0)), 1.0)
+		and is_equal_approx(float(bloom.get("weight", 0.0)), 1.0),
+		"contour and bloom are ONE effect carried at ONE weight")
+	var head := Vector2i(Array(contour.get("run", []))[0])
+	ok(Vector2i(bloom.get("cell", CascadeMarks.NO_CELL)) == head
+		and bool(bloom.get("tag", false))
+		and Vector2i(bloom.get("tag_cell", CascadeMarks.NO_CELL)) == head
+		and not bool(contour.get("tag", false)),
+		"the bloom and the ×n both sit on run[0] — the cell the tipping merge lands on")
 	_put_ladder(b, 6, 4, 5)     # a fourth chain, over the cap
 	var capped := CascadeMarks.build(b, {"mode": CascadeMarks.MODE_REST, "chain_min_n": 2, "runway_min_n": 3})
-	ok(capped.size() == CascadeMarks.REST_MAX, "rest truncates at REST_MAX (got %d)" % capped.size())
+	var chains := 0
+	for m in capped:
+		if String((m as Dictionary).get("role", "")) == "chain":
+			chains += 1
+	ok(chains == CascadeMarks.REST_MAX,
+		"REST_MAX counts CHAINS, not marks (got %d chains in %d marks)" % [chains, capped.size()])
+	ok(capped.size() == CascadeMarks.REST_MAX * 2,
+		"…and every chain that survives the cap keeps its whole stack (got %d marks)" % capped.size())
 	var top := int((capped[0] as Dictionary).get("n", 0))
 	ok(top == 5, "the cap keeps the LONGEST chains, not the first found (got %d)" % top)
+
+# THE ONE EFFECT STACK. A chain is drawn with the same effects whatever the board is doing: the
+# contour over its run, the target bloom on run[0], and the ×n chip on that same cell. Only `weight`
+# may differ between modes. Before this, ONLY a drag emitted the bloom, so a resting chain and a
+# mid-run chain were quietly a different — and much fainter — effect from the one the drag showed.
+# run[0] is the same semantic in all three: the cell the tipping merge lands on.
+func _test_every_mode_draws_the_same_chain_stack() -> void:
+	# 1,1,2 in a row: the tip-over merges (3,1) onto (3,2) and the upgrade runs on to (3,3).
+	var rest_board := _blank_board()
+	rest_board.place(Vector2i(3, 1), 101)
+	rest_board.place(Vector2i(3, 2), 101)
+	rest_board.place(Vector2i(3, 3), 102)
+	var rest := CascadeMarks.build(rest_board, {"mode": CascadeMarks.MODE_REST, "chain_min_n": 2, "runway_min_n": 3})
+	# the SAME run, walking
+	var run := CascadeMarks.build(rest_board, {
+		"mode": CascadeMarks.MODE_RUN, "chain_min_n": 2, "runway_min_n": 3,
+		"head": Vector2i(3, 2), "run": [Vector2i(3, 3)], "n": 2,
+	})
+	# …and the same run as the drag that would create it: the held t1 lands on (3,2). The board is
+	# the fixture MINUS the resting duplicate, so this drag's only mark is the winner's own stack.
+	var drag_board := _blank_board()
+	drag_board.place(Vector2i(0, 0), 101)
+	drag_board.place(Vector2i(3, 2), 101)
+	drag_board.place(Vector2i(3, 3), 102)
+	var drag := CascadeMarks.build(drag_board, _drag_ctx(drag_board, Vector2i(0, 0)))
+	var want := [
+		["chain", [Vector2i(3, 2), Vector2i(3, 3)], CascadeMarks.NO_CELL, 1.0, 1.0, false, CascadeMarks.NO_CELL],
+		["target", [], Vector2i(3, 2), 1.0, 1.0, true, Vector2i(3, 2)],
+	]
+	ok(_stack(rest) == want, "a RESTING chain draws the whole stack (got %s)" % str(_stack(rest)))
+	ok(_stack(run) == want, "a RUNNING chain draws the same stack (got %s)" % str(_stack(run)))
+	ok(_stack(drag) == want, "a DRAGGED chain draws the same stack (got %s)" % str(_stack(drag)))
+
+# "Dimmed" must stay ONE effect at a lower weight, never a different effect. The resting chains a
+# drag pushes into the background keep their bloom; only the number changes, and the ×n goes with
+# the drag's own winner.
+func _test_a_dimmed_chain_is_the_same_stack_turned_down() -> void:
+	var b := _blank_board()
+	b.place(Vector2i(3, 1), 101)          # a resting x2 the drag is NOT about
+	b.place(Vector2i(3, 2), 101)
+	b.place(Vector2i(3, 3), 102)
+	b.place(Vector2i(0, 0), 201)          # the held piece, another line
+	b.place(Vector2i(5, 4), 201)          # …whose drop runs its own x2
+	b.place(Vector2i(5, 5), 202)
+	var marks := CascadeMarks.build(b, _drag_ctx(b, Vector2i(0, 0)))
+	var dimmed: Array = []
+	for raw in marks:
+		var m: Dictionary = raw
+		if is_equal_approx(float(m.get("weight", 0.0)), CascadeMarks.DRAG_DIM):
+			dimmed.append(m)
+	ok(_stack(dimmed) == [
+			["chain", [Vector2i(3, 2), Vector2i(3, 3)], CascadeMarks.NO_CELL, CascadeMarks.DRAG_DIM, 1.0, false, CascadeMarks.NO_CELL],
+			["target", [], Vector2i(3, 2), CascadeMarks.DRAG_DIM, 1.0, false, CascadeMarks.NO_CELL],
+		],
+		"a backgrounded chain keeps its bloom at DRAG_DIM — same effect, lower number (got %s)" % str(_stack(dimmed)))
+	var tagged: Array = []
+	for raw in marks:
+		if bool((raw as Dictionary).get("tag", false)):
+			tagged.append(Vector2i((raw as Dictionary).get("tag_cell", CascadeMarks.NO_CELL)))
+	ok(tagged == [Vector2i(5, 4)], "…and the ×n belongs to the drag's own winner alone (got %s)" % str(tagged))
+
+## Every mark reduced to the tuple the drawing reads: what shape, over which cells, how loud, and
+## whether it carries the chip. Comparing these across modes is the whole point — an assert on
+## counts alone cannot see two modes stamping different effects.
+func _stack(marks: Array) -> Array:
+	var out: Array = []
+	for raw in marks:
+		var m: Dictionary = raw
+		var cells: Array = []
+		for c in Array(m.get("run", [])):
+			cells.append(Vector2i(c))
+		out.append([String(m.get("role", "")), cells,
+			Vector2i(m.get("cell", CascadeMarks.NO_CELL)),
+			float(m.get("weight", 0.0)), float(m.get("reach", 0.0)),
+			bool(m.get("tag", false)), Vector2i(m.get("tag_cell", CascadeMarks.NO_CELL))])
+	return out
 
 func _occupied_cells(b: BoardModel) -> Array:
 	var out: Array = []
@@ -206,14 +300,18 @@ func _test_run_emits_one_mark_covering_the_whole_remaining_run() -> void:
 		"mode": CascadeMarks.MODE_RUN, "chain_min_n": 2, "runway_min_n": 3,
 		"head": Vector2i(3, 2), "run": [Vector2i(4, 2), Vector2i(5, 2)], "n": 3,
 	})
-	ok(marks.size() == 1, "a running chain draws exactly one mark (got %d)" % marks.size())
+	ok(_roles(marks) == ["chain", "target"],
+		"a running chain draws exactly ONE chain's stack — its contour and its bloom (got %s)" % str(_roles(marks)))
 	var m: Dictionary = marks[0]
-	ok(String(m.get("role", "")) == "chain", "and it is a chain mark")
 	ok(_cells_match(Array(m.get("run", [])), [Vector2i(3, 2), Vector2i(4, 2), Vector2i(5, 2)]),
 		"covering the head plus every remaining cell (got %s)" % str(m.get("run", [])))
-	ok(is_equal_approx(float(m.get("weight", 0.0)), 1.0) and bool(m.get("tag", false))
-		and Vector2i(m.get("tag_cell", Vector2i(-1, -1))) == Vector2i(5, 2),
-		"at full weight, tagged at the run's far end")
+	var bloom: Dictionary = marks[1]
+	ok(is_equal_approx(float(m.get("weight", 0.0)), 1.0)
+		and is_equal_approx(float(bloom.get("weight", 0.0)), 1.0)
+		and not bool(m.get("tag", false)) and bool(bloom.get("tag", false))
+		and Vector2i(bloom.get("cell", Vector2i(-1, -1))) == Vector2i(3, 2)
+		and Vector2i(bloom.get("tag_cell", Vector2i(-1, -1))) == Vector2i(3, 2),
+		"at full weight, with the bloom and the ×n on the HEAD — the cell this step's merge lands in, run[0], not the run's far end")
 	# A mid-run board has no ready ladder of its own — the old code recomputed REST here and blanked
 	# the glow. RUN must not consult the board's resting state at all, and that holds on the LAST step
 	# too, where nothing is left to walk: this same fixture reads as two runways at rest, and the run's
@@ -223,9 +321,11 @@ func _test_run_emits_one_mark_covering_the_whole_remaining_run() -> void:
 		"mode": CascadeMarks.MODE_RUN, "chain_min_n": 2, "runway_min_n": 3,
 		"head": Vector2i(5, 2), "run": [], "n": 3,
 	})
-	ok(last.size() == 1 and _cells_match(Array((last[0] as Dictionary).get("run", [])), [Vector2i(5, 2)])
+	ok(_roles(last) == ["chain", "target"]
+		and _cells_match(Array((last[0] as Dictionary).get("run", [])), [Vector2i(5, 2)])
+		and Vector2i((last[1] as Dictionary).get("cell", Vector2i(-1, -1))) == Vector2i(5, 2)
 		and float((last[0] as Dictionary).get("weight", 0.0)) > 0.0,
-		"a run with nothing left to walk still lights its head (got %s)" % str(last))
+		"a run with nothing left to walk still lights its head, bloom and all (got %s)" % str(last))
 	# …and a run with no head at all is nothing, which is what a bailed-out chain publishes.
 	ok(CascadeMarks.build(b, {"mode": CascadeMarks.MODE_RUN, "chain_min_n": 2, "head": Vector2i(-1, -1), "run": []}).is_empty(),
 		"a run with no head emits nothing")
