@@ -7,6 +7,7 @@ const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const SkyLogic = preload("res://engine/scripts/core/sky.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const SkyPatch = preload("res://engine/scripts/ui/sky_patch.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")   # SHADOW_CORNER_META: the panel's REAL rounding
 
 ## The docked star bobs on a looping tween (board.gd `_start_docked_star_bob`, ±3 px), so its rendered
 ## box is never pinned to a single y. Every dock-geometry assert allows exactly that much slack and no
@@ -17,6 +18,7 @@ func _initialize() -> void:
 	begin("grove · weather hours")
 	await process_frame
 	await _test_patch_edges_read_stronger_than_centers()
+	await _test_edge_lane_wash_stays_inside_the_rounded_panel()
 	await _test_calm_hour_shows_no_chrome()
 	await _test_marker_patch_and_info_bar()
 	await _test_sky_patch_refresh_stays_under_playables()
@@ -63,6 +65,124 @@ func _test_patch_edges_read_stronger_than_centers() -> void:
 	var star: Dictionary = patch.call("lane_alpha_samples", "starfall")
 	ok(float(star.edge) > float(star.center) + 0.03, \
 		"Starfall patch renders a stronger glimmer edge than center so the column reads")
+
+## The board panel is a ROUNDED rect; the lane wash used to be plain axis-aligned rects and lines. On an
+## EDGE lane its square corner stuck ~13 px past the panel's rounded corner and read as a chip of wash
+## floating on the scene background. Every vertex of everything the patch paints must sit inside the
+## panel's real silhouette — read off the mat (position/size + the rounding its builder STAMPED under
+## Look.SHADOW_CORNER_META), never recomputed here from `clampf(min * 0.035, 14, 30)`.
+##
+## CLIP_EPS budget, in px, against a panel whose coordinates run to ~1200:
+##   · Godot Control geometry is float32 — one ulp at 1200 is 1.2e-4, and a handful of ops ride on that;
+##   · Geometry2D snaps clipper input to a 1e-5 grid;
+##   · the clip polygon INSCRIBES the arc, so its own sagitta (r·(1 − cos 3.75°) ≤ 0.065 px at r = 30,
+##     the largest corner the board config can reach) errs INWARD and costs this budget nothing.
+## 0.05 px covers all of it with two orders of magnitude of headroom, and is still ~260× smaller than the
+## ~13 px overhang the guard exists to catch, so it can never pass the defect.
+const CLIP_EPS := 0.05
+
+## How far outside the panel the UNCLIPPED wash must reach for an edge-lane probe to be a real fixture.
+## The measured overhang is ~13 px; 1 px is a floor, not a fit.
+const EDGE_OVERHANG_MIN := 1.0
+
+## An interior lane is barely touched by the clip (it overhangs the panel by ~0.4 px at top and bottom),
+## so the clipped wash must keep essentially all of its area. A fix that clipped the wash away entirely,
+## or shrank the band, fails here.
+const INTERIOR_AREA_KEPT := 0.98
+
+func _test_edge_lane_wash_stays_inside_the_rounded_panel() -> void:
+	var b = await _open_board("sky_edge_lane_clip", "clear")
+	var mat: Control = b._board_mat
+	ok(mat != null and is_instance_valid(mat), "the board panel (mat) is mounted, so the wash has a silhouette to clip to")
+	if mat == null or not is_instance_valid(mat):
+		b.queue_free()
+		return
+	var panel := Rect2(mat.position, mat.size)
+	var corner := Look.shape_corner(mat, -1.0)
+	ok(corner > 0.0, "the board panel stamps the rounding it ACTUALLY applied under SHADOW_CORNER_META (got %.2f)" % corner)
+	var probes := [
+		{"sky": SkyLogic.SKY_SUNBEAM, "axis": SkyLogic.AXIS_COLUMN, "lane": 0, "edge": true},
+		{"sky": SkyLogic.SKY_SUNBEAM, "axis": SkyLogic.AXIS_COLUMN, "lane": G.COLS - 1, "edge": true},
+		{"sky": SkyLogic.SKY_RAIN, "axis": SkyLogic.AXIS_ROW, "lane": 0, "edge": true},
+		{"sky": SkyLogic.SKY_RAIN, "axis": SkyLogic.AXIS_ROW, "lane": G.ROWS - 1, "edge": true},
+		{"sky": SkyLogic.SKY_SUNBEAM, "axis": SkyLogic.AXIS_COLUMN, "lane": 3, "edge": false},
+	]
+	for probe in probes:
+		var label := "%s lane %d (%s)" % [probe.sky, probe.lane, probe.axis]
+		b._sky_state = {
+			"hour": int(b._sky_state.get("hour", 0)),
+			"sky": probe.sky,
+			"skin": SkyLogic.SKIN_CLEAR,
+			"lane_axis": probe.axis,
+			"lane": probe.lane,
+		}
+		b._sync_sky_patch_marker(false)
+		await process_frame
+		var patch := b.board_area.find_child("SkyPatch", true, false) as Control
+		ok(patch != null and patch.has_method("wash_shapes"), "%s: the patch exposes the shapes it paints" % label)
+		if patch == null or not patch.has_method("wash_shapes"):
+			continue
+		var clipped: Array = patch.call("wash_shapes")
+		ok(not clipped.is_empty(), "%s: the wash paints something" % label)
+		var worst := _worst_outside(clipped, patch.position, panel, corner)
+		ok(worst.dist <= CLIP_EPS, \
+			"%s: every painted vertex stays inside the rounded panel (worst %.3f px outside at %s, budget %.2f)" \
+			% [label, worst.dist, str(worst.point), CLIP_EPS])
+		# The other direction, on the SAME accessor: blank the silhouette and the patch must fall back to
+		# the unclipped square wash. That both proves the guard above is live (an edge lane really does
+		# overhang) and pins the documented degrade-to-today's-behaviour path.
+		var keep_rect: Rect2 = patch.clip_rect
+		patch.clip_rect = Rect2()
+		var raw: Array = patch.call("wash_shapes")
+		patch.clip_rect = keep_rect
+		var raw_worst = _worst_outside(raw, patch.position, panel, corner)
+		if probe.edge:
+			ok(raw_worst.dist > EDGE_OVERHANG_MIN, \
+				"%s: UNCLIPPED, the square wash really does overhang the rounded panel (%.2f px) — the guard is live" \
+				% [label, raw_worst.dist])
+		else:
+			var kept := _fill_area(clipped)
+			var full := _fill_area(raw)
+			ok(full > 0.0 and kept >= full * INTERIOR_AREA_KEPT, \
+				"%s: an interior lane keeps its full band through the clip (%.1f of %.1f px², %.4f kept)" \
+				% [label, kept, full, (kept / full) if full > 0.0 else 0.0])
+	b.queue_free()
+
+## The vertex of `shapes` that sits furthest OUTSIDE the rounded panel, and by how much. `origin` is the
+## patch's own offset inside board_area, where `panel` is measured.
+func _worst_outside(shapes: Array, origin: Vector2, panel: Rect2, corner: float) -> Dictionary:
+	var worst := {"dist": -INF, "point": Vector2.ZERO}
+	for shape in shapes:
+		for p in shape["points"]:
+			var world: Vector2 = origin + p
+			var d := _rounded_rect_sdf(world, panel, corner)
+			if d > float(worst.dist):
+				worst = {"dist": d, "point": world}
+	if worst.dist == -INF:
+		worst = {"dist": 0.0, "point": Vector2.ZERO}
+	return worst
+
+## Signed distance from `p` to a rounded rect: negative inside, positive outside, in px.
+static func _rounded_rect_sdf(p: Vector2, rect: Rect2, corner: float) -> float:
+	var r := clampf(corner, 0.0, minf(rect.size.x, rect.size.y) * 0.5)
+	var half := rect.size * 0.5
+	var q := (p - (rect.position + half)).abs() - (half - Vector2(r, r))
+	return Vector2(maxf(q.x, 0.0), maxf(q.y, 0.0)).length() + minf(maxf(q.x, q.y), 0.0) - r
+
+## Total painted fill area (the bands overlap; both sides of every comparison sum the same way).
+static func _fill_area(shapes: Array) -> float:
+	var total := 0.0
+	for shape in shapes:
+		if String(shape["kind"]) != "fill":
+			continue
+		var pts: PackedVector2Array = shape["points"]
+		var a := 0.0
+		for i in pts.size():
+			var u := pts[i]
+			var v := pts[(i + 1) % pts.size()]
+			a += u.x * v.y - v.x * u.y
+		total += absf(a) * 0.5
+	return total
 
 ## A Calm hour is the pre-weather board: the ambient skin still drifts, but the mat carries no wash,
 ## nothing sits outside it, and there is nothing to tap. Asserted on a board with the gift gate OPEN,

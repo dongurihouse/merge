@@ -11,6 +11,7 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const GenSparkle = preload("res://engine/scripts/ui/gen_sparkle.gd")   # code-drawn twinkle for the GEN highlight
 const GenOutline = preload("res://engine/scripts/ui/gen_outline.gd")   # code-drawn silhouette rim for the GEN highlight
+const Look = preload("res://engine/scripts/ui/skin.gd")   # SHADOW_CORNER_META: an element's REAL rounding
 const Pal = Game.PALETTE
 
 const CREAM = Pal.CREAM
@@ -323,6 +324,9 @@ static func make_piece(code: int, size: float, inset := ITEM_INSET) -> Control:
 # "glass bar" between the fence and the grid, and gives the play surface a tactile,
 # themed look instead of a flat field showing through. board_w/board_h = the grid's
 # pixel size (the scene passes _board_w()/_board_h()).
+## The fallback planter's corner radius — the shape of the whole bed, stamped on the mat below.
+const PLANTER_CORNER := 30
+
 static func make_board_mat(board_w: float, board_h: float) -> Control:
 	var pad := 22.0
 	var rim := 13.0                               # the wooden planter wall thickness
@@ -330,13 +334,17 @@ static func make_board_mat(board_w: float, board_h: float) -> Control:
 	mat.position = Vector2(-pad, -pad)
 	mat.size = Vector2(board_w + pad * 2.0, board_h + pad * 2.0)
 	mat.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# The planter's REAL rounding, stamped on the mat root so anything drawing ON the bed can clip to its
+	# silhouette (the Weather Hours lane wash does — engine/scripts/ui/sky_patch.gd). One literal, read
+	# by everyone, never a second copy.
+	mat.set_meta(Look.SHADOW_CORNER_META, PLANTER_CORNER)
 	# the planter box — warm wood, rounded, with a soft drop shadow so the whole bed
 	# reads as raised off the meadow (the rim, not a glassy strip, shows above row 0).
 	var planter := Panel.new()
 	planter.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var ps := StyleBoxFlat.new()
 	ps.bg_color = Color("#BE9568")                # light warm wood rim (was a dark #86603A — read muddy)
-	ps.set_corner_radius_all(30)
+	ps.set_corner_radius_all(PLANTER_CORNER)
 	ps.set_border_width_all(0)
 	ps.shadow_color = Color(0, 0, 0, 0.34)
 	ps.shadow_size = 14
