@@ -38,6 +38,7 @@ func _initialize() -> void:
 	_test_contour_rounds_and_resamples_for_drawing()
 	_test_landscape_outline_uses_transposed_geometry()
 	_test_runway_glow_is_weaker_than_an_armed_ladder()
+	_test_glow_levels_stay_ordered_and_equally_warm()
 	_test_cascade_phase_pins_for_captures()
 	BoardScriptRef.forced_rng_seed = -1        # leave the static as we found it
 	finish()
@@ -1095,6 +1096,77 @@ func _test_runway_glow_is_weaker_than_an_armed_ladder() -> void:
 	var half: Color = outline.call("_tint", lit, Color(1, 1, 1), 0.9 * 0.5)
 	ok(half.a < full.a, "the runway's light is half as strong at every rail")
 	outline.free()
+
+# The contour's INTENSITY has three named levels and a wider BAND_WIDTH is most of the step up
+# between them, so pin the two things a wider band can break:
+#   * the rails must stay strictly outward-to-inward. They are the rows of ONE triangle strip; let
+#     the widened band's outermost rail cross the innermost pitch-anchored haze rail and the mesh
+#     folds through itself.
+#   * band and interior gutters must carry the SAME warmth. They ride the same tray, and one
+#     CREAM_PULL drives both — measured as R-B on the drawn colours, which is the property of the
+#     constants rather than of whatever happens to sit under a given pixel.
+func _test_glow_levels_stay_ordered_and_equally_warm() -> void:
+	var outline := CascadeOutline.new()
+	outline.configure(Vector2(400, 400), 40.0, Callable(self, "_landscape_outline_pos"))
+	# `_rail_offsets` reads nothing but these three lengths, so hand it the geometries that matter
+	# instead of only the one this workbench Control happens to make. The phone board and the 40 px
+	# workbench cell differ by 5× in gutter-to-pitch ratio, and the first cut of BAND_WIDTH ordered
+	# correctly on the workbench while folding the strip on the real board.
+	var geoms := {
+		"phone board": _metrics_for(129.91, 131.91),
+		"workbench": Dictionary(outline.call("_chain_geometry", [Vector2i(1, 1), Vector2i(1, 2)]))["metrics"],
+		"small cells": _metrics_for(60.0, 66.0),
+		"tablet board": _metrics_for(220.0, 222.0),
+	}
+	var before := CascadeOutline.forced_level
+	var levels: Array = CascadeOutline.LEVELS.keys()
+	levels.append("")                                       # "" = whatever is shipped
+	for raw_level in levels:
+		var level := String(raw_level)
+		CascadeOutline.forced_level = level
+		var name := level if level != "" else "shipped"
+		var m: Dictionary = {}
+		for raw_geom in geoms:
+			m = Dictionary(geoms[raw_geom])
+			for reach in [1.0, 0.78]:
+				var offs: PackedFloat32Array = outline.call("_rail_offsets", m, reach)
+				var ordered := true
+				for i in offs.size() - 1:
+					ordered = ordered and offs[i] > offs[i + 1]
+				ok(ordered, "glow '%s' keeps its rails strictly outward-to-inward on the %s at reach %.2f (%s)" \
+					% [name, String(raw_geom), reach, str(offs)])
+			# the hot line is anchored to the tile's cut edge and a wider band must never move it
+			var hot_at := _rail_index(func(rail): return int(rail[0]) == CascadeOutline.ANCHOR_GAP \
+				and is_equal_approx(float(rail[1]), -1.0))
+			var hot: PackedFloat32Array = outline.call("_rail_offsets", m, 1.0)
+			ok(hot_at >= 0 and is_equal_approx(hot[hot_at], -1.0 * float(m["gap"])), \
+				"glow '%s' leaves the hot line ON the %s's tile edge (%.3f px vs %.3f)" \
+				% [name, String(raw_geom), hot[maxi(hot_at, 0)], -1.0 * float(m["gap"])])
+		# warmth is read on the OUTERMOST fully opaque tray rail: a part-transparent one composites
+		# toward the tray's own R-B and would report the ground's warmth, not the band's.
+		var band_at := _rail_index(func(rail): return int(rail[0]) == CascadeOutline.ANCHOR_GAP \
+			and float(rail[1]) > -1.0 and float(rail[3]) * CascadeOutline.ALPHA_LIFT >= 1.0)
+		var band: Color = Array(CascadeOutline.lit_rails()[band_at])[2]
+		var gutter: Color = CascadeOutline.CRACK_COLOR.lerp(Pal.CREAM, CascadeOutline.cream_pull())
+		var warmth := absf((band.r - band.b) - (gutter.r - gutter.b)) * 255.0
+		ok(warmth <= 4.0, "glow '%s' keeps band and gutters equally warm (R-B apart by %.1f levels)" \
+			% [name, warmth])
+	CascadeOutline.forced_level = before
+	outline.free()
+
+# `_metrics()`'s own arithmetic, so a synthetic geometry is one the renderer could really be handed
+# rather than three numbers picked to disagree with each other.
+func _metrics_for(cell: float, pitch: float) -> Dictionary:
+	var gap := (pitch - cell) * 0.5 + cell * CascadeOutline.TILE_INSET_FRAC
+	return {"pitch": pitch, "gap": gap, "corner": cell * CascadeOutline.TILE_RADIUS_FRAC + gap}
+
+# The first rail (outermost first) the predicate accepts, or -1. Named by what it IS rather than by
+# an index counted back from the table's end, so re-solving the profile cannot silently retarget it.
+func _rail_index(pred: Callable) -> int:
+	for i in CascadeOutline.RAILS.size():
+		if bool(pred.call(CascadeOutline.RAILS[i])):
+			return i
+	return -1
 
 # The travelling light is pinnable, because `make shot` compares captures byte for byte and a warm
 # batch process has run a different number of frames than a fresh one.
