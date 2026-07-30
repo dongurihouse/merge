@@ -60,6 +60,10 @@ extends RefCounted
 const Save = preload("res://engine/scripts/core/save.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Design = preload("res://engine/scripts/core/design.gd")
+const CascadeOutline = preload("res://engine/scripts/ui/cascade_outline.gd")
+
+## The cascade glow's travelling wave, pinned for captures. See `_apply_cascade_phase`.
+const CASCADE_PHASE := 0.0
 
 ## The project's viewport size — the canonical capture resolution, read from THE design owner
 ## (Design → project.godot display/window/size), so a canvas change moves every capture with it.
@@ -168,6 +172,7 @@ static func begin(tree: SceneTree, cfg: Dictionary) -> Dictionary:
 
 	await _apply_size(tree, _size_from(args, cfg.get("size", SHOT_SIZE)))
 	_apply_weather(args, String(cfg.get("weather", "clear")))
+	_apply_cascade_phase(args)
 
 	var dir := ""
 	if bool(cfg.get("save", true)):
@@ -261,3 +266,12 @@ static func _apply_size(tree: SceneTree, size: Vector2i) -> void:
 static func _apply_weather(args: Array, pinned: String) -> void:
 	var want := opt(args, "weather", pinned)
 	Ambient.forced_weather = "" if want == "auto" else want
+
+# The cascade outline's light TRAVELS around the chain, so its phase depends on how many frames have
+# gone by — which differs between a fresh boot and the warm process a batch runs in. Left live, the
+# same shot would come out with different bytes from `make shot` and `make shot-batch`, and
+# games/grove/tests/grove_shot_batch_tests.gd compares them byte for byte. Pin it, before any board
+# is built. `cascade_phase=<0..1>` picks another point in the loop; `cascade_phase=auto` runs it live.
+static func _apply_cascade_phase(args: Array) -> void:
+	var want := opt(args, "cascade_phase", str(CASCADE_PHASE))
+	CascadeOutline.forced_phase = -1.0 if want == "auto" else maxf(0.0, float(want))

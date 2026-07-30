@@ -149,21 +149,38 @@ vacated — always free, synchronously, before the lucky rolls.
   queued-for-deletion nodes from the computation because `queue_free` is deferred; the guard is
   `grove_cascade_tests.gd`'s stack assertion with stale generator nodes present. Template:
   `focus_ring.gd` (`@tool`, `@export` knobs, `_draw`).
-- Per armed `ready_ladders` component: a **paper ribbon** threading the run. Entries with `run`
-  data link only consecutive path cells; touching cells that are not consecutive chain steps do
-  not draw false rungs. A tipped `1,1,2,3` run starts at the merge destination, so the duplicate
-  source cell does not get a background ribbon. Fallback component data links each shared edge,
-  so T/cross/ring shapes remain supported for non-ordered callers. Round the joint and cap a
-  lone end (`_ribbon_ends`); `grove_cascade_tests` pins ordered bends, unordered T/ring
-  fallback, isolated cells, and landscape endpoint mapping. Redraw only on recompute — in
-  `_after_board_change()` and after `_rebuild_all`.
-- Material: cut-paper stack, bottom to top — contact shadow, warm cut edge, grained face, light
-  top plane. The grain is a seeded 64² `ImageTexture` (`PAPER_SEED`) drawn with board-space UVs
-  so it runs unbroken along the strip; seeded because `make shot` compares captures byte for
-  byte. The line colour is pulled ~40 % toward cream first (`tape`): at full saturation the band
-  reads as a new game object competing with the pieces instead of tape laid on the board.
-- Per `runways` component: the same ribbon, thinner and at half strength. It carries no tier
-  text; the ribbon is the only resting runway hint.
+- Per armed `ready_ladders` component: the run's cells are unioned into ONE shape and its outline
+  extracted as closed contours (`engine/scripts/ui/cell_contour.gd`, pure + unit-tested). The
+  cells are the `run` — the cells the cascade walks — never `cells`, a same-line flood fill with
+  no tier condition. A tipped `1,1,2,3` run starts at the merge destination, so the duplicate
+  source cell is outside the shape. One rule covers every shape: straight, bend, T, ring (the hole
+  is its own loop, wound the other way) and the DIAGONAL PINCH (two cells meeting at a corner
+  only, which is two loops — a walk that keys boundary edges by their start corner drops one).
+  Convex corners round to the tile's own radius; reflex corners stay SHARP, because rounding them
+  cuts a notch out of the shape, and because a sharp corner is exactly where the strip's mitre
+  offset clips instead of self-intersecting. Redraw on recompute and, while a chain is marked,
+  per frame for the animation.
+- Material: light, not paper. The contour carries a layered profile drawn as ONE vertex-coloured
+  triangle strip per loop — a soft haze outside, a warm band filling the tray gap, a hot line ON
+  the tile's cut edge — and a subtle wave train travels around the whole contour once (`u` = arc
+  length; 2 crests, integer so the wrap is seamless). The chain's own tiles carry a static warm
+  lift and the tray gutters BETWEEN two chain cells glow steadily, as if lit from underneath. The
+  interior is deliberately NOT driven by the arc parameter: inside the shape it is discontinuous
+  across the medial axis and stamps a hard seam down the middle. The profile's rails are anchored
+  to lengths derived from the board — the pitch (read back off `_cell_pos`), the contour-to-tile-edge
+  gap, and the hull corner radius — so the mark scales with the cell; the inner rails stop at
+  `INNER_CAP` of the corner radius, past which the inner rail turns inside out around the arc centre.
+- The line colour is pulled `GOLD_PULL` toward warm gold: the light pools over a whole chain and
+  shows through a piece's transparent margins, so a saturated hue tints the art itself (measured —
+  at a 0.68 pull, line 1's pink washed its mushrooms salmon). The line leans the hue; gold is what
+  a line looks like as light on this tray.
+- The wave is PINNABLE: `CascadeOutline.forced_phase`, set by `engine/tools/shot_base.gd`'s
+  `begin` (`cascade_phase=<0..1>`, or `auto` for live). `make shot` compares captures byte for
+  byte, and a running animation lands on a different phase in a warm batch process than in a
+  fresh one; `tools/test_shot_batch.py` is the guard. `_process` runs only when there is a chain
+  to animate and the phase is not pinned.
+- Per `runways` component: the same light, at half strength with a tighter halo. It carries no
+  tier text; the glow is the only resting runway hint.
 - Color: `G.line_color(code)` reads `G.LINES[line].color`, fallback `Pal.TEXT_MUTED`
   (mirrors `piece_view.gd:297`). No hex literals (`palette_ssot_tests`).
 - Tags: resting armed ladders show a small code-drawn ×n paper chip on `top_cell`'s corner.

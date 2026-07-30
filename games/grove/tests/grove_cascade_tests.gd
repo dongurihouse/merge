@@ -5,6 +5,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 const BoardScriptRef = preload("res://engine/scripts/scenes/board.gd")
 const RNG_SEED := 20260727   # any fixed value; the point is that it does not change between runs
 const CascadeOutline = preload("res://engine/scripts/ui/cascade_outline.gd")
+const Contour = preload("res://engine/scripts/ui/cell_contour.gd")
 const Improvements = preload("res://engine/scripts/core/improvements.gd")
 
 func _initialize() -> void:
@@ -27,12 +28,15 @@ func _initialize() -> void:
 	await _test_drag_stage_starts_from_single_tier_neighbors()
 	await _test_runway_resting_outline_without_needed_tier_tag()
 	await _test_drag_cascade_tag_sits_on_drop_target()
-	await _test_ready_ladder_ribbon_excludes_duplicate_tip_source()
+	await _test_ready_ladder_glow_excludes_duplicate_tip_source()
 	await _test_runway_drag_guide_strengths_use_real_input()
 	await _test_ready_outline_stays_between_slots_and_pieces_with_stale_generator_nodes()
 	await _test_ready_outline_and_flag_off()
-	_test_ribbon_covers_bends_branches_and_rings()
-	await _test_landscape_outline_uses_transposed_edges()
+	_test_contour_covers_bends_branches_rings_and_pinches()
+	_test_contour_rounds_and_resamples_for_drawing()
+	_test_landscape_outline_uses_transposed_geometry()
+	_test_runway_glow_is_weaker_than_an_armed_ladder()
+	_test_cascade_phase_pins_for_captures()
 	BoardScriptRef.forced_rng_seed = -1        # leave the static as we found it
 	finish()
 
@@ -296,6 +300,12 @@ func _outline_stack_is_visible_between_board_and_items(b: Node) -> bool:
 func _landscape_outline_pos(cell: Vector2i) -> Vector2:
 	var step := 44.0
 	return Vector2(cell.x * step, cell.y * step)
+
+# board.gd's other orientation: model col drives X. The transpose between the two is a REFLECTION,
+# so anything that reads a side off the winding has to survive both.
+func _portrait_outline_pos(cell: Vector2i) -> Vector2:
+	var step := 44.0
+	return Vector2(cell.y * step, cell.x * step)
 
 func _segment_is_vertical(seg: Array) -> bool:
 	return seg.size() == 2 and is_equal_approx(Vector2(seg[0]).x, Vector2(seg[1]).x) \
@@ -714,7 +724,7 @@ func _test_runway_resting_outline_without_needed_tier_tag() -> void:
 	var armed_width := float(o.call("_mark_thickness", {"kind": "armed", "n": 3})) if o != null and o.has_method("_mark_thickness") else 0.0
 	var runway_width := float(o.call("_mark_thickness", {"kind": "runway", "would_be_n": 3})) if o != null and o.has_method("_mark_thickness") else 0.0
 	ok(_outline_ladder_count(b) == 0 and _outline_runway_count(b) == 1 and _outline_label_texts(b).is_empty(),
-		"an inert runway draws only the ribbon, without a tN needed-tier label")
+		"an inert runway draws only the glow, without a tN needed-tier label")
 	ok(runway_width > 0.0 and runway_width < armed_width,
 		"runway resting mark is visibly weaker than an armed ladder")
 	ok(_outline_stack_is_visible_between_board_and_items(b),
@@ -756,8 +766,8 @@ func _test_drag_cascade_tag_sits_on_drop_target() -> void:
 	await process_frame
 	b.queue_free()
 
-func _test_ready_ladder_ribbon_excludes_duplicate_tip_source() -> void:
-	var b := _open_board("cascade_ready_ribbon_exact_chain")
+func _test_ready_ladder_glow_excludes_duplicate_tip_source() -> void:
+	var b := _open_board("cascade_ready_glow_exact_chain")
 	await process_frame
 	var duplicate_source := Vector2i(3, 0)
 	var target := Vector2i(3, 1)
@@ -772,7 +782,7 @@ func _test_ready_ladder_ribbon_excludes_duplicate_tip_source() -> void:
 	ok(_outline_ladder_count(b) == 1 and _outline_has_tag(b, "×3"),
 		"1,1,2,3 still arms a ready ladder")
 	ok(_cells_equal(_outline_ready_ladder_run(b), [target, t2, t3]),
-		"ready ribbon starts at the merge destination and excludes the duplicate source")
+		"the ready glow outlines the merge destination onward, excluding the duplicate source")
 	b.queue_free()
 
 func _test_runway_drag_guide_strengths_use_real_input() -> void:
@@ -876,79 +886,238 @@ func _test_ready_outline_and_flag_off() -> void:
 	off.queue_free()
 	Feat.FLAGS["cascade"] = original
 
-# The ribbon's one rule has to cover every shape a run or a component can take, so pin the shapes
-# a straight-row fixture can never show: a bend, a T and a closed 2x2 ring. Each cell's endpoint
-# count IS its tile — 1 end caps, 2 opposite is a straight, 2 perpendicular is a corner, 3 is a T,
-# 4 is a cross — so asserting the counts asserts the whole tile set without an image. Ordered run
-# paths get one extra guard: touching cells that are not consecutive chain steps must not sprout
-# extra rungs.
-func _test_ribbon_covers_bends_branches_and_rings() -> void:
+# The contour's ONE rule has to cover every shape a run or a component can take, so pin the shapes
+# a straight-row fixture can never show: a bend, a T, a closed ring with a hole, and the DIAGONAL
+# PINCH (two cells meeting at a corner only), which is where a boundary walk that keys edges by
+# their start corner silently loses one. Corner counts ARE the shape — a straight run has 4, an L
+# has 6 with one reflex, a T has 8 with two — so asserting them asserts the whole tile set with no
+# image. Every corner classification comes from the four cells around it, which is also what tells
+# the renderer to bulge a convex corner and cut a reflex one sharp.
+func _test_contour_covers_bends_branches_rings_and_pinches() -> void:
+	var straight := Contour.boundary_loops([Vector2i(3, 1), Vector2i(3, 2), Vector2i(3, 3)])
+	ok(straight.size() == 1 and Array(straight[0]).size() == 4,
+		"a straight run is ONE loop with four corners — the cells are unioned, not linked")
+
+	var bend_cells := [Vector2i(1, 1), Vector2i(2, 1), Vector2i(2, 2)]
+	var bend := Contour.boundary_loops(bend_cells)
+	ok(bend.size() == 1 and Array(bend[0]).size() == 6 and _reflex_count(bend_cells, bend[0]) == 1,
+		"an L bend is ONE loop, six corners, exactly one of them reflex")
+
+	var tee_cells := [Vector2i(2, 1), Vector2i(2, 2), Vector2i(2, 3), Vector2i(1, 2)]
+	var tee := Contour.boundary_loops(tee_cells)
+	ok(tee.size() == 1 and Array(tee[0]).size() == 8 and _reflex_count(tee_cells, tee[0]) == 2,
+		"a T branch is ONE loop with two reflex corners where the arms meet")
+
+	var block := Contour.boundary_loops([Vector2i(1, 1), Vector2i(1, 2), Vector2i(2, 1), Vector2i(2, 2)])
+	ok(block.size() == 1 and Array(block[0]).size() == 4,
+		"a 2x2 block is a single square outline, with no rung across its middle")
+
+	# a real ring: eight cells around one empty middle. The hole is its own loop, wound the other
+	# way — that opposite winding is what points its glow INTO the hole instead of out of it.
+	var ring_cells: Array = []
+	for r in range(1, 4):
+		for c in range(1, 4):
+			if Vector2i(r, c) != Vector2i(2, 2):
+				ring_cells.append(Vector2i(r, c))
+	var ring := Contour.boundary_loops(ring_cells)
+	ok(ring.size() == 2, "a ring gives two loops — the silhouette and its hole")
+	if ring.size() == 2:
+		var outer := _screen_loop(ring[0])
+		var hole := _screen_loop(ring[1])
+		ok(Contour.signed_area(outer) * Contour.signed_area(hole) < 0.0,
+			"the hole is wound opposite to the silhouette it sits in")
+		ok(_outward_points_away(ring_cells, ring[0]) and _outward_points_away(ring_cells, ring[1]),
+			"both loops offset AWAY from the chain's cells")
+
+	# THE DIAGONAL PINCH: two cells touching only at a corner. The shared corner starts two boundary
+	# edges; keeping only one of them drops a whole side of the outline, and walking blindly falls
+	# off the end. Resolved, it is two closed loops of four corners each.
+	var pinch_cells := [Vector2i(1, 1), Vector2i(2, 2)]
+	var pinch := Contour.boundary_loops(pinch_cells)
+	var pinch_corners := 0
+	for raw in pinch:
+		pinch_corners += Array(raw).size()
+	ok(pinch.size() == 2 and pinch_corners == 8,
+		"a diagonal pinch resolves into two closed loops, keeping every boundary edge")
+	ok(Contour.corner_kind(Contour.cell_set(pinch_cells), Vector2i(2, 2)) == Contour.SADDLE,
+		"the pinched corner classifies as a saddle, not as a reflex corner")
+
+	var lone := Contour.boundary_loops([Vector2i(4, 4)])
+	ok(lone.size() == 1 and Array(lone[0]).size() == 4,
+		"an isolated cell still outlines as one closed square")
+	ok(Contour.boundary_loops([]).is_empty(), "an empty chain outlines nothing")
+
+# A drawn contour is a CLOSED, uniformly resampled ring whose corners are rounded to the cell's own
+# tile radius, and whose reflex corners stay sharp. Measured off the built geometry, not eyeballed.
+func _test_contour_rounds_and_resamples_for_drawing() -> void:
 	var outline := CascadeOutline.new()
 	outline.configure(Vector2(400, 400), 40.0, Callable(self, "_landscape_outline_pos"))
-	ok(outline.has_method("_ribbon_links"), "cascade ribbon exposes the link map used by drawing")
-	if not outline.has_method("_ribbon_links"):
+	var geom: Dictionary = outline.call("_chain_geometry", [Vector2i(1, 1), Vector2i(2, 1), Vector2i(2, 2)])
+	var loops: Array = geom["loops"]
+	ok(loops.size() == 1, "the L bend builds one drawable contour")
+	if loops.is_empty():
 		outline.free()
 		return
-
-	var bend: Dictionary = outline.call("_ribbon_links", [Vector2i(1, 1), Vector2i(1, 2), Vector2i(2, 2)], true)
-	var corner: Array = outline.call("_ribbon_ends", Vector2i(1, 2), bend)
-	var tail: Array = outline.call("_ribbon_ends", Vector2i(1, 1), bend)
-	var centre := Vector2(_landscape_outline_pos(Vector2i(1, 2))) + Vector2.ONE * 20.0
-	var perpendicular := false
-	if corner.size() == 2:
-		var u := (Vector2(corner[0]) - centre).normalized()
-		var v := (Vector2(corner[1]) - centre).normalized()
-		perpendicular = is_zero_approx(u.dot(v))
-	ok(corner.size() == 2 and perpendicular and tail.size() == 1, \
-		"a bent run turns a corner and caps its tail")
-
-	var tee: Dictionary = outline.call("_ribbon_links", [Vector2i(2, 1), Vector2i(2, 2), Vector2i(2, 3), Vector2i(1, 2)], false)
-	ok(Array(outline.call("_ribbon_ends", Vector2i(2, 2), tee)).size() == 3, \
-		"a branching component draws a T where three arms meet")
-
-	var ring: Dictionary = outline.call("_ribbon_links", [Vector2i(1, 1), Vector2i(1, 2), Vector2i(2, 1), Vector2i(2, 2)], false)
-	var ring_ok := true
-	for raw in ring:
-		if Array(outline.call("_ribbon_ends", Vector2i(raw), ring)).size() != 2:
-			ring_ok = false
-	ok(ring_ok, "a 2x2 block closes the ribbon into a ring with no loose ends")
-
-	var square_path: Dictionary = outline.call("_ribbon_links", [Vector2i(1, 1), Vector2i(1, 2), Vector2i(2, 2), Vector2i(2, 1)], true)
-	ok(Array(outline.call("_ribbon_ends", Vector2i(1, 1), square_path)).size() == 1
-		and Array(outline.call("_ribbon_ends", Vector2i(2, 1), square_path)).size() == 1,
-		"an ordered chain path does not draw a false closing edge between touching non-consecutive cells")
-
-	var lone: Dictionary = outline.call("_ribbon_links", [Vector2i(4, 4)], true)
-	ok(Array(outline.call("_ribbon_ends", Vector2i(4, 4), lone)).is_empty(), \
-		"an isolated cell has no arms and falls back to the joint disc")
+	var loop: Dictionary = loops[0]
+	var pts: PackedVector2Array = loop["pts"]
+	var m: Dictionary = geom["metrics"]
+	var step: float = float(m["pitch"]) * 0.125
+	var even := true
+	var closed := pts.size() > 8
+	for i in pts.size():
+		var seg := pts[i].distance_to(pts[(i + 1) % pts.size()])
+		if absf(seg - step) > step * 0.35:
+			even = false
+	ok(closed and even, "the contour closes and is resampled at an even arc step (%d points)" % pts.size())
+	ok(PackedVector2Array(loop["off"]).size() == pts.size(),
+		"every contour point carries the mitre offset the strip rides")
+	# the rounding: no drawn point may sit further out than the sharp corner it replaced, and the
+	# convex corners must actually be cut back by about the tile's own radius.
+	var sharp_corner: Vector2 = Vector2(_landscape_outline_pos(Vector2i(1, 1))) - Vector2.ONE * 2.0
+	var nearest := INF
+	for p in pts:
+		nearest = minf(nearest, p.distance_to(sharp_corner))
+	var want: float = float(m["corner"]) * (sqrt(2.0) - 1.0)
+	ok(absf(nearest - want) < step,
+		"the convex corner is rounded to the tile's own corner radius (cut back %.1f, want %.1f)" % [nearest, want])
+	ok(_outward_points_away([Vector2i(1, 1), Vector2i(2, 1), Vector2i(2, 2)],
+		Contour.boundary_loops([Vector2i(1, 1), Vector2i(2, 1), Vector2i(2, 2)])[0]),
+		"the contour's outward side is the side away from the chain")
 	outline.free()
 
-func _test_landscape_outline_uses_transposed_edges() -> void:
+# Every point still comes from _cell_pos, which owns the landscape transpose. A model row-neighbour
+# has to come out as a HORIZONTAL screen offset under landscape, never a vertical one — hardcoding
+# portrait axes here is what once drew rungs instead of a border on a wide screen.
+func _test_landscape_outline_uses_transposed_geometry() -> void:
+	var cells := [Vector2i(2, 2), Vector2i(3, 2)]
+	var wide := CascadeOutline.new()
+	wide.configure(Vector2(240, 260), 40.0, Callable(self, "_landscape_outline_pos"))
+	var tall := CascadeOutline.new()
+	tall.configure(Vector2(240, 260), 40.0, Callable(self, "_portrait_outline_pos"))
+	var wide_box := _loop_bounds(wide, cells)
+	var tall_box := _loop_bounds(tall, cells)
+	ok(wide_box.size.x > wide_box.size.y * 1.5,
+		"a landscape board runs a model row-pair contour ACROSS the screen (%s)" % str(wide_box.size))
+	ok(tall_box.size.y > tall_box.size.x * 1.5,
+		"the same pair runs DOWN the screen in portrait (%s)" % str(tall_box.size))
+	ok(_outward_points_away(cells, Contour.boundary_loops(cells)[0]),
+		"the outward normal survives the transpose (it is a reflection, and it flips the winding)")
+	ok(_built_outward_ok(wide, cells, false) and _built_outward_ok(tall, cells, true),
+		"the BUILT contour offsets away from the chain in both orientations")
+	# the gutter between the two cells is a mark of the board's own geometry, not of the outline's
+	var wide_gut: Array = Dictionary(wide.call("_chain_geometry", cells))["gutters"]
+	var tall_gut: Array = Dictionary(tall.call("_chain_geometry", cells))["gutters"]
+	ok(wide_gut.size() == 1 and tall_gut.size() == 1, "one lit gutter per shared edge")
+	ok(_quad_bounds(wide_gut[0]).size.y > _quad_bounds(wide_gut[0]).size.x
+		and _quad_bounds(tall_gut[0]).size.x > _quad_bounds(tall_gut[0]).size.y,
+		"the lit gutter turns with the transpose too")
+	wide.free()
+	tall.free()
+
+# A runway is the SAME mark, quieter — it will not fire until its piece arrives. The distinction is
+# now carried by the glow's own alphas and halo reach, so pin those, not just the legacy width knob.
+func _test_runway_glow_is_weaker_than_an_armed_ladder() -> void:
 	var outline := CascadeOutline.new()
-	outline.configure(Vector2(240, 260), 40.0, Callable(self, "_landscape_outline_pos"))
-	ok(outline.has_method("_ribbon_links"), "cascade ribbon exposes ordered links for landscape mapping")
-	if not outline.has_method("_ribbon_links"):
-		outline.free()
-		return
-	# The ribbon's endpoints are the transpose-sensitive part now: a model row-neighbour has to
-	# come out as a HORIZONTAL screen offset under the landscape transpose, not a vertical one.
-	var cells: Dictionary = outline.call("_ribbon_links", [Vector2i(2, 2), Vector2i(3, 2), Vector2i(3, 1)], true)
-	var ends: Array = outline.call("_ribbon_ends", Vector2i(3, 2), cells)
-	var centre: Vector2 = Vector2(_landscape_outline_pos(Vector2i(3, 2))) + Vector2.ONE * 20.0
-	var offs: Array = []
-	for e in ends:
-		offs.append(Vector2(e) - centre)
-	var row_off_horizontal := false
-	var col_off_vertical := false
-	for o in offs:
-		var v := Vector2(o)
-		if absf(v.x) > absf(v.y):
-			row_off_horizontal = true
-		else:
-			col_off_vertical = true
-	ok(ends.size() == 2 and row_off_horizontal and col_off_vertical, \
-		"landscape ribbon maps model neighbours through the transposed cell geometry")
+	outline.configure(Vector2(400, 400), 40.0, Callable(self, "_landscape_outline_pos"))
+	var m: Dictionary = Dictionary(outline.call("_chain_geometry", [Vector2i(1, 1), Vector2i(1, 2)]))["metrics"]
+	var armed: PackedFloat32Array = outline.call("_rail_offsets", m, 1.0)
+	var runway: PackedFloat32Array = outline.call("_rail_offsets", m, 0.78)
+	ok(armed[0] > runway[0] and runway[0] > 0.0,
+		"a runway's halo reaches less far than an armed ladder's (%.1f vs %.1f)" % [runway[0], armed[0]])
+	var gap_rail := CascadeOutline.RAILS.size() - 3
+	ok(is_equal_approx(armed[gap_rail], runway[gap_rail]),
+		"the hot line stays ON the tile edge at both strengths — only the halo scales")
+	var lit := Color(1, 1, 1)
+	var full: Color = outline.call("_tint", lit, Color(1, 1, 1), 0.9)
+	var half: Color = outline.call("_tint", lit, Color(1, 1, 1), 0.9 * 0.5)
+	ok(half.a < full.a, "the runway's light is half as strong at every rail")
 	outline.free()
+
+# The travelling light is pinnable, because `make shot` compares captures byte for byte and a warm
+# batch process has run a different number of frames than a fresh one.
+func _test_cascade_phase_pins_for_captures() -> void:
+	var outline := CascadeOutline.new()
+	var before := CascadeOutline.forced_phase
+	CascadeOutline.forced_phase = -1.0
+	outline.set("_t", 0.4)
+	ok(is_equal_approx(float(outline.call("_phase")), 0.4), "left live, the wave rides the clock")
+	CascadeOutline.forced_phase = 0.0
+	ok(is_equal_approx(float(outline.call("_phase")), 0.0), "pinned, the clock is ignored")
+	outline.configure(Vector2(400, 400), 40.0, Callable(self, "_landscape_outline_pos"))
+	outline.set_ladders([{"line": 1, "run": [Vector2i(1, 1), Vector2i(1, 2), Vector2i(1, 3)]}])
+	ok(not outline.is_processing(), "a pinned outline does not run its animation at all")
+	CascadeOutline.forced_phase = -1.0
+	outline.set_ladders([{"line": 1, "run": [Vector2i(1, 1), Vector2i(1, 2), Vector2i(1, 3)]}])
+	ok(outline.is_processing(), "a live armed ladder animates")
+	outline.set_ladders([])
+	ok(not outline.is_processing(), "with nothing to draw the animation stops")
+	CascadeOutline.forced_phase = before
+	outline.free()
+
+func _reflex_count(cells: Array, loop) -> int:
+	var s := Contour.cell_set(cells)
+	var n := 0
+	for raw in loop as Array:
+		if Contour.is_reflex(s, Vector2i(raw)):
+			n += 1
+	return n
+
+func _screen_loop(loop, portrait := false) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for raw in loop as Array:
+		pts.append(Vector2(_portrait_outline_pos(Vector2i(raw)) if portrait \
+			else _landscape_outline_pos(Vector2i(raw))))
+	return pts
+
+# The offset the strip rides must point AWAY from the chain: a probe just outside the contour may
+# never land inside one of the chain's own cells. Checked in BOTH orientations, because the
+# landscape transpose is a reflection and flips the hand the whole lattice is wound on.
+func _outward_points_away(cells: Array, loop) -> bool:
+	return _outward_ok(cells, loop, false) and _outward_ok(cells, loop, true)
+
+func _outward_ok(cells: Array, loop, portrait: bool) -> bool:
+	var pts := _screen_loop(loop, portrait)
+	var offs := Contour.mitre_offsets(pts, -1.0 if portrait else 1.0)
+	for i in pts.size():
+		var probe: Vector2 = pts[i] + offs[i] * 6.0
+		for raw in cells:
+			var origin := Vector2(_portrait_outline_pos(Vector2i(raw)) if portrait \
+				else _landscape_outline_pos(Vector2i(raw)))
+			if Rect2(origin, Vector2.ONE * 40.0).has_point(probe):
+				return false
+	return true
+
+# The same probe, but on the geometry the RENDERER will draw — so the side the outline derives from
+# its own cell-position callable is what gets checked, not a value the test picked.
+func _built_outward_ok(outline: Control, cells: Array, portrait: bool) -> bool:
+	for raw_loop in Dictionary(outline.call("_chain_geometry", cells))["loops"]:
+		var loop: Dictionary = raw_loop
+		var pts: PackedVector2Array = loop["pts"]
+		var offs: PackedVector2Array = loop["off"]
+		for i in pts.size():
+			var probe: Vector2 = pts[i] + offs[i] * 6.0
+			for raw in cells:
+				var origin := Vector2(_portrait_outline_pos(Vector2i(raw)) if portrait \
+					else _landscape_outline_pos(Vector2i(raw)))
+				if Rect2(origin, Vector2.ONE * 40.0).has_point(probe):
+					return false
+	return true
+
+func _loop_bounds(outline: Control, cells: Array) -> Rect2:
+	var loops: Array = Dictionary(outline.call("_chain_geometry", cells))["loops"]
+	if loops.is_empty():
+		return Rect2()
+	var pts: PackedVector2Array = Dictionary(loops[0])["pts"]
+	var box := Rect2(pts[0], Vector2.ZERO)
+	for p in pts:
+		box = box.expand(p)
+	return box
+
+func _quad_bounds(quad) -> Rect2:
+	var box := Rect2(Vector2(Array(quad)[0]), Vector2.ZERO)
+	for p in quad as Array:
+		box = box.expand(Vector2(p))
+	return box
 
 func _line_of(code: int) -> int:
 	return int(code / 100.0)
