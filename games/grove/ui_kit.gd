@@ -4242,14 +4242,13 @@ static func _progress_build_paper(holder: Control, base_name: String, paper: Dic
 		f: float) -> void:
 	var tile := cut_paper_tile()
 	var feather := float(paper.get("feather", 2.0))
-	# a capsule's corner radius is half its own height, which is where cut_paper's legacy arc sampling
-	# stops being invisible — both shapes here ask for a chord instead (see CutPaperPanel.arc_step).
-	var arc := float(paper.get("arc_step", 0.0))
+	# both shapes here are capsules — corner radius half their own height, the game's largest. cut_paper
+	# holds every arc to a fixed sagitta (CutPaperPanel.ARC_TOL_PX), so the caps need nothing asked of them.
 	var track: Control = load(CUT_PAPER).new()
 	track.name = _progress_name(base_name, "Track")
 	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	track.configure({"deckle_amp": 0.0, "rim_width": float(paper.get("crease_w", 3.0)),
-		"edge_feather": feather, "edge_shadow": false, "corner": h * 0.5, "arc_step": arc},
+		"edge_feather": feather, "edge_shadow": false, "corner": h * 0.5},
 		paper.get("well_fill", Pal.CREAM), paper.get("crease", Pal.BARK), tile)
 	holder.add_child(track)              # `edge_shadow: false`: a SUNK well casts nothing downward
 
@@ -4264,7 +4263,7 @@ static func _progress_build_paper(holder: Control, base_name: String, paper: Dic
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var fill_cp: Dictionary = (paper.get("fill_cp", {}) as Dictionary).duplicate()
 	fill_cp.merge({"deckle_amp": 0.0, "rim_width": float(paper.get("fill_rim_w", 2.0)),
-		"edge_feather": feather, "shadow_reach": 0.0, "arc_step": arc}, true)
+		"edge_feather": feather, "shadow_reach": 0.0}, true)
 	# `shadow_reach: 0` and NOT `edge_shadow: false`. The DIRECTIONAL halo that came in with fill_cp IS
 	# this capsule's shadow, and cut_paper's straight-down drop shadow on top of it would cast a second
 	# one — but `edge_shadow` maps to `draw_shadow`, which gates BOTH (cut_paper.gd `_draw_edge_halo`
