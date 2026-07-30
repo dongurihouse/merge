@@ -23,10 +23,10 @@ const LEDGER_PREFIX := "unlock_"
 ## The features.gd flag each gate rides on. An id absent here has no flag (rush).
 const GATE_FLAG := {
 	"weather": &"weather_hours",
-	"cascade": "cascade",
-	"mastery": "mastery",
-	"soil": "improvements",
-	"magnet": "improvements",
+	"cascade": &"cascade",
+	"mastery": &"mastery",
+	"soil": &"improvements",
+	"magnet": &"improvements",
 }
 
 static func ids() -> Array:

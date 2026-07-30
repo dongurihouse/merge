@@ -1497,15 +1497,16 @@ func _weather_teach_rects() -> Array:
 		return []
 	return [_local_rect(a), _local_rect(b)]
 
-# The oriented pair whose merge would TIP a real cascade — the same predicate _prepare_chain
-# computes. chain_path is destination-sensitive, so test both legal drag directions for every
+# The oriented pair whose merge would TIP a real player-built runway. A chain may arm at x2, but
+# that lower CHAIN_MIN_N is deliberately NOT the one-time teach threshold: wait for the stronger
+# x3 runway. chain_path is destination-sensitive, so test both legal drag directions for every
 # actionable pair before moving on to the next one.
 func _cascade_teach_pair() -> Array:
 	for raw_pair in _actionable_merge_pairs():
 		var pair: Array = raw_pair
-		if 1 + BoardLogic.chain_path(board, pair[0], pair[1]).size() >= CHAIN_MIN_N:
+		if 1 + BoardLogic.chain_path(board, pair[0], pair[1]).size() >= RUNWAY_MIN_N:
 			return pair
-		if 1 + BoardLogic.chain_path(board, pair[1], pair[0]).size() >= CHAIN_MIN_N:
+		if 1 + BoardLogic.chain_path(board, pair[1], pair[0]).size() >= RUNWAY_MIN_N:
 			return [pair[1], pair[0]]
 	return []
 

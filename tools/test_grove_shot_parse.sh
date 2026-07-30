@@ -30,6 +30,11 @@ trap 'rm -rf "$TMPDIR_RUN"' EXIT
 
 fail() { echo "test_grove_shot_parse: FAIL — $*" >&2; exit 1; }
 
+case "$QUIET" in
+  /*) QUIET_ABS="$QUIET" ;;
+  *) QUIET_ABS="$ROOT/$QUIET" ;;
+esac
+
 # --- tier 1: it parses --------------------------------------------------------------------
 LOG="$TMPDIR_RUN/parse.log"
 if ! "$QUIET" --headless --path . --check-only \
@@ -45,6 +50,23 @@ if [ "${FAST:-0}" = "1" ]; then
 fi
 
 # --- tier 2: it renders what the mode intends ----------------------------------------------
+# An option in the positional output slot used to become the filename itself:
+# `grove mastery phase=reveal /tmp/x.png` wrote `phase=reveal` in the current directory and
+# exited zero. Run from the disposable directory so the RED behavior cannot dirty the worktree.
+BAD_ORDER_LOG="$TMPDIR_RUN/bad_output_order.log"
+if (
+  cd "$TMPDIR_RUN"
+  "$QUIET_ABS" --path "$ROOT" -s "$TOOL" -- mastery phase=reveal "$TMPDIR_RUN/never.png"
+) >"$BAD_ORDER_LOG" 2>&1; then
+  cat "$BAD_ORDER_LOG" >&2
+  fail "option in the output slot exited zero instead of refusing the ambiguous invocation"
+fi
+[ ! -e "$TMPDIR_RUN/phase=reveal" ] \
+  || fail "option in the output slot was silently written as a PNG filename"
+grep -q 'REFUSED:.*output' "$BAD_ORDER_LOG" \
+  || { cat "$BAD_ORDER_LOG" >&2; fail "bad output order gave no actionable refusal"; }
+echo "  output-order guard: ok"
+
 # run_capture <label> <mode> [extra args...]
 # One quiet capture. Asserts the run exits 0, prints no script error, writes a non-empty PNG and
 # reports err=0. Leaves the log in $CAP_LOG and the SHOT line in $CAP_LINE for the caller's own

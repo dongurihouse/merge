@@ -52,6 +52,7 @@ func _initialize() -> void:
 	_test_weather_teach_requires_a_pair_inside_the_patch()
 	await _test_weather_teach_orients_an_actionable_pair_into_the_patch()
 	await _test_weather_teach_skips_earlier_invalid_and_off_patch_pairs()
+	await _test_cascade_teach_requires_a_built_runway_not_the_chain_floor()
 	await _test_cascade_teach_finds_a_later_direction_sensitive_chain()
 	await _test_weather_reveal_banks_only_after_the_pointed_merge_lands()
 	await _test_cascade_reveal_banks_only_after_the_pointed_chain_finishes()
@@ -837,6 +838,9 @@ func _test_mastery_reveal_sweeps_on_real_generator_tap() -> void:
 	Save.grove()["mastery"] = {str(line): 40}
 	var h = board_host()
 	await process_frame
+	# Keep this test on the mastery path: an unrelated low-probability bonus/treat generator
+	# roll rebuilds every generator node, which makes the identity assertion below stochastic.
+	h.rng.seed = 424242
 	_ensure_empty_ground_cells(h, 4)
 	await process_frame
 	var gen_cell := _mastery_gen_cell(h, line)
@@ -1132,6 +1136,34 @@ func _test_weather_teach_skips_earlier_invalid_and_off_patch_pairs() -> void:
 	var after_off_patch: Array = b._weather_teach_pair()
 	ok(after_off_patch == want and SkyLogic.in_patch(b._sky_state, after_off_patch[1]),
 		"an earlier actionable off-patch pair does not hide a later merge into the patch")
+	b.queue_free()
+
+## A chain now arms at x2, but that is not enough player-built runway for the one-time teach.
+## The break this catches is binding the teach to CHAIN_MIN_N after that constant moved from 3 to 2.
+func _test_cascade_teach_requires_a_built_runway_not_the_chain_floor() -> void:
+	var b = await _open_teach_board("teach_cascade_runway_threshold", G.FEATURE_LEVEL["cascade"], true)
+	var from := Vector2i(3, 2)
+	var to := Vector2i(3, 1)
+	_blank_teach_fixture(b, {
+		from: 101,
+		to: 101,
+		Vector2i(3, 0): 102,
+	})
+	ok(1 + BoardLogicRef.chain_path(b.board, from, to).size() == 2,
+		"fixture offers a real x2 chain at the chain arming floor")
+	ok(b._cascade_teach_pair().is_empty(),
+		"cascade teach ignores x2 — it waits for the stronger runway the player built")
+
+	_blank_teach_fixture(b, {
+		from: 101,
+		to: 101,
+		Vector2i(3, 0): 102,
+		Vector2i(2, 0): 103,
+	})
+	var pair: Array = b._cascade_teach_pair()
+	ok(pair == [from, to]
+			and 1 + BoardLogicRef.chain_path(b.board, pair[0], pair[1]).size() == 3,
+		"cascade teach points once the same drag reaches a real x3 runway")
 	b.queue_free()
 
 func _test_cascade_teach_finds_a_later_direction_sensitive_chain() -> void:
