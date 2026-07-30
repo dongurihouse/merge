@@ -28,11 +28,9 @@ const PurchaseWait = preload("res://engine/scripts/ui/purchase_wait.gd")
 const D = Game.DATA                                               # the active game's data (§10 IAP ladder)
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").Shop   # the engine's shop dials
-const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
-const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")   # the item art's shape-true cast (wrap_sprite)
-const Stall = preload("res://engine/scripts/ui/market_stall.gd")         # THE storefront's furniture (concept A)
+const Screen = preload("res://engine/scripts/ui/shop_screen.gd")         # THE storefront: the mock's own painting + its hit regions
 const HitOverlay = preload("res://engine/scripts/ui/shop_hit_overlay.gd")  # the debug-gated hit-region overlay
 const OVERLAY_NAME := "ShopOverlay"
 const CONFIRM_NAME := "ShopCashConfirmOverlay"   ## the cash confirm raised over an open shop
@@ -199,22 +197,19 @@ static func _open(host: Control, opts: Dictionary) -> void:
 			if is_instance_valid(pair[0]):
 				(pair[0] as CanvasItem).z_index = int(pair[1]))
 
-	# The storefront IS the market stall (concept A) — there is no dialog frame and no offer card. The
-	# awning, the hanging signboard that carries the title, the coral ✕ and the four shelf planks are all
-	# built by engine/scripts/ui/market_stall.gd from the shared cut-paper panel. Width is a % of the
-	# SCREEN, and the stall shrinks to fit a short screen rather than scrolling (the mock has no scroll).
-	var vw: float = host.get_viewport_rect().size.x
+	# The storefront IS the market-stall PAINTING (concept A of shop_screen_variations_v1). There is no
+	# dialog frame, no offer card, and nothing on it drawn in code: engine/scripts/ui/shop_screen.gd puts
+	# the approved art on the screen and lays transparent hit rects over it. This file keeps the MONEY.
 	var cfg: Dictionary = Game.kit_config()
-	var inner: float = grid_inner_w(Kit, cfg, vw)
 
 	var refs := {
 		"coin": hud_wallet.get("coin", {"node": null, "label": null}),
 		"gem": hud_wallet.get("gem", {"node": null, "label": null}),
 		"overlay": overlay, "opts": opts, "host": host,
-		"kit": Kit, "cfg": cfg, "inner": inner}
+		"kit": Kit, "cfg": cfg}
 
-	# (re)build the storefront from the live wallet + stock; a buy rebuilds it in place to refresh
-	# balances and affordability.
+	# (re)build the storefront from the live wallet + stock; a buy rebuilds it in place so a claimed
+	# faucet stops being tappable.
 	var rb := {"fn": Callable(), "first": true}
 	refs["rb"] = rb
 	rb.fn = func() -> void:
@@ -222,42 +217,26 @@ static func _open(host: Control, opts: Dictionary) -> void:
 			return
 		for c in cc.get_children():
 			c.queue_free()
-		var vp: Vector2 = host.get_viewport_rect().size
-		var lay: Dictionary = shop_layout(cfg)
-		lay["max_h"] = vp.y * STALL_MAX_H_PCT
-		lay["title"] = Strings.t("shop.title")
-		lay["on_close"] = modal["dismiss"]
-		var stall: Control = build_body(Kit, vp.x * STALL_W_PCT, _sections(refs), lay)
-		cc.add_child(stall)
+		var screen: Control = build_body(host.get_viewport_rect().size, _sections(refs),
+			{"on_close": modal["dismiss"]})
+		cc.add_child(screen)
 		# the hit-region overlay: authoring-gated debug chrome, never a normal run (see shop_hit_overlay.gd)
-		HitOverlay.mount(overlay, stall)
+		HitOverlay.mount(overlay, screen)
 		if rb.first:
-			FX.pop_in(stall)
+			FX.pop_in(screen)
 			rb.first = false
 	rb.fn.call()
 
-# --- the market-stall storefront (concept A) -----------------------------------------
-# Colours, geometry and the shelf plan all live on engine/scripts/ui/market_stall.gd — this file keeps the
-# MONEY: what is on sale, what it costs, and what pressing it does. The stall is handed the same card
-# dictionaries the sage-card grid was, so a re-layout cannot re-wire a tier.
+# --- the market-stall storefront: THE PAINTING -----------------------------------------
+# The picture and the rects laid over it live on engine/scripts/ui/shop_screen.gd and in the registry
+# that ships beside the art. This file keeps the MONEY: what is on sale, what it costs, and what pressing
+# it does. The screen is handed the same offer dictionaries the sage-card grid and the code-drawn stall
+# both were, so a re-layout cannot re-wire a tier.
 
-## How much of the screen the stall takes. The mock is a FULL-BLEED storefront (its awning runs off both
-## edges), so the stall does not ride the shared 75% dialog width — squeezed to it, the goods and the
-## numerals both drop below the mock's own legibility gate. It is still a modal: the frosted backdrop and
-## the raised wallet are unchanged.
-const STALL_W_PCT := 0.92
-const STALL_MAX_H_PCT := 0.94    # …and it SHRINKS to fit a short screen rather than scrolling (no scroll bars, per the mock)
-
-# The retired sage offer card's own metrics. The stall has no card — these survive ONLY as the fallback
-# values `shop_layout` hands back for a saved config written before the restyle, so an old settings file
-# still loads. Nothing draws them. (Kit.SHOP_CARD_CP_DEFAULTS still supplies the shared cut-paper edge the
-# stall's cream tags and plaques inherit.)
-const CARD_CORNER := 22.0
-const GRID_GAP := 14.0
-
-## The per-offer identity a slot and its price button both carry, so the debug hit overlay can name what a
-## region resolves to and the suites can assert region ↔ purchase. One id per live offer, stable across a
-## rebuild: the free refill, the two quick-help offers, the scissors, and `cash_<i>` per ladder tier.
+## The per-offer identity every region carries, so the debug hit overlay can name what a region resolves
+## to and the suites can assert region ↔ purchase. One id per live offer, stable across a rebuild: the
+## free refill, the two quick-help offers, the scissors, and `cash_<i>` per ladder tier. The SAME ids are
+## the keys of the region registry — an offer with no id there has no shelf on the painting.
 const OFFER_REFILL := "refill"
 const OFFER_WATER := "water_fill"
 const OFFER_POUCH := "coin_pouch"
@@ -266,130 +245,38 @@ const OFFER_SCISSORS := "scissors"
 static func cash_offer_id(i: int) -> String:
 	return "cash_%d" % i
 
-# The whole storefront: the stall built from the live sections.
-static func _build_body(refs: Dictionary) -> Control:
-	return build_body(refs.kit, refs.inner, _sections(refs), shop_layout(refs.get("cfg", {})))
-
-## The shop LAYOUT knobs read from the saved config's "shop" block — the metrics the workbench tunes and
-## the game honours. `icon_size` (the goods\' art size, % of default) is the one the stall still consumes;
-## `card_pad` / `grid_gap` / `corner` described the retired sage offer card and are kept only so an older
-## saved config still loads (the stall derives every metric from its own width — see market_stall.gd).
-static func shop_layout(cfg: Dictionary) -> Dictionary:
-	var sh: Dictionary = (cfg as Dictionary).get("shop", {}) if cfg is Dictionary else {}
-	var o := {
-		"icon_size": float(sh.get("icon_size", 100)) / 100.0,   # art size, % of the default
-		"card_pad": float(sh.get("card_pad", 12)),
-		"grid_gap": float(sh.get("grid_gap", GRID_GAP)),
-		"corner": float(sh.get("corner", CARD_CORNER)),
-	}
-	var Kit: GDScript = Game.kit_script()
-	if Kit != null:
-		o["cp"] = Kit.shop_card_cp_from_config(cfg)
-	return o
-
-## The storefront\'s design width, in LAYOUT px, for a screen `vw` wide. Kept as the ONE derivation of it
-## (the mock rig and the workbench both take their width from the shipping path, never from a number typed
-## beside it — rule 3 of docs/design/verifying-against-a-mock.md).
-static func grid_inner_w(Kit: GDScript, cfg: Dictionary, vw: float) -> float:
-	return vw * STALL_W_PCT
-
 ## THE SHARED STOREFRONT BUILDER. The game (`_open`) computes the sections from live state and passes them
 ## here; the workbench passes demo sections. So the tool renders the real storefront, at the real layout.
-## `lay` carries the saved shop knobs plus, from the game, `max_h` / `title` / `on_close`.
-static func build_body(Kit: GDScript, w: float, sections: Array, lay: Dictionary = {}) -> Control:
-	var rows := stall_rows(sections)
-	var width: float = Stall.fit_width(w, float(lay.get("max_h", 0.0)), rows)
-	var s: float = width / maxf(1.0, Design.size().x)   # the price CTA scales with the stall
-	return Stall.build(Kit, width, rows, {
-		"title": String(lay.get("title", "")),
-		"on_close": lay.get("on_close", Callable()),
-		"icon_scale": float(lay.get("icon_size", 1.0)),
-		"cp": lay.get("cp", {}),        # the SHARED cut-paper knob set every stall sheet is cut with
-		"pill": func(card: Dictionary) -> Control: return _price_pill(Kit, card, s),
-	})
+## `box` is the space the picture is fitted into (the game hands it the whole viewport — the art is a
+## full-bleed storefront and the frosted backdrop shows only in the letterbox).
+static func build_body(box: Vector2, sections: Array, opts: Dictionary = {}) -> Control:
+	return Screen.build(box, offers_by_id(sections), opts)
 
-## THE SHELF PLAN — the one place section DATA becomes stall FURNITURE, and the only thing between the
-## offer list and the shelves. Two rules, both taken from the mock:
-##   * the soft-currency offers (free refill · quick help) stand on the COUNTER, two to a shelf, each under
-##     its own small cream caption plaque on the counter\'s front lip;
-##   * the real-money ladder fills the shelves below it, two tiers to a shelf, smallest upper-left to
-##     largest lower-right, under one wide "ACORN POUCHES" plaque on the wall above the first of them.
-## A section that is longer than the mock\'s (the 💎 fill appears once today\'s free rain is spent; scissors
-## unlock at mastery 2) simply takes another shelf — it never squeezes three goods onto one.
-static func stall_rows(sections: Array) -> Array:
-	var counter: Array = []          # [card, caption]
-	var ladder: Array = []
-	var ladder_caption := ""
+## The live sections flattened to {offer_id: card}. The one place the storefront's DATA meets the
+## painting's region ids, and the reason a card without an `offer_id` simply never gets a region rather
+## than landing on whichever shelf happened to be free.
+static func offers_by_id(sections: Array) -> Dictionary:
+	var out := {}
 	for sec in sections:
-		var s := sec as Dictionary
-		var cards: Array = s.get("cards", [])
-		var caption := String(s.get("caption", ""))
-		for c in cards:
+		for c in (sec as Dictionary).get("cards", []):
 			var card := c as Dictionary
-			if bool(card.get("cash", false)):
-				ladder.append(card)
-				ladder_caption = caption
-				continue
-			# THE CAPTION on the counter plaque. A section that stocks ONE offer names itself (the mock\'s
-			# "FREE REFILL" / "QUICK HELP"); a section stocking several names each offer, or the plaques
-			# would read the same word twice and the player could not tell the offers apart.
-			counter.append([card, caption if cards.size() <= 1 else String(card.get("title", caption))])
-	var rows: Array = []
-	for i in range(0, counter.size(), 2):
-		var pair: Array = counter.slice(i, mini(i + 2, counter.size()))
-		var cards: Array = []
-		var caps: Array = []
-		for e in pair:
-			cards.append(e[0])
-			caps.append(e[1])
-		rows.append({"cards": cards, "captions": caps, "counter": true})
-	for i in range(0, ladder.size(), 2):
-		var row := {"cards": ladder.slice(i, mini(i + 2, ladder.size())), "counter": false}
-		if i == 0:
-			row["header"] = ladder_caption
-		rows.append(row)
-	return rows
+			var id := String(card.get("offer_id", ""))
+			if id != "":
+				out[id] = card
+	return out
 
-# The GREEN price pill — the card's buy CTA (a real-money price, a 💎 cost, or a free claim). Carries the
-# `shop_buy` meta the UI-shape smoke counts, plus `shop_cash` on a real-money pack (the capture tool taps it).
-## `s` scales the pill with the stall (the storefront is laid out at real screen px now — there is no
-## dialog ScaleContainer under it any more), so the CTA keeps the mock\'s proportions at any stall width.
-static func _price_pill(Kit: GDScript, d: Dictionary, s: float = 1.0) -> Control:
-	if String(d.get("price", "")) == "":
-		return null
-	var icon_id := String(d.get("price_icon", ""))
-	# the SHARED pill_button (green role) — the code-drawn cut-paper edge + its OWN shape-true shadow,
-	# tuned from the workbench Button element. The whole pill keeps its natural width (deckle must not
-	# stretch), so the `shop_textured` meta tells the caller to skip the stretch-to-column overrides.
-	var price := String(d.price)
-	var opts := {
-		"bg": "green",
-		"font": int(round(FS.HEADING * s)),
-		"icon": icon_id,          # a 💎/🪙 cost carries its glyph; a USD/free pack ("") prints the text alone
-		"icon_size": int(round(44 * s)),
-		"pad_scale": s,
-		"shadow": true,
-	}
-	var b: Button = Kit.pill_button("" if icon_id != "" else price.to_upper(), opts)
-	b.name = "ShopBuyButton"
-	b.set_meta("shop_buy", true)
-	b.set_meta("shop_textured", true)
-	if bool(d.get("cash", false)):
-		b.set_meta("shop_cash", true)
-	b.set_meta(Stall.OFFER_META, String(d.get("offer_id", "")))   # the SAME id the slot carries
-	b.add_theme_font_override("font", Kit.bold_font())
-	for c in ["font_color", "font_hover_color", "font_pressed_color"]:
-		b.add_theme_color_override(c, Color.WHITE)   # the mock's green CTA prints in pure white
-	# a currency-priced CTA carries the number beside the glyph (pill_button's b.icon supplies the glyph)
-	if icon_id != "":
-		b.text = price
-	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	if d.has("affordable") and not bool(d.get("affordable", true)):
-		b.modulate = Color(1, 1, 1, 0.45)   # can't afford → the CTA greys (still pressable: the wallet wiggles)
-	var cb: Callable = d.get("on_buy", Callable())
-	if cb.is_valid():
-		b.pressed.connect(func() -> void: cb.call())
-	return b
+## The offers the live storefront produced that the painting has NO region for. Today that is the 💎 water
+## fill (offered only once the free daily refill is spent) and the scissors tool (mastery 2). They are not
+## dropped quietly: the built screen carries the same list, the registry names them under `unplaceable`
+## with what each one costs, and grove_shop_tests.gd fails if the set changes.
+static func unplaceable_offers(sections: Array) -> Array:
+	var placed: Array = Screen.offer_ids()
+	var out: Array = []
+	for id in offers_by_id(sections).keys():
+		if not placed.has(String(id)):
+			out.append(String(id))
+	out.sort()
+	return out
 
 # Build the live shop SECTIONS for the unified storefront (shop_dialog_v3): the FREE refill leads,
 # then Quick help (the Coin pouch, plus 💎 Fill-water only after FREE is unavailable), then the
@@ -467,17 +354,10 @@ static func _premium_sections(refs: Dictionary) -> Array:
 			"on_buy": func() -> void: _confirm_cash(host, refs, i)})
 	return [{"caption": Strings.t("shop.premium.acorn_pouches_caption"), "cards": packs}]
 
-## THE STOREFRONT'S BAKEABLE SPRITES: [icon_id, polish cap] for every good the stall can stand on a shelf
-## — the watering can, the coin pouch, and one per ladder tier. games/tools/bake_targets.gd drives
-## `clean_tex_path` over these so `make bake-textures` writes their mirrors and
-## engine/tests/kit_bake_freshness_tests.gd holds them fresh. Declared HERE, off the live ladder, so a
-## grove that adds a pack tier bakes its art with no second list to remember.
-## (The same shape as LevelPopup.bake_sprites, for the same reason.)
-static func bake_sprites() -> Array:
-	var out: Array = [["shop_can", Stall.GOODS_TEX_CAP], ["shop_pouch", Stall.GOODS_TEX_CAP]]
-	for i in CASH_PACKS.size():
-		out.append([_pack_icon_id(i), Stall.GOODS_TEX_CAP])
-	return out
+# (NO `bake_sprites` here any more. The code-drawn stall stood its goods ~420px tall and so declared its
+# own 384px polish cap for games/tools/bake_targets.gd to bake; the storefront draws no sprites at all
+# now — the goods are painted into the picture — so that set had no consumer and its eight @384 mirrors
+# were removed with it. The ids below survive because the offer CARDS still name the good they are for.)
 
 # The escalating acorn-pack art id for ladder pack i (pack_t1… — the cut-paper container ladder from
 # shop_item_icons_v1), falling back to the plain gem when the grove has more packs than tier sprites.

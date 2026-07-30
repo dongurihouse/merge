@@ -19,7 +19,7 @@ extends Control
 ## capture that WANTS it sets the gate deliberately: `make shot-map MODE=shophits`.
 
 const Debug = preload("res://engine/scripts/ui/debug.gd")
-const Stall = preload("res://engine/scripts/ui/market_stall.gd")
+const Screen = preload("res://engine/scripts/ui/shop_screen.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const FS = preload("res://engine/scripts/core/tuning.gd").FontScale
 
@@ -36,14 +36,14 @@ const BAD_COL := Color(1.0, 0.20, 0.18)
 const PILL_COL := Color(0.25, 0.65, 1.0)
 const INK := Color(0.06, 0.09, 0.12)
 
-var _stall: Control = null
+var _screen: Control = null
 var _regions: Array = []     ## [{rect, declared, resolved, kind, good}]
 var _probed := false
 
 ## Mount the overlay over an open storefront. A NO-OP unless the authoring gate is on, so the live game,
 ## the suites and ordinary captures never see it. Returns the overlay (or null when gated off).
-static func mount(host: Control, stall: Control) -> Control:
-	if host == null or stall == null or not Debug.authoring():
+static func mount(host: Control, screen: Control) -> Control:
+	if host == null or screen == null or not Debug.authoring():
 		return null
 	if host.has_node(OVERLAY_NAME):
 		return host.get_node(OVERLAY_NAME) as Control
@@ -52,12 +52,12 @@ static func mount(host: Control, stall: Control) -> Control:
 	ov.set_anchors_preset(Control.PRESET_FULL_RECT)
 	ov.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ov.z_index = Overlay.MODAL_TOP_Z + 1
-	ov._stall = stall
+	ov._screen = screen
 	host.add_child(ov)
 	return ov
 
 func _ready() -> void:
-	# probe AFTER the containers have laid the stall out — a rect read in the same frame it was added is
+	# probe AFTER the containers have laid the screen out — a rect read in the same frame it was added is
 	# the pre-layout one, and every region would be reported at the wrong place.
 	_settle()
 
@@ -70,15 +70,15 @@ func _settle() -> void:
 ## Collect the regions, then ask the ENGINE what each one resolves to.
 func _probe() -> void:
 	_regions.clear()
-	if _stall == null or not is_instance_valid(_stall):
+	if _screen == null or not is_instance_valid(_screen):
 		return
 	var vp := get_viewport()
-	for n in _stall.find_children("*", "Control", true, false):
+	for n in _screen.find_children("*", "Control", true, false):
 		var c := n as Control
 		if not is_instance_valid(c) or not c.is_visible_in_tree():
 			continue
 		var kind := ""
-		if c.has_meta(Stall.SLOT_META):
+		if c.has_meta(Screen.SLOT_META):
 			kind = "slot"
 		elif c.has_meta("shop_buy"):
 			kind = "price"
@@ -87,7 +87,7 @@ func _probe() -> void:
 		if c.mouse_filter == Control.MOUSE_FILTER_IGNORE:
 			continue                       # not hit-tested at all — nothing to draw
 		var rect := c.get_global_rect()
-		var declared := String(c.get_meta(Stall.OFFER_META, ""))
+		var declared := String(c.get_meta(Screen.OFFER_META, ""))
 		var resolved := _resolve(vp, rect)
 		_regions.append({
 			"rect": rect, "declared": declared, "resolved": resolved, "kind": kind,
@@ -125,12 +125,12 @@ func _resolve(vp: Viewport, rect: Rect2) -> Array:
 	return seen
 
 ## Walk a picked control UP to the offer that owns it. The price button carries the id itself; anything
-## inside a shelf cell resolves through the cell. Nothing else in the stall stops the mouse.
+## inside a shelf cell resolves through the cell. Nothing else over the painting stops the mouse.
 func _offer_of(c: Node) -> String:
 	var n := c
 	while n != null:
-		if n is Object and (n as Object).has_meta(Stall.OFFER_META):
-			var id := String((n as Object).get_meta(Stall.OFFER_META, ""))
+		if n is Object and (n as Object).has_meta(Screen.OFFER_META):
+			var id := String((n as Object).get_meta(Screen.OFFER_META, ""))
 			if id != "":
 				return id
 		n = n.get_parent()

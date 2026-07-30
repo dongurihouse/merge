@@ -7,9 +7,10 @@ const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")   # the w
 const Kit = preload("res://games/grove/ui_kit.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const SpritePanel = preload("res://engine/scripts/ui/sprite_panel.gd")   # the two card/art shadow shapes
-const Stall = preload("res://engine/scripts/ui/market_stall.gd")         # the storefront's furniture + its hit-region names
+const ShopScreen = preload("res://engine/scripts/ui/shop_screen.gd")      # the storefront painting + its hit-region names
 const HitOverlay = preload("res://engine/scripts/ui/shop_hit_overlay.gd")
 const DebugUI = preload("res://engine/scripts/ui/debug.gd")
+const Design = preload("res://engine/scripts/core/design.gd")   # THE design-viewport owner — never re-type the canvas
 
 func _initialize() -> void:
 	begin("grove · shop")
@@ -329,7 +330,7 @@ func _initialize() -> void:
 	Save.set_water(G.WATER_CAP)                            # full → a refill banks a spare
 	ShopS.open_water(wsh, {})
 	var w_overlay: Control = wsh.find_child("ShopOverlay", true, false)
-	ok(w_overlay != null and _press_label(w_overlay, "FREE"), "the storefront shows a green 'FREE' refill CTA")
+	ok(w_overlay != null and _press_offer(w_overlay, ShopS.OFFER_REFILL), "the storefront offers the free refill")
 	ok(Save.water() == G.WATER_CAP * 2, "pressing the free refill banks a full can over-cap via Save (%d💧)" % Save.water())
 	wsh.queue_free()
 	# T-J(v): the stall is reachable from BOTH the board AND the hub (map), and grants through Save from
@@ -344,7 +345,7 @@ func _initialize() -> void:
 		ok(h._open_water.is_valid(), "the %s HUD wires an _open_water callable" % where)
 		h._open_water.call()                               # the exact path the water pill + fires
 		var ov: Control = h.find_child("ShopOverlay", true, false)
-		ok(ov != null and _press_label(ov, "FREE"), "the %s storefront shows the free-refill CTA" % where)
+		ok(ov != null and _press_offer(ov, ShopS.OFFER_REFILL), "the %s storefront offers the free refill" % where)
 		ok(Save.water() == G.WATER_CAP * 2, "...and pressing it grants a full can over-cap via Save (%s)" % where)
 		h.queue_free()
 	# T-J(vi): the board keeps a live water cache for gameplay; when a shop grant ticks the HUD refresh,
@@ -780,102 +781,78 @@ func _initialize() -> void:
 	ok(rhost.find_children("ShopFooterNote", "", true, false).is_empty(), "no first-buy footer note")
 	rhost.queue_free()
 
-	# ── THE MARKET STALL (2026-07-30, concept A) ────────────────────────────────────────────────────
-	# The sage offer card is retired: the goods STAND on shelf planks now. The relationships the card's
-	# assertions existed to pin are unchanged and are re-asserted below on the surfaces that replaced it —
-	# every sheet is the shared code-drawn cut_paper.gd panel, every one casts its OWN shadow (no wrapper
-	# stack on top of it), every item's art casts a shape-true silhouette, and no baked nine-patch frame is
-	# drawn any more. Control geometry is float32 → is_equal_approx, never ==.
-	fresh("stall_surfaces")
+	# ── THE STOREFRONT IS THE PAINTING (2026-07-30) ─────────────────────────────────────────────────
+	# Owner: "use the whole image from the mock". The shop screen is the approved concept art itself and
+	# the game draws nothing on it — so what this block asserts is no longer a material (there is no
+	# cut-paper sheet left to check) but the two things a picture-as-a-screen can silently get wrong:
+	# what is actually on the screen, and where the taps are.
+	fresh("screen_is_the_painting")
 	var dhost := Control.new()
 	dhost.set_anchors_preset(Control.PRESET_FULL_RECT)
 	get_root().add_child(dhost)
 	ShopS.open(dhost, {})
 	await create_timer(0.15).timeout
-	var stall: Control = dhost.find_child("ShopStall", true, false) as Control
-	ok(stall != null, "the storefront builds the market stall")
+	var screen: Control = dhost.find_child(ShopScreen.ROOT_NODE, true, false) as Control
+	ok(screen != null, "the storefront builds the shop screen")
+	var art := screen.find_child(ShopScreen.ART_NODE, true, false) as TextureRect
+	ok(art != null and art.texture != null, "…and it is ONE TextureRect carrying the storefront picture")
+	if art != null and art.texture != null:
+		ok(art.texture.get_size() == ShopScreen.art_size(),
+			"…the picture at the size the registry measured (%s)" % str(art.texture.get_size()))
+		ok(art.get_global_rect().is_equal_approx(screen.get_global_rect()),
+			"…filling the screen root exactly, so there is no letterbox INSIDE the art")
+	# NOTHING ELSE IS DRAWN. The rejected pass re-built this design out of code-drawn cut-paper
+	# primitives and the game's own sprites and text; the whole point of the redo is that none of that
+	# is here. A stray Label or cut-paper panel would be exactly that regression coming back.
 	var cp_script := load("res://engine/scripts/ui/cut_paper.gd")
-	# the furniture census, by each surface's own node name — 8 offers -> 1 counter shelf + 3 ladder shelves
-	var census := {
-		Stall.WALL_NODE: 1, Stall.POST_NODE: 2, Stall.SIGN_NODE: 1,
-		Stall.AWNING_NODE: Stall.AWNING_BAYS,
-		Stall.SHELF_FACE_NODE: 4, Stall.SHELF_LIP_NODE: 4,
-		Stall.HEADER_NODE: 1, Stall.SLOT_NODE: 8, Stall.TAG_NODE: 8,
-	}
-	for node_name in census:
-		var found := stall.find_children("%s*" % node_name, "Control", true, false)
-		ok(found.size() == int(census[node_name]),
-			"the stall builds %d x %s (%d)" % [int(census[node_name]), node_name, found.size()])
-	# every SHEET the stall draws is the shared panel, smooth-cut, casting its own shadow.
-	var sheets: Array = []
-	for node_name in [Stall.WALL_NODE, Stall.POST_NODE, Stall.SIGN_NODE, Stall.AWNING_NODE,
-			Stall.SHELF_FACE_NODE, Stall.SHELF_LIP_NODE, Stall.HEADER_NODE, Stall.TAG_NODE,
-			Stall.PLAQUE_NODE]:
-		sheets.append_array(stall.find_children("%s*" % node_name, "Control", true, false))
 	var drawn := 0
-	var smooth := 0
-	for sh in sheets:
-		if (sh as Node).get_script() != cp_script:
-			continue
-		drawn += 1
-		if is_equal_approx(float((sh as Object).get("deckle_amp")), 0.0) \
-				and float((sh as Object).get("edge_feather")) > 0.0:
-			smooth += 1
-	ok(drawn == sheets.size(), "every stall surface is the shared cut_paper.gd panel (%d/%d)" % [drawn, sheets.size()])
-	ok(smooth == sheets.size(), "…wearing the shared SMOOTH antialiased cut, not a torn edge (%d/%d)" % [smooth, sheets.size()])
-	# the awning is the ONE surface that asks the shared panel for a different base outline. Assert the
-	# request LANDED: `base_shape` is read with .get(), so a misspelling would draw an ordinary rounded
-	# rect under the awning's own name and the hem would just quietly stop being a scallop.
-	var scallops := 0
-	for bay in stall.find_children("%s*" % Stall.AWNING_NODE, "Control", true, false):
-		if String((bay as Object).get("shape")) == "scallop":
-			scallops += 1
-	ok(scallops == Stall.AWNING_BAYS,
-		"every awning bay really draws the scalloped hem, not a rounded rect (%d/%d)" % [scallops, Stall.AWNING_BAYS])
-	# …and the SHARED knob set really reached them: the storefront's own cream sheets round by the config's
-	# `shop.corner`, which is what makes "the shop inherits the UI's paper" true rather than aspirational.
-	var lay: Dictionary = ShopS.shop_layout(Kit.load_config(Kit.CONFIG_PATH))
-	var want_corner: float = float((lay.get("cp", {}) as Dictionary).get("corner", -1.0))
-	ok(is_equal_approx(want_corner, float(Kit.SHOP_CARD_CP_DEFAULTS["corner"])),
-		"the SHIPPING config carries the storefront's measured corner (%.1f)" % want_corner)
-	var a_tag := stall.find_children("%s*" % Stall.TAG_NODE, "Control", true, false)[0] as Control
-	ok(is_equal_approx(float(a_tag.get("corner")), want_corner),
-		"…and the drawn amount tag really rounds by it (%.1f)" % float(a_tag.get("corner")))
-	# item art still casts its own silhouette, and never a halo (a drop, never a ring).
-	var art_cast := 0
-	var haloed := 0
-	for slot in stall.find_children("%s*" % Stall.SLOT_NODE, "Control", true, false):
-		var art := (slot as Control).find_children("%s*" % SpritePanel.SPRITE_SHADOW, "TextureRect", true, false)
-		art_cast += 1 if art.size() >= SpritePanel.LADDER_MIN else 0
-		for shn in art:
-			if (shn as Control).position.x < -0.01 or (shn as Control).position.y < -0.01:
-				haloed += 1
-	ok(art_cast == 8, "every offer's goods cast their own silhouette (%d/8)" % art_cast)
-	ok(haloed == 0, "no cast reaches above or left of its element (a drop, never a halo)")
-	# NOT ALSO a wrapper cast, and no baked nine-patch frame anywhere in the storefront.
-	ok(dhost.find_children("%s*" % SpritePanel.CARD_SHADOW, "Panel", true, false).is_empty(),
-		"no surface wears a second, wrapper-drawn cast on top of the sheet's own")
-	ok(dhost.find_children("%s*" % SpritePanel.PANEL_SHADOW, "Panel", true, false).is_empty(),
-		"no cut-paper element falls back to the rounded-rect cast that rings it")
-	var baked := 0
-	for tr in dhost.find_children("*", "TextureRect", true, false):
-		var tex: Texture2D = (tr as TextureRect).texture
-		if tex != null and String(tex.resource_path).contains("/dialogs/shop/card_"):
-			baked += 1
-	for pc in dhost.find_children("*", "PanelContainer", true, false):
-		var sb: StyleBox = (pc as PanelContainer).get_theme_stylebox("panel")
-		if sb is StyleBoxTexture and (sb as StyleBoxTexture).texture != null \
-				and String((sb as StyleBoxTexture).texture.resource_path).contains("/dialogs/shop/card_"):
-			baked += 1
-	ok(baked == 0, "no storefront frame is painted from a baked nine-patch (%d found)" % baked)
-	# THE STOREFRONT FITS THE SCREEN. The mock has no scroll bars, so the stall SHRINKS to the viewport
-	# instead of scrolling — assert the built stall really is inside it rather than trusting the solver.
+	for n in screen.find_children("*", "Control", true, false):
+		if (n as Node).get_script() == cp_script:
+			drawn += 1
+	ok(drawn == 0, "no cut-paper sheet is drawn over the painting (%d)" % drawn)
+	ok(screen.find_children("*", "Label", true, false).is_empty(),
+		"…and no text is typeset over it — every word on this screen is the picture's own")
+	var textures := 0
+	for tr in screen.find_children("*", "TextureRect", true, false):
+		if (tr as TextureRect).texture != null:
+			textures += 1
+	ok(textures == 1, "…and exactly ONE texture: the picture (%d)" % textures)
+	# THE SCREEN FITS, and keeps the picture's aspect: it is letterboxed, never cropped or stretched.
 	var vp: Vector2 = dhost.get_viewport_rect().size
-	ok(stall.size.y <= vp.y + 0.5 and stall.size.x <= vp.x + 0.5,
-		"the stall fits the screen without scrolling (%.0fx%.0f in %.0fx%.0f)" % [stall.size.x, stall.size.y, vp.x, vp.y])
+	ok(screen.size.x <= vp.x + 0.5 and screen.size.y <= vp.y + 0.5,
+		"the screen fits the viewport (%.0fx%.0f in %.0fx%.0f)" % [screen.size.x, screen.size.y, vp.x, vp.y])
+	var art_size := ShopScreen.art_size()
+	ok(is_equal_approx(screen.size.x / screen.size.y, art_size.x / art_size.y),
+		"…at the picture's own aspect (%.4f vs %.4f)" % [screen.size.x / screen.size.y, art_size.x / art_size.y])
 	ok(dhost.find_children("*", "ScrollContainer", true, false).is_empty(),
-		"…so the storefront carries no scroll container at all (the mock has no scroll bars)")
+		"…and carries no scroll container (a picture does not scroll)")
+	# THE CLOSE ✕ still closes, and is a fingertip. The picture's own disc is 93px on a 1080px canvas,
+	# under the platform floor, so the region is deliberately opened past the art it covers.
+	var close := screen.find_child(ShopScreen.CLOSE_NODE, true, false) as Button
+	ok(close != null, "the painting's ✕ carries a live close region")
+	if close != null:
+		var cr := close.get_global_rect()
+		ok(cr.size.x >= 44.0 and cr.size.y >= 44.0,
+			"…at least a fingertip (%.0fx%.0f)" % [cr.size.x, cr.size.y])
+		_push_tap(cr.get_center())
+		await process_frame
+		await process_frame
+		ok(dhost.find_child(ShopScreen.ROOT_NODE, true, false) == null,
+			"…and a real tap on it closes the storefront")
 	dhost.queue_free()
+
+	# ── THE REGIONS TRACK THE ART, NOT THE VIEWPORT ─────────────────────────────────────────────────
+	# The picture is 1080x1920 and a phone rarely is, so it is letterboxed — and a hit box derived from
+	# the VIEWPORT instead of the picture's own drawn rect drifts off the goods by exactly the letterbox.
+	# Build at four aspects (the design canvas, a tall modern phone, a short one, a tablet) and assert
+	# every region is still the registry's fraction of the ART.
+	await _regions_track_the_art()
+
+	# ── WHAT THE PAINTING CLAIMS vs WHAT THE CONFIG GRANTS ─────────────────────────────────────────
+	# The amounts and the prices are BAKED into this picture. That is fine today and wrong the moment
+	# anyone re-tunes the ladder, so the two are pinned to each other.
+	_art_claims_match_the_live_config()
+	await _only_the_known_offers_are_unplaceable()
 
 	# ── HIT TESTING: every tappable region triggers exactly the purchase it appears to ───────────────
 	# This is the screen that takes real money, so geometry is not enough. Each region is driven through
@@ -887,6 +864,144 @@ func _initialize() -> void:
 	await _test_hit_overlay_is_gated_and_honest()
 
 	finish()
+
+## THE PAINTING'S PRICES ARE BAKED IN, so the registry transcribes what each offer's art says and this
+## asserts the live config still grants exactly that. Without it a re-tuned ladder — a new tier, a
+## re-priced pack, a bigger free refill — leaves a storefront that quietly misstates what a player gets
+## for their money, and nothing in the build would notice.
+##
+## IT DOES NOT, AND CANNOT, FIX THE CURRENCY. "$0.99" is painted into the picture, and the App Store
+## shows every user their own currency at their own local price point — so this screen is wrong outside
+## the US as drawn, whatever this test says. That is a decision for the owner (live text composited over
+## the eight price plates only, leaving the rest of the picture untouched, is the small version) and is
+## written up in the registry's own _doc. This guard covers the half that CAN be mechanised.
+func _art_claims_match_the_live_config() -> void:
+	fresh("art_claims_vs_config")
+	var checked := 0
+	# the two soft-currency offers
+	var refill: Dictionary = ShopScreen.art_claims(ShopS.OFFER_REFILL)
+	ok(int(refill.get("amount", -1)) == ShopS.refill_amount(),
+		"the art's free refill says %d and the claim grants %d" % [int(refill.get("amount", -1)), ShopS.refill_amount()])
+	ok(String(refill.get("price", "")) == "FREE", "…and it is drawn as FREE, which it is")
+	checked += 1
+	var pouch: Dictionary = ShopScreen.art_claims(ShopS.OFFER_POUCH)
+	ok(int(pouch.get("amount", -1)) == ShopS.COIN_PACK,
+		"the art's coin pouch says %d coins and the pouch grants %d" % [int(pouch.get("amount", -1)), ShopS.COIN_PACK])
+	ok(int(String(pouch.get("price", "0"))) == ShopS.COIN_PACK_GEM_COST,
+		"…at the %s acorns the ladder charges (%d)" % [String(pouch.get("price", "")), ShopS.COIN_PACK_GEM_COST])
+	checked += 1
+	# …and every real-money tier
+	ok(Data.CASH_PACKS.size() == 6,
+		"the painting draws six cash tiers and the ladder has %d" % Data.CASH_PACKS.size())
+	for i in Data.CASH_PACKS.size():
+		var claims: Dictionary = ShopScreen.art_claims(ShopS.cash_offer_id(i))
+		ok(not claims.is_empty(), "tier %d has a shelf on the painting" % i)
+		if claims.is_empty():
+			continue
+		ok(int(claims.get("amount", -1)) == int(Data.CASH_PACKS[i].gems),
+			"the art's tier %d says %d acorns and the pack grants %d"
+				% [i, int(claims.get("amount", -1)), int(Data.CASH_PACKS[i].gems)])
+		ok(String(claims.get("price", "")) == Iap.usd(String(Data.CASH_PACKS[i].key)),
+			"…at the catalog's own price (%s vs %s)"
+				% [String(claims.get("price", "")), Iap.usd(String(Data.CASH_PACKS[i].key))])
+		# the POPULAR ribbon is painted beside ONE tier; the ladder marks one tier `pop`. They must agree,
+		# or the picture merchandises a pack the config is not merchandising.
+		var art_pop := String(claims.get("flag", "")) == "POPULAR"
+		ok(art_pop == bool(Data.CASH_PACKS[i].get("pop", false)),
+			"…and tier %d's painted POPULAR ribbon matches the ladder's `pop` (%s)" % [i, art_pop])
+		checked += 1
+	ok(checked == 8, "every offer the painting draws was checked against the config (%d of 8)" % checked)
+
+## THE PAINTING IS FIXED, so it presents exactly the eight offers it draws — and the storefront can
+## produce more than eight. Those extras are not dropped silently: they are named in the registry with
+## what each one costs, and this fails if the set ever changes, so a NEW unreachable purchase has to be
+## a decision someone made rather than one nobody saw.
+func _only_the_known_offers_are_unplaceable() -> void:
+	fresh("unplaceable_offers")
+	var declared: Array = []
+	for u in ShopScreen.registry().get("unplaceable", []):
+		declared.append(String((u as Dictionary).get("id", "")))
+	declared.sort()
+	ok(declared == ["scissors", "water_fill"],
+		"the registry names the offers the painting cannot sell (%s)" % str(declared))
+	# a FRESH player sees only what the picture draws — nothing is lost in the default state.
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host)
+	ShopS.open(host, {})
+	await create_timer(0.15).timeout
+	var screen: Control = host.find_child(ShopScreen.ROOT_NODE, true, false) as Control
+	ok(screen != null and (screen.get_meta(ShopScreen.UNPLACED_META, ["?"]) as Array).is_empty(),
+		"a fresh storefront places every offer it produced (%s)"
+			% str(screen.get_meta(ShopScreen.UNPLACED_META, ["?"]) if screen != null else "no screen"))
+	host.queue_free()
+	# …and once the free refill is spent, the 💎 water fill appears with nowhere to stand. Asserted, not
+	# assumed: this is the exact loss the report to the owner names.
+	Claims.claim("refill_water")
+	var spent := ShopS.unplaceable_offers(ShopS._sections({"host": null, "opts": {}}))
+	ok(spent == ["water_fill"],
+		"with the free refill spent, exactly the 💎 water fill has no shelf (%s)" % str(spent))
+
+## THE REGIONS TRACK THE ART. The picture keeps its own aspect and is letterboxed inside the viewport,
+## so a rect derived from the VIEWPORT would sit off the goods by exactly the letterbox on every device
+## that is not 1080x1920. Built at four aspects; each region must be the registry's own fraction of the
+## PICTURE's drawn rect, and the picture must never be cropped or stretched.
+func _regions_track_the_art() -> void:
+	fresh("regions_track_the_art")
+	var art := ShopScreen.art_size()
+	var offers := {}
+	for id in ShopScreen.offer_ids():
+		offers[id] = {"offer_id": id, "on_buy": func() -> void: pass}
+	# aspects EXPRESSED AS THE DESIGN CANVAS TIMES A RATIO — the canvas itself is Design.size()'s to
+	# state (engine/tests/const_ssot_tests.gd), and what matters here is the ratio anyway.
+	var canvas := Design.size()
+	var boxes := {
+		"the design canvas": canvas,
+		"a tall phone (canvas × 1.22 tall)": Vector2(canvas.x, canvas.y * 1.22),
+		"a short phone (canvas × 0.84 tall)": Vector2(canvas.x, canvas.y * 0.84),
+		"a tablet (canvas × 1.42 wide, × 1.07 tall)": Vector2(canvas.x * 1.42, canvas.y * 1.07),
+	}
+	for label in boxes:
+		var box: Vector2 = boxes[label]
+		var screen: Control = ShopScreen.build(box, offers, {})
+		get_root().add_child(screen)
+		# CENTRE IT the way the modal's CenterContainer does, so the letterbox is REAL: on every box but
+		# the design canvas the picture starts somewhere other than the screen's own origin, and a region
+		# derived from the viewport instead of the art would be off by exactly this offset.
+		screen.position = ((box - screen.size) * 0.5).floor()
+		await process_frame
+		ok(is_equal_approx(screen.size.x, box.x) != is_equal_approx(screen.size.y, box.y) \
+			or is_equal_approx(box.x / box.y, art.x / art.y),
+			"[%s] …letterboxed on exactly one axis (offset %s)" % [label, str(screen.position)])
+		ok(screen.size.x <= box.x + 0.5 and screen.size.y <= box.y + 0.5,
+			"[%s] the picture fits (%.0fx%.0f)" % [label, screen.size.x, screen.size.y])
+		ok(is_equal_approx(screen.size.x / screen.size.y, art.x / art.y),
+			"[%s] …keeping its own aspect (never cropped, never stretched)" % label)
+		# it fills ONE axis exactly — a fit that shrank on both would be leaving room for nothing.
+		ok(is_equal_approx(screen.size.x, box.x) or is_equal_approx(screen.size.y, box.y),
+			"[%s] …filling the box on its limiting axis" % label)
+		var k: float = screen.size.x / art.x
+		var checked := 0
+		for entry in ShopScreen.registry().get("offers", []):
+			var o := entry as Dictionary
+			for kind in ["cell", "price"]:
+				var node_name: String = "%s_%s" % [
+					ShopScreen.SLOT_NODE if kind == "cell" else ShopScreen.PRICE_NODE, String(o["id"])]
+				var n := screen.find_child(node_name, true, false) as Control
+				ok(n != null, "[%s] %s has its %s region" % [label, String(o["id"]), kind])
+				if n == null:
+					continue
+				# the region's rect, in the PICTURE's own pixels, read back off the built node
+				var r := n.get_global_rect()
+				var back := Rect2((r.position - screen.get_global_rect().position) / k, r.size / k)
+				var want: Array = o[kind]
+				ok(is_equal_approx(back.position.x, float(want[0])) and is_equal_approx(back.position.y, float(want[1])) \
+					and is_equal_approx(back.size.x, float(want[2])) and is_equal_approx(back.size.y, float(want[3])),
+					"[%s] %s's %s lands on the picture's %s (read back %s)"
+						% [label, String(o["id"]), kind, str(want), str(back)])
+				checked += 1
+		ok(checked == 16, "[%s] all sixteen regions were read back (%d)" % [label, checked])
+		screen.queue_free()
 
 # THE BOARD'S BOTTOM ROW IS A TAB BAR bled to the screen edge — the same format the home/map nav row
 # wears (mock: _concepts/screens/palette_a_meadow_sky_board.png). All three of its sheets — the Home
@@ -1010,6 +1125,18 @@ func _push_tap(gpos: Vector2) -> void:
 	up.position = gpos
 	get_root().push_input(up, true)
 
+## Press the storefront region for `offer_id`. The picture-era replacement for `_press_label`, which
+## found a CTA by its rendered text: every word on this screen is painted into the art now, so a region
+## is found by the offer meta it carries — the SAME meta its buy callable was wired from. Both of an
+## offer's regions (its cell and its price plate) carry it and share one callable, so either will do.
+func _press_offer(overlay: Control, offer_id: String) -> bool:
+	for b in overlay.find_children("*", "Button", true, false):
+		var btn := b as Button
+		if String(btn.get_meta(ShopScreen.OFFER_META, "")) == offer_id and not btn.disabled:
+			btn.pressed.emit()
+			return true
+	return false
+
 # ── the storefront's HIT REGIONS ───────────────────────────────────────────────────────────────────
 ## Every tappable region must trigger exactly the purchase it appears to, and no purchase may become
 ## unreachable. That is the invariant this screen exists under — it takes real money — so it is driven
@@ -1092,11 +1219,11 @@ func _tap_offer(host: Control, offer_id: String, via: String) -> bool:
 func _region_for(host: Control, offer_id: String, via: String) -> Control:
 	for n in host.find_children("*", "Control", true, false):
 		var c := n as Control
-		if String(c.get_meta(Stall.OFFER_META, "")) != offer_id:
+		if String(c.get_meta(ShopScreen.OFFER_META, "")) != offer_id:
 			continue
 		if c.mouse_filter == Control.MOUSE_FILTER_IGNORE or not c.is_visible_in_tree():
 			continue
-		if via == "cell" and c.has_meta(Stall.SLOT_META):
+		if via == "cell" and c.has_meta(ShopScreen.SLOT_META):
 			return c
 		if via == "price" and c.has_meta("shop_buy"):
 			return c

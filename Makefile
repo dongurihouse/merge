@@ -41,6 +41,7 @@ PY_TESTS     := tools/test_boot_splash_assets.py \
                 games/grove/tests/bake_scene_composites_tests.py \
                 games/grove/tools/tests/test_extract_meadow_ui_v2.py \
                 games/grove/tools/tests/test_mock_targets.py \
+                games/grove/tools/tests/test_shop_screen_regions.py \
                 games/tools/test_intake_apply.py \
                 tools/sfx_synth/test_synth.py \
                 tools/test_quiet_window.py \

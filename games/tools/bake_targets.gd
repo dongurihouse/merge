@@ -14,7 +14,6 @@ const HomeChrome = preload("res://games/grove/home_chrome.gd")   # the canonical
 const LoginUI = preload("res://engine/scripts/ui/login.gd")      # the REAL runtime daily dialog (not the daily_card mock)
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")  # the REAL runtime level dialog (not the kit level_dialog mock)
 const Look = preload("res://engine/scripts/ui/skin.gd")
-const ShopUI = preload("res://engine/scripts/ui/shop.gd")        # the storefront declares its own hero-goods sprites
 
 static func _level_data(mode: String) -> Dictionary:
 	return {
@@ -53,12 +52,6 @@ static func build_all(cfg: Dictionary) -> Array:
 	# like the dialogs; bake it so the board/map open freeze-free (kit_bake_freshness_tests holds it baked). @256
 	# matches the make_star_level_badge clean_tex_path cap.
 	Kit.clean_tex_path(Look.kit(Look.STAR_BADGE_ART), 256)
-	# The STOREFRONT'S GOODS. The market stall stands its containers ~420px tall, so they are polished at
-	# their own higher cap (Shop.bake_sprites declares [icon_id, cap] pairs off the live ladder) — an
-	# un-baked set would polish live on the main thread on the first shop open, the exact freeze this
-	# registry exists to remove.
-	for spec in ShopUI.bake_sprites():
-		Kit.clean_tex_path(Kit._icon_path(String(spec[0])), int(spec[1]))
 	# The board/bag CELL FACES — every slot_cell draws one, so an un-baked set polishes live on the
 	# first board open. Driving clean_tex_path over the declared paths lands them in _clean_cache the
 	# same way the dialogs do, so the bake writes their mirrors and kit_bake_freshness_tests holds them baked.

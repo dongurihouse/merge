@@ -38,13 +38,14 @@
         [860, 1290, 100, 130], [470, 960, 120, 120], [900, 1130, 75, 50]
       ],
       "note": [
-        "THE STOREFRONT the shop is drawn from since 2026-07-30 (owner: 'use the market stall as it is'):",
-        "concept A of shop_screen_variations_v1. A scalloped coral/cream awning, a slate signboard hung on",
-        "two cords, four slate plank shelves against a pale-meadow paper wall, the goods standing on them,",
-        "cream amount tags propped at their base and action-green price buttons pinned to the shelf lips.",
-        "It REPLACES shop_dialog_v3 (the unified cream sheet of sage offer cards); that design's one",
-        "region, `shop_card`, retired with the card it measured \u2014 the storefront has no offer card any",
-        "more, so there was nothing left for the adapter to build.",
+        "THE STOREFRONT the shop IS since 2026-07-30 (owner: 'use the whole image from the mock'):",
+        "concept A of shop_screen_variations_v1. The shop screen is not built to this mock \u2014 it IS this",
+        "mock. A byte copy ships as games/grove/assets/ui/dialogs/shop/storefront_market_stall.png and",
+        "engine/scripts/ui/shop_screen.gd draws it as one TextureRect with transparent hit rects over it.",
+        "So there is nothing here for this rig to compare: our element and the mock's pixels are the same",
+        "pixels. It REPLACES shop_dialog_v3 (the unified cream sheet of sage offer cards); that design's",
+        "one region, `shop_card`, retired with the card it measured, and the code-drawn cut-paper stall",
+        "that briefly stood between them retired with its own pass.",
         "",
         "IT CARRIES NO REGIONS, AND CANNOT. This rig divides every sample by ONE field luma, and this",
         "painting has no flat ground to give: the wall is painted with a broad vignette AND every shelf lip",
@@ -60,12 +61,12 @@
         "report past the clean ground you actually have. It is recorded here so the claim above is bounded",
         "rather than absolute.",
         "",
-        "WHAT THE MOCK WAS USED FOR INSTEAD is everything that needs no ground: the shelf bands were read",
-        "off the PNG by scanning for the slate rows beside the left post (plank tops 672 / 1120 / ~1455 /",
-        "1790; lit faces 101 then 67 px; lips 57 then 51), and every metric on",
-        "engine/scripts/ui/market_stall.gd is one of those measurements over the mock's own 1080 width. The",
-        "MATERIAL is not this mock's to give either way \u2014 the stall is built from the shared cut-paper",
-        "panel, whose edge is fitted on meadow_board and guarded by engine/tests/smooth_paper_tests.gd."
+        "WHAT THIS MOCK IS MEASURED FOR INSTEAD is where each purchase is. games/grove/tools/",
+        "measure_shop_screen.py scans it for the eight green price plates, the eight cream amount tags, the",
+        "four shelf planks, the two posts, the coral X and the empty column gutter between each shelf's two",
+        "offers; the rects those anchors produced live beside the shipped picture in",
+        "storefront_market_stall.regions.json and are re-measured by",
+        "games/grove/tools/tests/test_shop_screen_regions.py on every `make test-config`."
       ]
     },
     "meadow_board": {

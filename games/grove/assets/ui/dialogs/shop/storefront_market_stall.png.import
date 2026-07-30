@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://djgidi4wd05pc"
-path="res://.godot/imported/icon_pack_t6@384.png-c73a24a2d6852bf9244849922a0f2999.ctex"
+uid="uid://bnsq31l3qmsin"
+path="res://.godot/imported/storefront_market_stall.png-785f301e285c4dbddb281f3f44dd0929.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/baked/ui/currency/icon_pack_t6@384.png"
-dest_files=["res://.godot/imported/icon_pack_t6@384.png-c73a24a2d6852bf9244849922a0f2999.ctex"]
+source_file="res://games/grove/assets/ui/dialogs/shop/storefront_market_stall.png"
+dest_files=["res://.godot/imported/storefront_market_stall.png-785f301e285c4dbddb281f3f44dd0929.ctex"]
 
 [params]
 

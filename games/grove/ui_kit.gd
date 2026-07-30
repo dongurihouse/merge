@@ -709,11 +709,8 @@ static func demo_shop() -> Array:
 
 ## Resolve an icon id to a real sprite Control. Most ids ride the shared Look.icon; "bluegem" is the
 ## faceted premium gem (not the grove's acorn), loaded directly.
-## `cap` is the POLISH resolution (the baked mirror's own @N). It defaults to the glyph cap every caller
-## has always used; a surface that draws an icon far LARGER than that passes its own — the storefront's
-## market stall stands its goods ~420px tall, where a 192px mirror upscales 2.2x and reads soft.
-static func make_icon(id: String, px: float, cap: int = ICON_TEX_CAP) -> Control:
-	var node := _icon_rect(_icon_tex(id, cap), px)   # polished (defringe + feather), via the shared resolver
+static func make_icon(id: String, px: float) -> Control:
+	var node := _icon_rect(_icon_tex(id), px)   # polished (defringe + feather), via the shared resolver
 	return node if node != null else Look.icon(id, px)   # glyph fallback when no sprite
 
 ## A polished texture wrapped as the SHARED icon rect: a centred, mouse-transparent square that fills its
@@ -1296,12 +1293,9 @@ static func _icon_path(id: String) -> String:
 			return p
 	return ""
 
-## THE DEFAULT glyph polish resolution — a wallet pill, a nav tab, a price chip. Named because a second
-## cap now exists (the storefront's hero goods) and two literals would drift.
-const ICON_TEX_CAP := 192
-static func _icon_tex(id: String, cap: int = ICON_TEX_CAP) -> Texture2D:
+static func _icon_tex(id: String) -> Texture2D:
 	var p := _icon_path(id)
-	return clean_tex_path(p, cap) if p != "" else null      # defringe + feather the rough-cut icon
+	return clean_tex_path(p, 192) if p != "" else null      # defringe + feather the rough-cut icon
 
 ## The icon, padded to a SQUARE canvas (centred), so its bounding box is identical for every icon id.
 ## A button using this with a fixed icon_max_width then keeps a CONSTANT layout whatever icon is shown —
@@ -2802,36 +2796,12 @@ const PILL_CP_DEFAULTS := {"deckle": true, "corner": 35, "deckle_freq": 5, "rim_
 # corner. `tint` (the paper fill) lives on the card's own config block.
 const MAIL_CP_DEFAULTS := {"deckle": true, "corner": 18, "deckle_freq": 5, "rim_width": 2, "edge_shadow": true}
 const MAIL_TINT_DEFAULT := Pal.CREAM   # the reward card's default paper fill
-# The SHOP's offer card wears the SAME shared cut-paper edge as every other paper card in a dialog (the
-# mail rows, the daily calendar's day cells). It used to be a baked nine-patch PNG with a torn edge PAINTED
-# into it (assets/ui/dialogs/shop/card_{wide,tall,pouch}.png), which no shared knob could reach: when the
-# whole UI's edge went from a torn deckle to a smooth antialiased cut, the shop's outer sheet followed and
-# its cards did not. Reading the edge from here is what makes the shop inherit the material — and every
-# future change to it — with no shop-specific work.
-#
-# `corner` IS RE-DERIVED for the drawn sheet, and it moved: 18 was the baked art's painted radius, read off
-# a nine-patch whose cap fraction decided what a corner actually looked like. Measured on the mock
-# (_concepts/dialogs/shop_dialog_v3_unified_storefront.png, 941px canvas) by fitting a circle to each card's
-# top-left arc against its own subpixel left edge, the painting uses ONE absolute radius for every card
-# rather than a fraction of its width — the two best-conditioned fits, the wide Free-refill row and a tall
-# Quick-help card, both land on r = 20 mock px (rms 1.3-1.5px; the three landscape pouches fit 17-31 because
-# their art runs into the corner and the top tangent trades off against the radius, so they are a range, not
-# a number). 20px on the mock's 796px-wide card is 19.0px on our 758px-wide one, which at the shop dialog's
-# 0.8824 content scale is 21.6 LAYOUT px. Hence 22, and the shipped value in ui_kit_settings.json with it.
-# `rim_width` is 0: the mock draws no border round a card. Its cut edge reads as a LIT lip on the top
-# (measured +11 luma on the pixel above the face) and a dark foot below, which is a bevel's job, not a rim's.
-# Everything else — the tear (0), the antialias band, the drop shadow's reach and strength — is inherited
-# from the schema, which is the ONE place the material is decided (see CUT_PAPER_KNOBS above). The schema's
-# shadow_reach of 10px is also what the mock measures: its card's foot runs 0.37 darkening at 2px and is
-# gone by 10, its right side 0.26 gone by 8, and its LIT left and top sides carry none at all.
-const SHOP_CARD_CP_DEFAULTS := {"corner": 22, "rim_width": 0}
-const SHOP_CARD_FILL := Color("#E4DEBD")   # the mock's sage offer-card face (Shop.SAGE — sampled from it)
-
-## The SHOP offer card's shared cut-paper edge, read from the `shop` config block (the same block the
-## workbench's Shop element saves its layout knobs into, so its Cut-paper edge section tunes this). The
-## engine's shop.gd reaches it through Game.kit_script(), exactly as login.gd reaches daily_card_face.
-static func shop_card_cp_from_config(cfg: Dictionary) -> Dictionary:
-	return cut_paper_opts_from_config(cfg, "shop", SHOP_CARD_CP_DEFAULTS)
+# (NO SHOP CARD KNOBS. The storefront drew baked nine-patch offer cards, then a shared code-drawn
+# cut-paper card, then a whole code-drawn stall. Since 2026-07-30 the shop screen is the approved
+# market-stall PAINTING (engine/scripts/ui/shop_screen.gd draws that one picture and nothing else), so
+# `SHOP_CARD_CP_DEFAULTS`, `SHOP_CARD_FILL` and `shop_card_cp_from_config` had no reader left and went
+# with the card. The corner they carried was measured off the retired v3 mock and is in this file's
+# history, not kept as a constant nothing cuts.)
 
 ## Read the mail / reward-row card's shared edge + its own tint from `cfg` (the workbench passes live
 ## _params; the game passes the saved config) into the opts mail_card / mail_dialog forward to the builder.
