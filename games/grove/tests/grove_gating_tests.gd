@@ -19,6 +19,10 @@ func _initialize() -> void:
 	_test_weather_gate_needs_the_level()
 	_test_magnet_seed_cannot_drop_before_its_level()
 	_test_magnet_staging_waits_before_granting()
+	await _test_magnet_natural_drop_suppresses_staging_at_the_merge_seam()
+	await _test_magnet_held_seed_suppresses_staging_at_the_merge_seam()
+	await _test_magnet_stage_grants_ground_once_and_persists_after_sale()
+	await _test_magnet_stage_falls_back_to_the_bag()
 	_test_soil_ftue_level_comes_from_the_table()
 	_test_mastery_rank_is_clamped_until_revealed()
 	_test_registry_picks_the_first_unseen_armed_ready_spec()
@@ -97,12 +101,157 @@ func _test_magnet_staging_waits_before_granting() -> void:
 	fresh("teach_magnet_stage")
 	_set_level(G.FEATURE_LEVEL["magnet"])
 	ok(FeatureGate.armed("magnet"), "magnet arms at its level")
-	ok(not Save.magnet_stage_due(),
-		"the staging grant does NOT fire the moment the gate arms — the drop path gets its window")
-	for _i in range(int(G.MAGNET_STAGE_MERGES)):
+	var threshold := int(G.MAGNET_STAGE_MERGES)
+	for _i in range(threshold - 1):
 		Save.bump_magnet_armed_merges()
-	ok(Save.magnet_stage_due(),
-		"after %d armed merges with no seed held, the teach grants one outright" % int(G.MAGNET_STAGE_MERGES))
+	ok(Save.magnet_armed_merges() == threshold - 1 and not Save.magnet_stage_due(),
+		"exactly %d armed merges is still inside the drop-first window" % (threshold - 1))
+	Save.bump_magnet_armed_merges()
+	ok(Save.magnet_armed_merges() == threshold and Save.magnet_stage_due(),
+		"the staging grant becomes due exactly on armed merge %d" % threshold)
+
+func _open_magnet_stage_board(save_id: String, armed_merges: int) -> Node:
+	fresh(save_id)
+	Save.mark_ftue_seen("merge")
+	Save.mark_ftue_seen("gen_tap")
+	Save.mark_ftue_seen("unlock_weather")
+	Save.mark_ftue_seen("unlock_cascade")
+	Save.mark_ftue_seen("soil")
+	Save.mark_ftue_seen("soil_seed")
+	Save.mark_board_tutorial_seen()
+	_set_level(G.FEATURE_LEVEL["magnet"])
+	Save.grove()["magnet_armed_merges"] = armed_merges
+	Save.grove_write()
+	var b = board_host()
+	await process_frame
+	b._sky_state = {}
+	b.quests = []
+	return b
+
+func _magnet_seed_count(b: Node) -> int:
+	var code := Improvements.seed_code_for_kind(Improvements.KIND_MAGNET)
+	return b.board.count_of(code) + b.bag.count(code)
+
+func _merge_rng_seed_for_magnet_drop(want_drop: bool) -> int:
+	var magnet_code := Improvements.seed_code_for_kind(Improvements.KIND_MAGNET)
+	for seed in range(1, 20000):
+		var probe := RandomNumberGenerator.new()
+		probe.seed = seed
+		var drops := BoardLogicRef.roll_merge_drops(102, probe, {}, false, [])
+		if drops.has(magnet_code) == want_drop:
+			return seed
+	return -1
+
+func _real_stage_merge(b: Node, from: Vector2i, to: Vector2i, rng_seed: int) -> void:
+	b.rng.seed = rng_seed
+	_input_drag_merge(b, from, to)
+	await _wait_teach_board_idle(b)
+	await process_frame
+
+func _test_magnet_natural_drop_suppresses_staging_at_the_merge_seam() -> void:
+	var threshold := int(G.MAGNET_STAGE_MERGES)
+	var b = await _open_magnet_stage_board("teach_magnet_natural_drop", threshold - 1)
+	var from := Vector2i(0, 0)
+	var to := Vector2i(0, 1)
+	_blank_teach_fixture(b, {from: 101, to: 101})
+	var drop_seed := _merge_rng_seed_for_magnet_drop(true)
+	ok(drop_seed > 0, "fixture finds a real board-RNG stream whose merge drops a Magnet seed")
+	await _real_stage_merge(b, from, to, drop_seed)
+	ok(_magnet_seed_count(b) == 1 and Save.magnet_armed_merges() == threshold - 1,
+		"a successful natural Magnet drop suppresses both the fallback and its counter at the real merge seam")
+	ok(not Save.magnet_stage_granted(),
+		"a natural drop does not spend the one-shot fallback")
+	await drop(b)
+
+func _test_magnet_held_seed_suppresses_staging_at_the_merge_seam() -> void:
+	var threshold := int(G.MAGNET_STAGE_MERGES)
+	var b = await _open_magnet_stage_board("teach_magnet_held_seed", threshold - 1)
+	var from := Vector2i(0, 0)
+	var to := Vector2i(0, 1)
+	var held := Vector2i(1, 0)
+	_blank_teach_fixture(b, {
+		from: 101,
+		to: 101,
+		held: Improvements.seed_code_for_kind(Improvements.KIND_MAGNET),
+	})
+	await _real_stage_merge(b, from, to, _merge_rng_seed_for_magnet_drop(false))
+	ok(_magnet_seed_count(b) == 1 and Save.magnet_armed_merges() == threshold - 1,
+		"a held Magnet seed suppresses staging without consuming another armed merge")
+	ok(not Save.magnet_stage_granted(),
+		"holding a seed does not spend the one-shot fallback")
+	await drop(b)
+
+func _test_magnet_stage_grants_ground_once_and_persists_after_sale() -> void:
+	var threshold := int(G.MAGNET_STAGE_MERGES)
+	var b = await _open_magnet_stage_board("teach_magnet_ground_once", threshold - 1)
+	var from := Vector2i(0, 0)
+	var to := Vector2i(0, 1)
+	_blank_teach_fixture(b, {from: 101, to: 101})
+	var quiet_seed := _merge_rng_seed_for_magnet_drop(false)
+	await _real_stage_merge(b, from, to, quiet_seed)
+	var magnet_code := Improvements.seed_code_for_kind(Improvements.KIND_MAGNET)
+	ok(b.board.count_of(magnet_code) == 1 and not b.bag.has(magnet_code),
+		"armed merge %d grants the fallback to buildable ground before the bag" % threshold)
+	ok(Save.magnet_stage_granted(),
+		"a successful ground fallback persists its one-shot payout state")
+	Save.load_now()
+	ok(Save.magnet_stage_granted(),
+		"the one-shot payout state survives a real save reload")
+
+	var seed_cell := Vector2i(-1, -1)
+	for raw_cell in b.piece_nodes:
+		var cell := Vector2i(raw_cell)
+		if b.board.item_at(cell) == magnet_code:
+			seed_cell = cell
+			break
+	ok(seed_cell.x >= 0, "the fallback seed is reachable through the live piece registry for sale")
+	if seed_cell.x >= 0:
+		b._sell_item(seed_cell, b.piece_nodes.get(seed_cell))
+		await process_frame
+	ok(not Save.ftue_seen("unlock_magnet") and _magnet_seed_count(b) == 0,
+		"selling the fallback keeps bank-on-placement semantics and removes the seed")
+
+	var empties: Array = b.board.empty_ground_cells()
+	ok(empties.size() >= 2, "fixture leaves a second real merge after the fallback seed is sold")
+	if empties.size() >= 2:
+		var again_from := Vector2i(empties[0])
+		var again_to := Vector2i(empties[1])
+		b.board.place(again_from, 201)
+		b.board.place(again_to, 201)
+		b._rebuild_all()
+		await _real_stage_merge(b, again_from, again_to, quiet_seed)
+	ok(_magnet_seed_count(b) == 0,
+		"selling/removing the first fallback cannot turn every later merge into another sellable seed")
+	await drop(b)
+
+func _test_magnet_stage_falls_back_to_the_bag() -> void:
+	var threshold := int(G.MAGNET_STAGE_MERGES)
+	var b = await _open_magnet_stage_board("teach_magnet_bag_fallback", threshold - 1)
+	var from := Vector2i(3, 3)
+	var to := Vector2i(3, 4)
+	for i in b.board.items.size():
+		b.board.terrain[i] = 1
+		b.board.items[i] = 0
+	b.board.collect_rewards = {}
+	b.board.gens = {}
+	b.board.gen_boost = {}
+	b.board.improvements = {}
+	b.board.terrain[BoardModel.idx(from)] = 0
+	b.board.terrain[BoardModel.idx(to)] = 0
+	ok(b.board.build_improvement(from, Improvements.KIND_SOIL),
+		"bag fixture sockets the vacated merge cell so it cannot accept a staged improvement seed")
+	b.board.place(from, 101)
+	b.board.place(to, 101)
+	b.bag = []
+	b.bag_seed_ranks = []
+	b._rebuild_all()
+	await _real_stage_merge(b, from, to, _merge_rng_seed_for_magnet_drop(false))
+	var magnet_code := Improvements.seed_code_for_kind(Improvements.KIND_MAGNET)
+	ok(b.board.count_of(magnet_code) == 0 and b.bag.count(magnet_code) == 1,
+		"when no ground cell can build an improvement, the fallback grants exactly one seed to the bag")
+	ok(Save.magnet_stage_granted(),
+		"the bag fallback also persists the one-shot payout state")
+	await drop(b)
 
 func _test_soil_ftue_level_comes_from_the_table() -> void:
 	ok(int(G.FEATURE_LEVEL["soil"]) == 13,

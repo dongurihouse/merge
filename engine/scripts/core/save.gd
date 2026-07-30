@@ -259,6 +259,15 @@ static func bump_magnet_armed_merges() -> void:
 static func magnet_stage_due() -> bool:
 	return magnet_armed_merges() >= int(Game.DATA.MAGNET_STAGE_MERGES)
 
+static func magnet_stage_granted() -> bool:
+	return bool(grove().get("magnet_stage_granted", false))
+
+static func mark_magnet_stage_granted() -> void:
+	if magnet_stage_granted():
+		return
+	grove()["magnet_stage_granted"] = true
+	save_now()
+
 # The single cumulative progression total (replaces stars_earned + the spendable balance).
 # Only ever increases; every world unlock gates on reaching a threshold of it.
 static func exp_total() -> int:

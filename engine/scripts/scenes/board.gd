@@ -3804,6 +3804,8 @@ func _maybe_soil_ftue() -> void:
 func _maybe_magnet_stage() -> void:
 	if Save.ftue_seen("unlock_magnet") or not FeatureGate.armed("magnet"):
 		return
+	if Save.magnet_stage_granted():
+		return
 	if _has_unplaced_seed(Improvements.KIND_MAGNET) \
 		or board.improvement_count(Improvements.KIND_MAGNET) > 0:
 		return
@@ -3815,10 +3817,16 @@ func _maybe_magnet_stage() -> void:
 		if board.can_build_improvement(c):
 			board.place(c, code)
 			_rebuild_all()
+			# Persist the destination before the one-shot marker: a crash between these writes can
+			# leave an unmarked held seed (which suppresses another grant), never a marked missing one.
+			_persist()
+			Save.mark_magnet_stage_granted()
 			return
 	if bag.size() < _bag_capacity():
 		_bag_append(code)
 		_rebuild_bag()
+		_persist()
+		Save.mark_magnet_stage_granted()
 
 func _has_unplaced_seed(kind: String) -> bool:
 	var code := Improvements.seed_code_for_kind(kind)
