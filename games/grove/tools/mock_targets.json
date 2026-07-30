@@ -68,6 +68,11 @@
         [140, 20, 60, 116], [442, 22, 24, 112], [694, 22, 26, 112],
         [1062, 120, 18, 104], [200, 150, 300, 90], [0, 150, 120, 110]
       ]
+    },
+    "next_unlock": {
+      "png": "res://games/grove/assets/_concepts/screens/board_next_unlock_v1_1080x1920.png",
+      "size": [1080, 1920],
+      "note": "the NEXT UNLOCK strip's own mock, at OUR canvas size (so its px are ours 1:1). Same scene light as meadow_board — measured, its band's shadow side reads 0.383 against that mock's nav tabs' 0.388 — but a different sky tint, so the two mocks' regions can never share a sheet."
     }
   },
 
@@ -131,6 +136,27 @@
       "clean": [688, 6, 243, 144],
       "field": [[158, 8, 58, 116], [300, 2, 160, 20], [920, 30, 10, 100]],
       "note": "the RIGHTMOST wallet pill — 20px of real sky to its RIGHT before the canvas edge, which is the only pill edge in the row where the shadow side falls on plain sky. Its LEFT gets only 4px: the coin pill's face ends 11px away and its own right-side shadow runs ~10px into that gap, so there is barely any clean ground on this side at all — measured with `clean` opened to 8px, the profile turned back UPWARDS at 6-8px, which was the neighbour's shadow, not this pill's. The mock draws an acorn; the game's id for that currency is `gem`."
+    },
+
+    "unlock_band": {
+      "mock": "next_unlock",
+      "element": "unlock",
+      "args": {"face_h": 131, "level": 3, "frac": 0.67},
+      "face": [26, 173, 1028, 131],
+      "clean": [0, 166, 1080, 150],
+      "field": [[0, 180, 18, 110], [1066, 180, 14, 110]],
+      "encloses": ["unlock_track"],
+      "note": "the NEXT UNLOCK band — one smooth rounded sheet FLOATING on the sky (it touches no screen edge, so no bleed and no flare). Its useful ground is SIDEWAYS: 26px of clean sky to its LEFT and 26px to its RIGHT, both running to the canvas edge, which is exactly the lit/shadow pair the shared material was fitted against. Neither vertical profile may be read far — the wallet pills' own shadows close in 7px above it and the giver cards begin 12px below — so `clean` stops there. It ENCLOSES unlock_track: the mock draws the bar's well INTO this sheet, so that one is not a neighbour and its field is this sheet's cream, not the sky. No native_px: unlike `well` and `tray` this element derives EVERY length from its own height (UnlockBar.surface_cp), so the mock's box scales it whole."
+    },
+
+    "unlock_track": {
+      "mock": "next_unlock",
+      "element": "progress",
+      "args": {"face_h": 48, "frac": 0.67},
+      "face": [417, 219, 524, 48],
+      "clean": [403, 178, 550, 124],
+      "field": [[430, 180, 200, 32], [430, 275, 200, 24]],
+      "note": "the BAR — a recessed cream well with a green capsule lying in it. It does NOT sit on sky: the mock cuts it into the band's own cream (251,236,218), so rule 16 applies and this region cannot share a sheet with unlock_band (the field tolerance refuses it anyway). Ground is generous vertically (41px of clean band above, 35px below) and tight along the bar: the LEVEL 3 line ends 19px to its left and the 67% read-out starts 16px to its right, so `clean` opens 14px and 12px. What the sideways profile measures here is the LIP, not a cast shadow — a well is sunk, it throws nothing outward — and the fill's own head shadow lives INSIDE the element, where mock_profile.py's `--probe` is the honest instrument."
     }
   }
 }
