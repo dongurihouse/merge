@@ -93,7 +93,10 @@ static func _run_of(entry: Dictionary) -> Array:
 static func _run_marks(board, ctx: Dictionary) -> Array:
 	var head := Vector2i(ctx.get("head", NO_CELL))
 	var remaining := Array(ctx.get("run", []))
-	if head.x < 0 or remaining.is_empty():
+	# The head ALONE is still a mark. On the run's last step there is nothing left to walk, and the
+	# light belongs on the cell the merge is landing in until the run itself ends — the mark is
+	# republished at every step until _finish_chain, so the only thing that ends it is the run ending.
+	if head.x < 0:
 		return []
 	var cells: Array = [head]
 	for raw in remaining:

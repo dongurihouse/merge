@@ -162,7 +162,7 @@ static func runways(board: BoardModel, min_n: int) -> Array:
 # component's best cascade. The source cell is treated as vacated for drag use.
 #
 # HOT PATH. This runs synchronously inside the drag gesture (board.gd _begin_drag →
-# _show_cascade_drag_guides), so its cost is a hitch at the exact moment the player picks a
+# _publish_guide), so its cost is a hitch at the exact moment the player picks a
 # piece up — and it used to cost ~20 ms on a full board here, more than a 60fps frame on a
 # machine several times faster than a phone. It is written flat for that reason:
 #

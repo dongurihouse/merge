@@ -215,12 +215,20 @@ func _test_run_emits_one_mark_covering_the_whole_remaining_run() -> void:
 		and Vector2i(m.get("tag_cell", Vector2i(-1, -1))) == Vector2i(5, 2),
 		"at full weight, tagged at the run's far end")
 	# A mid-run board has no ready ladder of its own — the old code recomputed REST here and blanked
-	# the glow. RUN must not consult the board's resting state at all.
+	# the glow. RUN must not consult the board's resting state at all, and that holds on the LAST step
+	# too, where nothing is left to walk: this same fixture reads as two runways at rest, and the run's
+	# final beat must still be its own single mark on the cell the merge is landing in. (Spec: the mark
+	# is republished at every step until `_finish_chain`, and its run is head + whatever remains.)
 	var last := CascadeMarks.build(b, {
 		"mode": CascadeMarks.MODE_RUN, "chain_min_n": 2, "runway_min_n": 3,
 		"head": Vector2i(5, 2), "run": [], "n": 3,
 	})
-	ok(last.is_empty(), "a run with nothing left to walk emits nothing")
+	ok(last.size() == 1 and _cells_match(Array((last[0] as Dictionary).get("run", [])), [Vector2i(5, 2)])
+		and float((last[0] as Dictionary).get("weight", 0.0)) > 0.0,
+		"a run with nothing left to walk still lights its head (got %s)" % str(last))
+	# …and a run with no head at all is nothing, which is what a bailed-out chain publishes.
+	ok(CascadeMarks.build(b, {"mode": CascadeMarks.MODE_RUN, "chain_min_n": 2, "head": Vector2i(-1, -1), "run": []}).is_empty(),
+		"a run with no head emits nothing")
 
 # The renderer, with no scene, no window and no board: one Control and one mark list. A frame never
 # runs here, so what is asserted is the NODE'S OWN state — and that is what pins the wiring. The list

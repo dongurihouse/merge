@@ -1,7 +1,7 @@
 @tool
 extends Control
-## Stitched cascade readiness and drag-guide marks. The board owns the data and
-## geometry; this node only renders it and never handles input.
+## The cascade guide, drawn. The board owns every display RULE (engine/scripts/core/cascade_marks.gd)
+## and hands this node one ordered mark list; this node only stamps it and never handles input.
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
@@ -183,14 +183,9 @@ static func paper_grain() -> ImageTexture:
 	_paper = ImageTexture.create_from_image(img)
 	return _paper
 
-## The ONE mark channel. Everything below it — the four `set_*` arrays — is the old per-channel
-## model, kept alive only until board.gd publishes marks instead.
+## The node's ONE piece of mark state: an ordered list, written by board.gd's single writer.
 var marks: Array = []
 
-var ladders: Array = []
-var runways: Array = []
-var drag_ladders: Array = []
-var ghost_pads: Array = []
 var cell_size := 86.0
 var cell_pos_fn: Callable
 
@@ -220,29 +215,6 @@ func set_marks(data: Array) -> void:
 	marks = data.duplicate(true)
 	_after_marks_changed()
 
-func set_ladders(data: Array) -> void:
-	ladders = data.duplicate(true)
-	_after_marks_changed()
-
-func set_runways(data: Array) -> void:
-	runways = data.duplicate(true)
-	_after_marks_changed()
-
-func set_drag_ladders(data: Array) -> void:
-	drag_ladders = data.duplicate(true)
-	_after_marks_changed()
-
-func set_ghost_pads(data: Array) -> void:
-	ghost_pads = data.duplicate(true)
-	_after_marks_changed()
-
-func clear_guides() -> void:
-	if ghost_pads.is_empty() and drag_ladders.is_empty():
-		return
-	ghost_pads = []
-	drag_ladders = []
-	_after_marks_changed()
-
 func _after_marks_changed() -> void:
 	# The cache is keyed by the cells and the cell size, so it SURVIVES a mark change on purpose: a
 	# drag re-pushes its ladder every move, and rebuilding the contour inside the gesture is exactly
@@ -257,8 +229,7 @@ func _after_marks_changed() -> void:
 # The wave only runs while there is a chain to run it around, and never while a capture has pinned
 # the phase — gen_sparkle.gd's idiom, with the extra "nothing to draw ⇒ no process" guard.
 func _sync_process() -> void:
-	set_process(forced_phase < 0.0 and (_has_live_mark() or not _active_ladders().is_empty() \
-		or (drag_ladders.is_empty() and not runways.is_empty())))
+	set_process(forced_phase < 0.0 and _has_live_mark())
 
 ## Is there anything on the list bright enough to animate? A weightless mark draws nothing, so it
 ## must not hold the wave running either — the test is the WEIGHT, never the role.
@@ -278,14 +249,11 @@ func _phase() -> float:
 func _draw() -> void:
 	if cell_size <= 0.0 or not cell_pos_fn.is_valid():
 		return
-	if not marks.is_empty():
-		# The list is already in the order it is meant to be seen — the builder decided what sits
-		# behind what, so there is no precedence test here to disagree with it.
-		for raw in marks:
-			if raw is Dictionary:
-				_draw_mark(raw as Dictionary)
-		return
-	_draw_legacy()
+	# The list is already in the order it is meant to be seen — the builder decided what sits behind
+	# what, so there is no precedence test here to disagree with it.
+	for raw in marks:
+		if raw is Dictionary:
+			_draw_mark(raw as Dictionary)
 
 ## One mark, one shape. `role` picks WHICH light this is — a chain's contour glow, an occupied
 ## target's bloom, an empty cell's cut well — and `weight`/`reach` alone say how loud, so a dimmed
@@ -302,37 +270,6 @@ func _draw_mark(m: Dictionary) -> void:
 			_draw_target_bloom(Vector2i(m.get("cell", Vector2i(-1, -1))), colour, weight)
 		"stage":
 			_draw_stage_well(Vector2i(m.get("cell", Vector2i(-1, -1))), colour)
-
-# The four-channel drawing, unchanged, for as long as board.gd still writes those channels.
-func _draw_legacy() -> void:
-	if drag_ladders.is_empty():
-		for entry in runways:
-			if entry is Dictionary:
-				_draw_runway(entry as Dictionary)
-	for entry in _active_ladders():
-		if entry is Dictionary:
-			_draw_ladder(entry as Dictionary)
-	for entry in ghost_pads:
-		if entry is Dictionary:
-			_draw_ghost_pad(entry as Dictionary)
-
-func _active_ladders() -> Array:
-	return drag_ladders if not drag_ladders.is_empty() else ladders
-
-func _draw_ladder(entry: Dictionary) -> void:
-	_draw_chain_glow(_chain_cells(entry), G.line_color(int(entry.get("line", 0))), 1.0, 1.0)
-
-func _draw_runway(entry: Dictionary) -> void:
-	# A runway is the same light, quieter and with a tighter halo: it is not going to fire until
-	# its piece arrives, so it must never read as loud as an armed ladder.
-	_draw_chain_glow(_chain_cells(entry), G.line_color(int(entry.get("line", 0))), 0.5, 0.78)
-
-# The glow follows `run` — the cells the cascade walks — not `cells`, which is a same-LINE flood
-# fill with no tier condition. A t4 touching a t6 lands in one component while neither can ever feed
-# the other's chain; outlining that draws a connection that does not exist.
-func _chain_cells(entry: Dictionary) -> Array:
-	var run := Array(entry.get("run", []))
-	return run if not run.is_empty() else Array(entry.get("cells", []))
 
 # --- the contour glow --------------------------------------------------------------------------
 # The chain's cells are unioned into ONE shape and its outline extracted as closed contours. The
@@ -615,22 +552,6 @@ func _disc(at: Vector2, r: float, colour: Color, tex: Texture2D) -> void:
 		pts.append(at + Vector2(cos(a), sin(a)) * r)
 	_poly(pts, colour, tex)
 
-func _draw_ghost_pad(entry: Dictionary) -> void:
-	var cell := Vector2i(entry.get("cell", Vector2i(-1, -1)))
-	if cell.x < 0:
-		return
-	var colour := G.line_color(int(entry.get("line", 0)))
-	# Three strengths, one meaning each, and they are different MATERIALS rather than three weights
-	# of the same dash: `stage` is an empty cell, cut away so a piece can drop in; `merge` and
-	# `cascade` are occupied targets, lit from behind. Only `cascade` is numbered (_rebuild_tags).
-	match String(entry.get("kind", "stage")):
-		"stage":
-			_draw_stage_well(cell, colour)
-		"cascade":
-			_draw_target_bloom(cell, colour, 1.0)
-		_:
-			_draw_target_bloom(cell, colour, 0.55)
-
 # An empty cell you are building into: the cardstock is cut away, leaving a shallow well with the
 # warm inner edge the cut exposes. Reads as "something goes here" without a stroke.
 func _draw_stage_well(cell: Vector2i, colour: Color) -> void:
@@ -685,54 +606,19 @@ func _rebuild_tags() -> void:
 	# ONE tag per cell, and the FIRST mark claiming a cell keeps it: the list is already in precedence
 	# order, so this loop owns no precedence of its own. Which marks are numbered is the builder's
 	# call — it sets `tag` — not a role test here.
-	if not marks.is_empty():
-		var claimed := {}
-		for raw in marks:
-			if not (raw is Dictionary):
-				continue
-			var m: Dictionary = raw
-			if not bool(m.get("tag", false)):
-				continue
-			var at := Vector2i(m.get("tag_cell", Vector2i(-1, -1)))
-			if at.x < 0 or claimed.has(at):
-				continue
-			claimed[at] = true
-			var mn := maxi(2, int(m.get("n", 2)))
-			_add_tag(at, "×%d" % mn, mn, false)
-		return
-	# ONE tag per cell, loudest wins. Drag tags name the exact occupied drop target; resting armed
-	# tags name the chain end. Empty staging pads and inert runways stay unnumbered.
-	var taken := {}
-	if drag_ladders.is_empty():
-		for entry in ghost_pads:
-			if not (entry is Dictionary) or String((entry as Dictionary).get("kind", "stage")) != "cascade":
-				continue
-			var cell := Vector2i((entry as Dictionary).get("cell", Vector2i(-1, -1)))
-			if cell.x < 0 or taken.has(cell):
-				continue
-			taken[cell] = true
-			var pn := int((entry as Dictionary).get("n", 2))
-			_add_tag(cell, "×%d" % pn, pn, false)
-	else:
-		for entry in drag_ladders:
-			if not (entry is Dictionary):
-				continue
-			var cell := Vector2i((entry as Dictionary).get("tag_cell", (entry as Dictionary).get("top_cell", Vector2i(-1, -1))))
-			if cell.x < 0 or taken.has(cell):
-				continue
-			taken[cell] = true
-			var pn := int((entry as Dictionary).get("n", 2))
-			_add_tag(cell, "×%d" % pn, pn, false)
-	if drag_ladders.is_empty():
-		for entry in ladders:
-			if not (entry is Dictionary):
-				continue
-			var top_cell := Vector2i((entry as Dictionary).get("top_cell", Vector2i(-1, -1)))
-			if top_cell.x < 0 or taken.has(top_cell):
-				continue
-			taken[top_cell] = true
-			var n := int((entry as Dictionary).get("n", 2))
-			_add_tag(top_cell, "×%d" % n, n, false)
+	var claimed := {}
+	for raw in marks:
+		if not (raw is Dictionary):
+			continue
+		var m: Dictionary = raw
+		if not bool(m.get("tag", false)):
+			continue
+		var at := Vector2i(m.get("tag_cell", Vector2i(-1, -1)))
+		if at.x < 0 or claimed.has(at):
+			continue
+		claimed[at] = true
+		var mn := maxi(2, int(m.get("n", 2)))
+		_add_tag(at, "×%d" % mn, mn, false)
 
 func _add_tag(cell: Vector2i, text: String, n: int, weak: bool) -> void:
 	var chip := Label.new()

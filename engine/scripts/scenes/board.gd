@@ -30,6 +30,7 @@ const Tuning = preload("res://engine/scripts/core/tuning.gd")   # UI-redesign ro
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")   # the selected-cell corner-bracket highlight
 const CascadeOutline = preload("res://engine/scripts/ui/cascade_outline.gd")
+const CascadeMarks = preload("res://engine/scripts/core/cascade_marks.gd")   # every guide display rule
 const Bust = preload("res://engine/scripts/ui/bust.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const BoardFit = preload("res://engine/scripts/ui/board_fit.gd")
@@ -372,8 +373,12 @@ var _chain_n := 0
 var _chain_active := false
 var _chain_auto_step := false
 var _chain_origin_cell := Vector2i(-1, -1)
+# The run's MOVING head — the cell the light is leaving on this step. NOT _chain_origin_cell, which
+# is the counter's anchor and stays pinned to where the run began (see _chain_counter_at).
+var _chain_head := Vector2i(-1, -1)
 var _chain_reward_cell := Vector2i(-1, -1)
 var _cascade_outline: Control = null
+var _guide_cell_size := -1.0          # the csz the outline was last configured for (configure clears its geometry cache)
 
 var water_label: Label
 var _water_icon: Control
@@ -1856,7 +1861,7 @@ func _after_board_change(hud_deferred := false) -> void:
 	if not hud_deferred:
 		_update_hud()
 	_refresh_giver_lights()
-	_refresh_cascade_outline()
+	_publish_guide()
 	_refresh_mastery_chrome()
 	if _selected_cell.x >= 0 and board.is_gen(_selected_cell):
 		_refresh_selected_generator_mastery()
@@ -2536,6 +2541,7 @@ func _ensure_cascade_outline() -> Control:
 		if _cascade_outline != null and is_instance_valid(_cascade_outline):
 			_cascade_outline.queue_free()
 		_cascade_outline = null
+		_guide_cell_size = -1.0
 		return null
 	if _cascade_outline == null or not is_instance_valid(_cascade_outline) \
 			or _cascade_outline.is_queued_for_deletion() or _cascade_outline.get_parent() != board_area:
@@ -2545,7 +2551,13 @@ func _ensure_cascade_outline() -> Control:
 			_cascade_outline.queue_free()
 		_cascade_outline = CascadeOutline.new()
 		board_area.add_child(_cascade_outline)
-	_cascade_outline.configure(Vector2(_board_w(), _board_h()), csz, Callable(self, "_cell_pos"))
+		_guide_cell_size = -1.0
+	# `configure` CLEARS the contour cache, so it runs only when the geometry it describes really
+	# changed — a fresh node or a new cell size. Calling it on every publish rebuilt the whole
+	# lattice walk inside a drag, which is the work the cache exists to keep out of the gesture.
+	if not is_equal_approx(_guide_cell_size, csz):
+		_cascade_outline.configure(Vector2(_board_w(), _board_h()), csz, Callable(self, "_cell_pos"))
+		_guide_cell_size = csz
 	_position_cascade_outline()
 	return _cascade_outline
 
@@ -2553,203 +2565,58 @@ func _position_cascade_outline() -> void:
 	if _cascade_outline == null or not is_instance_valid(_cascade_outline) \
 			or _cascade_outline.get_parent() != board_area:
 		return
-	var insert_at := board_area.get_child_count() - 1
+	board_area.move_child(_cascade_outline, _guide_stack_index())
+
+## The guide belongs ABOVE the mat and the slot tiles and BELOW every piece and generator — it is
+## light under the board, not paint over the art. move_child measures its target index AFTER the node
+## has been pulled out of the list, so moving a node that already sits BELOW the first item down onto
+## that item's index overshoots by one; without the subtraction the guide landed one place too high
+## and painted over a piece on every drag frame.
+func _guide_stack_index() -> int:
+	var item_min := board_area.get_child_count()
 	for raw_node in gen_nodes.values() + piece_nodes.values():
 		var n := raw_node as Node
-		if n != null and is_instance_valid(n) and not n.is_queued_for_deletion() and n.get_parent() == board_area:
-			insert_at = mini(insert_at, n.get_index())
-	board_area.move_child(_cascade_outline, clampi(insert_at, 0, board_area.get_child_count() - 1))
+		if n != null and is_instance_valid(n) and not n.is_queued_for_deletion() \
+				and n.get_parent() == board_area:
+			item_min = mini(item_min, n.get_index())
+	var want := item_min
+	if _cascade_outline.get_index() < item_min:
+		want = item_min - 1
+	return clampi(want, 0, maxi(0, board_area.get_child_count() - 1))
 
-func _armed_cascade_marks(entries: Array) -> Array:
-	var out: Array = []
-	for raw in entries:
-		if raw is Dictionary and int((raw as Dictionary).get("n", 0)) >= CHAIN_MIN_N:
-			out.append((raw as Dictionary).duplicate(true))
-	return out
-
-func _refresh_cascade_outline() -> void:
+## The guide's ONE writer. The mode is DERIVED here, from state the board already holds, and never
+## stored — so no call site can publish the wrong one. A resting refresh arriving mid-cascade now
+## yields to the run instead of overwriting it, which is the bug this shape makes unrepresentable.
+func _publish_guide() -> void:
 	if board == null or board_area == null or not is_instance_valid(board_area):
 		return
 	var outline := _ensure_cascade_outline()
 	if outline == null:
 		return
-	outline.set_ladders(_armed_cascade_marks(BoardLogic.ready_ladders(board)))
-	outline.set_runways(BoardLogic.runways(board, RUNWAY_MIN_N))
+	var mode := CascadeMarks.MODE_REST
+	var ctx := {"chain_min_n": CHAIN_MIN_N, "runway_min_n": RUNWAY_MIN_N}
+	# RUN is `chain_running()` and nothing else. An extra "…and cells are left to walk" clause would
+	# hand the last step back to REST, and a mid-chain board has no armed ladder — which is the very
+	# hand-off this rewrite exists to remove.
+	if chain_running():
+		mode = CascadeMarks.MODE_RUN
+		ctx["head"] = _chain_head
+		ctx["run"] = _chain_run.duplicate()
+		ctx["n"] = _chain_n + _chain_run.size()
+	elif _drag_node != null and not _drag_is_gen and _drag_from.x >= 0 and board.item_at(_drag_from) > 0:
+		mode = CascadeMarks.MODE_DRAG
+		ctx["from"] = _drag_from
+		ctx["code"] = board.item_at(_drag_from)
+		ctx["targets"] = piece_nodes.keys()
+	ctx["mode"] = mode
+	# The pre-roll pulse tweens modulate:a. Anything that is not the run owns a plain opaque guide, so
+	# a run cut short can never leave the resting marks stuck at the pulse's dip.
+	if mode != CascadeMarks.MODE_RUN:
+		_kill_guide_pulse(outline)
+	outline.set_marks(CascadeMarks.build(board, ctx) if Features.on("cascade") else [])
 
-func _show_cascade_drag_guides(from: Vector2i) -> void:
-	if not Features.on("cascade") or board == null or board.is_gen(from):
-		return
-	var code := board.item_at(from)
-	if code <= 0:
-		return
-	var occupied := {}
-	var target_guides := _merge_target_guides(from)
-	var pads: Array = Array(target_guides.get("pads", []))
-	var drag_ladders: Array = Array(target_guides.get("ladders", []))
-	var fires := false
-	for raw_pad in pads:
-		if raw_pad is Dictionary:
-			occupied[Vector2i((raw_pad as Dictionary).get("cell", Vector2i(-1, -1)))] = true
-			fires = fires or String((raw_pad as Dictionary).get("kind", "")) == "cascade"
-	# Everything below lands on an EMPTY cell, and dropping on an empty cell is a move — it never
-	# reaches _prepare_chain, so it fires nothing. These are STAGING marks: they say "put it here
-	# and the ladder grows", never "put it here and it goes off". Hence kind, and hence no ×n:
-	# a number on an empty cell advertises a cascade the drop does not perform.
-	var staged: Array = []
-	for raw in BoardLogic.chain_placements(board, from, code):
-		if raw is Dictionary:
-			var entry: Dictionary = (raw as Dictionary).duplicate(true)
-			if int(entry.get("n", 0)) < CHAIN_MIN_N:
-				continue
-			entry["line"] = BoardModel.line_of(code)
-			entry["kind"] = "stage"
-			staged.append(entry)
-			occupied[Vector2i(entry.get("cell", Vector2i(-1, -1)))] = true
-	staged.append_array(_cascade_extension_pads(from, code, occupied))
-	# One place for the eye: when the held piece has a merge that actually cascades, that target is
-	# the answer, so the staging cells around it are noise competing with it.
-	if not fires:
-		pads.append_array(staged)
-	var outline := _ensure_cascade_outline()
-	if outline != null:
-		outline.set_drag_ladders(drag_ladders)
-		outline.set_ghost_pads(pads)
-
-func _merge_target_pads(from: Vector2i) -> Array:
-	return Array(_merge_target_guides(from).get("pads", []))
-
-func _merge_target_guides(from: Vector2i) -> Dictionary:
-	var out: Array = []
-	var ladders: Array = []
-	if board == null:
-		return {"pads": out, "ladders": ladders}
-	var code := board.item_at(from)
-	if code <= 0:
-		return {"pads": out, "ladders": ladders}
-	for raw_target in piece_nodes.keys():
-		var target := Vector2i(raw_target)
-		if target == from or not board.can_merge(from, target):
-			continue
-		var path := BoardLogic.chain_path(board, from, target)
-		var n := 1 + path.size()
-		var entry := {
-			"cell": target,
-			"line": BoardModel.line_of(code),
-			# The ONLY mark that carries a ×n: an occupied cell you can drop onto, whose merge
-			# really does run a chain. Anything short of CHAIN_MIN_N is an ordinary merge.
-			"kind": "cascade" if n >= CHAIN_MIN_N else "merge",
-			"n": maxi(2, n),
-		}
-		out.append(entry)
-		if n >= CHAIN_MIN_N:
-			var run: Array = [target]
-			for raw in path:
-				run.append(Vector2i(raw))
-			ladders.append({
-				"cells": run,
-				"run": run,
-				"line": BoardModel.line_of(code),
-				"n": n,
-				"tag_cell": target,
-				"top_cell": Vector2i(run[run.size() - 1]),
-			})
-	out.sort_custom(func(a, b): return BoardModel.idx(Vector2i((a as Dictionary).get("cell", Vector2i.ZERO))) < BoardModel.idx(Vector2i((b as Dictionary).get("cell", Vector2i.ZERO))))
-	ladders.sort_custom(func(a, b): return BoardModel.idx(Vector2i((a as Dictionary).get("top_cell", Vector2i.ZERO))) < BoardModel.idx(Vector2i((b as Dictionary).get("top_cell", Vector2i.ZERO))))
-	return {"pads": out, "ladders": ladders}
-
-func _cascade_extension_pads(from: Vector2i, code: int, occupied: Dictionary) -> Array:
-	var out: Array = []
-	var line := BoardModel.line_of(code)
-	var components: Array = []
-	for raw in _armed_cascade_marks(BoardLogic.ready_ladders(board)):
-		if raw is Dictionary and int((raw as Dictionary).get("line", 0)) == line:
-			components.append({"cells": _guide_run_cells(raw as Dictionary), "line": line})
-	for raw in BoardLogic.runways(board, RUNWAY_MIN_N):
-		if raw is Dictionary and int((raw as Dictionary).get("line", 0)) == line:
-			components.append({"cells": _guide_run_cells(raw as Dictionary), "line": line})
-	var seen := {}
-	for comp in components:
-		for entry in _extension_pads_for_component(from, code, Array((comp as Dictionary).get("cells", [])), occupied):
-			var cell := Vector2i((entry as Dictionary).get("cell", Vector2i(-1, -1)))
-			if cell.x < 0 or seen.has(cell):
-				continue
-			seen[cell] = true
-			out.append(entry)
-	for entry in _single_neighbor_seed_pads(from, code, occupied):
-		var cell := Vector2i((entry as Dictionary).get("cell", Vector2i(-1, -1)))
-		if cell.x < 0 or seen.has(cell):
-			continue
-		seen[cell] = true
-		out.append(entry)
-	out.sort_custom(func(a, b): return BoardModel.idx(Vector2i((a as Dictionary).get("cell", Vector2i.ZERO))) < BoardModel.idx(Vector2i((b as Dictionary).get("cell", Vector2i.ZERO))))
-	return out
-
-func _guide_run_cells(entry: Dictionary) -> Array:
-	var run := Array(entry.get("run", []))
-	return run if not run.is_empty() else Array(entry.get("cells", []))
-
-func _single_neighbor_seed_pads(from: Vector2i, code: int, occupied: Dictionary) -> Array:
-	var out: Array = []
-	if board == null or code <= 0:
-		return out
-	var line := BoardModel.line_of(code)
-	var held_tier := BoardModel.tier_of(code)
-	for i in board.items.size():
-		var base := BoardModel.cell_of(i)
-		if base == from:
-			continue
-		var item := int(board.items[i])
-		if item <= 0 or BoardModel.line_of(item) != line:
-			continue
-		var tier := BoardModel.tier_of(item)
-		if tier != held_tier - 1 and tier != held_tier + 1:
-			continue
-		for raw_d in BoardLogic.ORTHO_DIRS:
-			var cell := base + Vector2i(raw_d)
-			if not _can_show_extension_pad(cell, from, occupied):
-				continue
-			out.append({"cell": cell, "line": line, "kind": "stage"})
-	return out
-
-func _extension_pads_for_component(from: Vector2i, code: int, cells: Array, occupied: Dictionary) -> Array:
-	var out: Array = []
-	if cells.is_empty():
-		return out
-	var held_tier := BoardModel.tier_of(code)
-	var min_tier := 9999
-	var max_tier := -1
-	for raw in cells:
-		var tier := BoardModel.tier_of(board.item_at(Vector2i(raw)))
-		min_tier = mini(min_tier, tier)
-		max_tier = maxi(max_tier, tier)
-	var edge_tier := -1
-	if held_tier == min_tier - 1:
-		edge_tier = min_tier
-	elif held_tier == max_tier + 1:
-		edge_tier = max_tier
-	else:
-		return out
-	for raw in cells:
-		var base := Vector2i(raw)
-		if BoardModel.tier_of(board.item_at(base)) != edge_tier:
-			continue
-		for raw_d in BoardLogic.ORTHO_DIRS:
-			var cell := base + Vector2i(raw_d)
-			if not _can_show_extension_pad(cell, from, occupied):
-				continue
-			out.append({"cell": cell, "line": BoardModel.line_of(code), "kind": "stage"})
-	return out
-
-func _can_show_extension_pad(cell: Vector2i, from: Vector2i, occupied: Dictionary) -> bool:
-	if cell == from or occupied.has(cell) or board == null or not board.in_bounds(cell):
-		return false
-	if not board.is_empty_ground(cell):
-		return false
-	return not board.gens.has(cell)
-
-func _clear_cascade_drag_guides() -> void:
-	if _cascade_outline != null and is_instance_valid(_cascade_outline):
-		_cascade_outline.clear_guides()
+func _kill_guide_pulse(outline: Control) -> void:
+	outline.modulate = Color(1, 1, 1, 1)
 
 # §6 boost indicator — the on-board "this generator is boosted" marker. While a boost is live, every
 # generator wears a sparkle overlay (reused gen_sparkle) + a small corner badge counting the taps left;
@@ -2893,7 +2760,7 @@ func _rebuild_all() -> void:
 				bramble_nodes[cell] = br
 	_rebuild_improvement_art()
 	_sync_sky_patch_marker(false)
-	_refresh_cascade_outline()
+	_publish_guide()
 	gen_nodes.clear()
 	var ghl := _gen_highlight_opts()         # workbench-tuned glow/outline/sparkle (or {} for shipped look)
 	for cell in board.gens:                  # the live, stateful set (cell -> id), §6
@@ -5141,7 +5008,10 @@ func _update_drag_lean(pos: Vector2) -> void:
 # every drag-end path (release, snap-back, stash, gen release) so no glow or rotation can leak past a drop.
 func _clear_drag_feel(node: Control = null) -> void:
 	_clear_telegraph()
-	_clear_cascade_drag_guides()
+	# The held piece is already released by every caller, so this republish derives REST and the drag's
+	# marks fall away — including on a refused drop, which changes no board state and would otherwise
+	# leave the guide lit for a piece nobody is holding.
+	_publish_guide()
 	_drag_lean = 0.0
 	_drag_lean_seeded = false
 	_drag_last_pos = Vector2.ZERO
@@ -5185,7 +5055,7 @@ func _begin_drag() -> void:
 	GrabFx.grab(_drag_node, _grab_opts)       # glow + white rim + a light pickup tap (workbench-tuned)
 	Audio.play("item_pickup", -6.0)
 	if not _drag_is_gen:
-		_show_cascade_drag_guides(cell)
+		_publish_guide()
 		_show_drag_targets()   # light the Bag drop target when it can accept a stashed piece
 
 func _on_release(pos: Vector2) -> void:
@@ -5517,6 +5387,7 @@ func _prepare_chain(a: Vector2i, b: Vector2i) -> void:
 	_chain_active = false
 	_chain_auto_step = false
 	_chain_origin_cell = Vector2i(-1, -1)
+	_chain_head = Vector2i(-1, -1)
 	_chain_reward_cell = Vector2i(-1, -1)
 	if not Features.on("cascade"):
 		_refresh_chain_board_visibility()
@@ -5526,9 +5397,11 @@ func _prepare_chain(a: Vector2i, b: Vector2i) -> void:
 		_chain_n = 1
 		_chain_active = true
 		_chain_origin_cell = b
+		_chain_head = b
 	else:
 		_chain_run = []
 	_refresh_chain_board_visibility()
+	_publish_guide()
 
 func _schedule_chain_step(current: Vector2i) -> void:
 	if not _chain_active or _chain_run.is_empty():
@@ -5553,18 +5426,11 @@ func _chain_preroll_ms_for_n(n: int) -> int:
 func _show_chain_preroll(current: Vector2i) -> void:
 	if board == null or _chain_run.is_empty():
 		return
+	_chain_head = current
+	_publish_guide()
 	var outline := _ensure_cascade_outline()
 	if outline == null:
 		return
-	var cells: Array = [current]
-	for raw in _chain_run:
-		cells.append(Vector2i(raw))
-	outline.set_ladders([{
-		"cells": cells,
-		"line": BoardModel.line_of(board.item_at(current)),
-		"n": 1 + _chain_run.size(),
-		"top_cell": Vector2i(_chain_run[_chain_run.size() - 1]),
-	}])
 	outline.modulate = Color(1, 1, 1, 0.76)
 	var t := outline.create_tween()
 	t.tween_property(outline, "modulate:a", 1.0, 0.12)
@@ -5583,6 +5449,7 @@ func _run_chain_step(current: Vector2i) -> void:
 	var node: Control = piece_nodes.get(current)
 	var produced := board.merge(current, partner)
 	piece_nodes.erase(current)
+	_chain_head = partner              # the light moves WITH the run; the counter's anchor does not
 	_chain_n += 1
 	_chain_auto_step = true
 	animating = true
@@ -5597,6 +5464,10 @@ func _run_chain_step(current: Vector2i) -> void:
 			_after_merge(current, partner, produced, node, true)
 	else:
 		_after_merge(current, partner, produced, node, true)
+	# LAST, and unconditional: the run has just moved its head, so the guide is republished for the
+	# state that now exists. This is the step that used to lose the glow — the old code left the run
+	# in the same field a resting refresh recomputed, and a mid-chain board has no armed ladder.
+	_publish_guide()
 
 func _finish_chain() -> void:
 	_chain_run = []
@@ -5604,10 +5475,12 @@ func _finish_chain() -> void:
 	_chain_active = false
 	_chain_auto_step = false
 	_chain_origin_cell = Vector2i(-1, -1)
+	_chain_head = Vector2i(-1, -1)
 	_chain_reward_cell = Vector2i(-1, -1)
 	animating = false
 	_anim_t = 0.0
 	_refresh_chain_board_visibility()
+	_publish_guide()
 
 func _chain_step_ms_for_n(n: int) -> int:
 	if not CHAIN_STEP_RAMP_ENABLED:

@@ -6,6 +6,7 @@ const BoardScriptRef = preload("res://engine/scripts/scenes/board.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")   # the fixture pins the hour's sky (see _open_board)
 const RNG_SEED := 20260727   # any fixed value; the point is that it does not change between runs
 const CascadeOutline = preload("res://engine/scripts/ui/cascade_outline.gd")
+const CascadeMarks = preload("res://engine/scripts/core/cascade_marks.gd")
 const Contour = preload("res://engine/scripts/ui/cell_contour.gd")
 const Improvements = preload("res://engine/scripts/core/improvements.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
@@ -177,46 +178,77 @@ func _ladder_fixture(length: int, col: int) -> Dictionary:
 func _outline(b: Node) -> Control:
 	return b.board_area.get_node_or_null("CascadeOutline") as Control
 
-func _outline_ladder_count(b: Node) -> int:
+## The guide is ONE ordered mark list now, so the suite's old channel vocabulary is read back off
+## roles. Nothing here recomputes a rule — every helper reads what the renderer was handed:
+##   ladder        role "chain" carrying its own ×n tag   (armed at rest, or the run in flight)
+##   drag ladder   role "chain", untagged and above DRAG_DIM — the ONE chain a held piece would form
+##   runway        role "runway"
+##   pad "stage"   role "stage"    — an empty cell to build into
+##   pad "cascade" role "target" WITH the tag — the occupied drop whose merge really runs a chain
+##   pad "merge"   role "target" without it   — an ordinary same-code target
+func _outline_marks(b: Node) -> Array:
 	var o := _outline(b)
 	if o == null:
-		return 0
-	var ladders = o.get("ladders")
-	return (ladders as Array).size() if ladders is Array else 0
+		return []
+	var lit = o.get("marks")
+	return lit as Array if lit is Array else []
+
+func _marks_with_role(b: Node, role: String) -> Array:
+	var out: Array = []
+	for raw in _outline_marks(b):
+		if raw is Dictionary and String((raw as Dictionary).get("role", "")) == role:
+			out.append(raw)
+	return out
+
+func _outline_ladder_count(b: Node) -> int:
+	var n := 0
+	for raw in _marks_with_role(b, "chain"):
+		if bool((raw as Dictionary).get("tag", false)):
+			n += 1
+	return n
 
 func _outline_runway_count(b: Node) -> int:
-	var o := _outline(b)
-	if o == null:
-		return 0
-	var runways = o.get("runways")
-	return (runways as Array).size() if runways is Array else 0
+	return _marks_with_role(b, "runway").size()
+
+## The weight the DRAWING reads off a resting runway mark — `_draw_mark` hands exactly this number to
+## `_draw_chain_glow` as its strength, so a runway that stopped being quieter than an armed ladder
+## fails here. Reading the published mark rather than a constant is the point: it pins the value that
+## reaches the renderer, not the value the builder happens to declare.
+func _outline_runway_weight(b: Node) -> float:
+	for raw in _marks_with_role(b, "runway"):
+		return float((raw as Dictionary).get("weight", 0.0))
+	return -1.0
+
+## The drag's focused chain: untagged (its ×n rides the drop target instead) and loud. The dimmed
+## resting chains a drag keeps in the background sit AT DRAG_DIM, so the weight test excludes them.
+func _outline_drag_ladders(b: Node) -> Array:
+	var out: Array = []
+	for raw in _marks_with_role(b, "chain"):
+		var m: Dictionary = raw
+		if not bool(m.get("tag", false)) and float(m.get("weight", 0.0)) > CascadeMarks.DRAG_DIM + 0.001:
+			out.append(m)
+	return out
 
 func _outline_drag_ladder_count(b: Node) -> int:
-	var o := _outline(b)
-	if o == null:
-		return 0
-	var drag_ladders = o.get("drag_ladders")
-	return (drag_ladders as Array).size() if drag_ladders is Array else 0
+	return _outline_drag_ladders(b).size()
 
 func _outline_drag_ladder_run(b: Node) -> Array:
-	var o := _outline(b)
-	if o == null:
-		return []
-	var drag_ladders = o.get("drag_ladders")
-	if not (drag_ladders is Array) or (drag_ladders as Array).is_empty():
-		return []
-	var entry: Variant = (drag_ladders as Array)[0]
-	return Array((entry as Dictionary).get("run", [])) if entry is Dictionary else []
+	var found := _outline_drag_ladders(b)
+	return Array((found[0] as Dictionary).get("run", [])) if not found.is_empty() else []
 
 func _outline_ready_ladder_run(b: Node) -> Array:
-	var o := _outline(b)
-	if o == null:
-		return []
-	var ladders = o.get("ladders")
-	if not (ladders is Array) or (ladders as Array).is_empty():
-		return []
-	var entry: Variant = (ladders as Array)[0]
-	return Array((entry as Dictionary).get("run", [])) if entry is Dictionary else []
+	for raw in _marks_with_role(b, "chain"):
+		if bool((raw as Dictionary).get("tag", false)):
+			return Array((raw as Dictionary).get("run", []))
+	return []
+
+func _pad_kind_of(m: Dictionary) -> String:
+	match String(m.get("role", "")):
+		"stage":
+			return "stage"
+		"target":
+			return "cascade" if bool(m.get("tag", false)) else "merge"
+	return ""
 
 func _cells_equal(got: Array, want: Array) -> bool:
 	if got.size() != want.size():
@@ -226,49 +258,29 @@ func _cells_equal(got: Array, want: Array) -> bool:
 			return false
 	return true
 
+func _outline_pads(b: Node) -> Array:
+	var out: Array = []
+	for raw in _outline_marks(b):
+		if raw is Dictionary and _pad_kind_of(raw as Dictionary) != "":
+			out.append(raw)
+	return out
+
 func _outline_pad_count(b: Node) -> int:
-	var o := _outline(b)
-	if o == null:
-		return 0
-	var pads = o.get("ghost_pads")
-	return (pads as Array).size() if pads is Array else 0
+	return _outline_pads(b).size()
 
 func _outline_pad_count_by_kind(b: Node, kind: String) -> int:
-	var o := _outline(b)
-	if o == null:
-		return 0
-	var pads = o.get("ghost_pads")
-	var count := 0
-	if pads is Array:
-		for raw in pads:
-			if raw is Dictionary and String((raw as Dictionary).get("kind", "")) == kind:
-				count += 1
-	return count
+	return _outline_pad_cells_by_kind(b, kind).size()
 
 func _outline_pad_cells_by_kind(b: Node, kind: String) -> Array:
 	var out: Array = []
-	var o := _outline(b)
-	if o == null:
-		return out
-	var pads = o.get("ghost_pads")
-	if pads is Array:
-		for raw in pads:
-			if raw is Dictionary and String((raw as Dictionary).get("kind", "")) == kind:
-				out.append(Vector2i((raw as Dictionary).get("cell", Vector2i(-1, -1))))
+	for raw in _outline_pads(b):
+		var m: Dictionary = raw
+		if _pad_kind_of(m) == kind:
+			out.append(Vector2i(m.get("cell", Vector2i(-1, -1))))
 	return out
 
 func _outline_has_pad_kind_at(b: Node, kind: String, cell: Vector2i) -> bool:
-	var o := _outline(b)
-	if o == null:
-		return false
-	var pads = o.get("ghost_pads")
-	if pads is Array:
-		for raw in pads:
-			if raw is Dictionary \
-					and String((raw as Dictionary).get("kind", "")) == kind \
-					and Vector2i((raw as Dictionary).get("cell", Vector2i(-1, -1))) == cell:
-				return true
-	return false
+	return _outline_pad_cells_by_kind(b, kind).has(cell)
 
 # Count only the ×n chips. Empty staging pads and inert runways stay unnumbered.
 func _outline_number_tag_count(b: Node) -> int:
@@ -402,30 +414,15 @@ func _test_run_glow_survives_every_step() -> void:
 	b.queue_free()
 	await process_frame
 
-# The cells any LIT mark covers right now, read the way `_draw` itself reads them: the single mark
-# list when board.gd publishes one, and otherwise the legacy channel `_draw` falls back to. Reading
-# `marks` ALONE would report "blank" on the parent commit for the trivial reason that nothing writes
-# marks there, which proves nothing about the run — this reproduces the real glow the player sees.
+# The cells any LIT mark covers right now — the WEIGHT decides, never the role, because weight is
+# what `_draw_mark` tests before it stamps anything. (Written against the parent commit's legacy
+# channels as well, where it measured the same glow going dark; that fallback died with them.)
 func _outline_lit_run(b: Node) -> Array:
-	var o := _outline(b)
-	if o == null:
-		return []
 	var out: Array = []
-	var lit = o.get("marks")
-	if lit is Array and not (lit as Array).is_empty():
-		for raw in lit as Array:
-			var m: Dictionary = raw
-			if float(m.get("weight", 0.0)) > 0.0:
-				out.append_array(Array(m.get("run", [])))
-		return out
-	for key in ["drag_ladders", "ladders"]:
-		var arr = o.get(key)
-		if arr is Array and not (arr as Array).is_empty():
-			for raw in arr as Array:
-				var e: Dictionary = raw
-				var run := Array(e.get("run", []))
-				out.append_array(run if not run.is_empty() else Array(e.get("cells", [])))
-			return out
+	for raw in _outline_marks(b):
+		var m: Dictionary = raw
+		if float(m.get("weight", 0.0)) > 0.0:
+			out.append_array(Array(m.get("run", [])))
 	return out
 
 # The stack invariant held at rest and failed in every state the suite never checked: measured at
@@ -769,7 +766,7 @@ func _test_drag_guide_pads_and_generator_exclusion() -> void:
 		b.board_area.remove_child(old_outline)
 		old_outline.queue_free()
 		b.set("_cascade_outline", null)
-	b._show_cascade_drag_guides(from)
+	b._publish_guide()
 	var recreated := _outline(b)
 	var first_piece_index := 9999
 	for raw_node in b.piece_nodes.values():
@@ -915,11 +912,15 @@ func _test_runway_resting_outline_without_needed_tier_tag() -> void:
 	})
 	ok(_outline_ladder_count(b) == 0 and _outline_runway_count(b) == 1 and _outline_label_texts(b).is_empty(),
 		"an inert runway draws only the glow, without a tN needed-tier label")
-	# "a runway is visibly weaker than an armed ladder" used to be asserted here by calling
+	# "a runway is visibly weaker than an armed ladder" was asserted for a long time by calling
 	# `_mark_thickness` — a width helper the drawing never called, so it measured nothing that was on
-	# screen. The weakness is a WEIGHT now (CascadeMarks.RUNWAY_WEIGHT), and the assert that reads it
-	# belongs on the marks board.gd publishes; it lands with that flip. Asserting it here today would
-	# read an empty `marks` list, because this board still writes the four legacy channels.
+	# screen. The weakness is a WEIGHT now, and this reads it off the mark board.gd actually published,
+	# which is the number `_draw_mark` hands the glow as its strength.
+	var runway_weight := _outline_runway_weight(b)
+	ok(runway_weight > 0.0 and runway_weight < 1.0,
+		"a resting runway mark is visibly weaker than an armed ladder (weight %.2f)" % runway_weight)
+	ok(is_equal_approx(runway_weight, CascadeMarks.RUNWAY_WEIGHT),
+		"…and it is RUNWAY_WEIGHT that reached the renderer (%.2f vs %.2f)" % [runway_weight, CascadeMarks.RUNWAY_WEIGHT])
 	ok(_outline_stack_is_visible_between_board_and_items(b),
 		"runway outline keeps the cascade stack invariant")
 
@@ -1113,7 +1114,7 @@ func _test_ready_outline_and_flag_off() -> void:
 	Feat.FLAGS["cascade"] = original
 
 # TWO chains armed at the same time. Nothing anywhere picks a single best: `ready_ladders` appends
-# EVERY same-line component that scores, `_armed_cascade_marks` keeps them all, `_draw` loops every
+# EVERY same-line component that scores, CascadeMarks keeps each as its own mark, `_draw` loops every
 # entry and `_rebuild_tags` dedups per CELL rather than per chain. Two components of the SAME line is
 # the case that could have collapsed — `ready_ladders` walks the board with one shared `visited` map —
 # so pin that one, and pin that the result is drawn as two SEPARATE contours with their own ×n each.
@@ -1139,7 +1140,7 @@ func _test_two_chains_arm_and_draw_at_once() -> void:
 		"each armed chain carries its own ×n, sized to its own length (%s)" % str(_outline_label_texts(b)))
 	var o := _outline(b)
 	var boxes: Array = []
-	for raw in Array(o.get("ladders")):
+	for raw in _marks_with_role(b, "chain"):
 		var run := Array((raw as Dictionary).get("run", []))
 		ok(not run.is_empty(), "each armed entry carries the run its contour is built from")
 		boxes.append(_loop_bounds(o, run))
@@ -1437,12 +1438,14 @@ func _test_cascade_phase_pins_for_captures() -> void:
 	CascadeOutline.forced_phase = 0.0
 	ok(is_equal_approx(float(outline.call("_phase")), 0.0), "pinned, the clock is ignored")
 	outline.configure(Vector2(400, 400), 40.0, Callable(self, "_landscape_outline_pos"))
-	outline.set_ladders([{"line": 1, "run": [Vector2i(1, 1), Vector2i(1, 2), Vector2i(1, 3)]}])
+	var run := [Vector2i(1, 1), Vector2i(1, 2), Vector2i(1, 3)]
+	var armed := [CascadeMarks.mark("chain", run, Vector2i(-1, -1), 1, 3, 1.0, 1.0, true, Vector2i(1, 3))]
+	outline.set_marks(armed)
 	ok(not outline.is_processing(), "a pinned outline does not run its animation at all")
 	CascadeOutline.forced_phase = -1.0
-	outline.set_ladders([{"line": 1, "run": [Vector2i(1, 1), Vector2i(1, 2), Vector2i(1, 3)]}])
+	outline.set_marks(armed)
 	ok(outline.is_processing(), "a live armed ladder animates")
-	outline.set_ladders([])
+	outline.set_marks([])
 	ok(not outline.is_processing(), "with nothing to draw the animation stops")
 	CascadeOutline.forced_phase = before
 	outline.free()
