@@ -7,6 +7,8 @@ extends "res://games/grove/tests/grove_test_base.gd"
 
 const Kit = preload("res://games/grove/ui_kit.gd")
 const UIWorkbenchView = preload("res://games/grove/tools/ui_workbench_view.gd")
+const MockElements = preload("res://games/grove/tools/mock_elements.gd")   # the mock-compare rig's adapters
+const ActionBar = preload("res://engine/scripts/ui/action_bar.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
@@ -43,6 +45,7 @@ func _initialize() -> void:
 	_level_dialog_art_has_baked_polish_mirrors()
 	_level_dialog_reuses_sprite_shadow_textures_between_opens()
 	_level_dialog_uses_visible_fast_sprite_shadows()
+	await _mock_rig_tray_fills_its_own_cell()
 	finish()
 
 ## The shared daily card FACE (Kit.daily_card_face) — the code-drawn cut-paper card BOTH the workbench daily
@@ -900,3 +903,57 @@ func _shared_frame_uses_soft_cream_tile() -> void:
 		"the shared frame fill is between white and the old yellow cream")
 	dialog.free()
 	Kit.clear_config_cache()
+
+## THE MOCK-COMPARE RIG's info-tray adapter (games/grove/tools/mock_elements.gd `_build_tray`), whose
+## whole job is to stand ONE sheet up at the mock's OWN pixel size so a cell can be measured against the
+## mock's own pixels — docs/design/verifying-against-a-mock.md rule 1. Nothing else exercises the rig, and
+## the adapter shipped broken twice over for exactly that reason: it looked the sheet up NON-recursively
+## (the sheet hangs off ActionBar.DECKLE_HOST_NODE, one level deeper, so every run refused), and then wrote
+## `surface.size` on a Control anchored full-rect to that host — a write Godot refuses and does not ignore:
+## it lands in the sheet's OFFSETS, and the layout pass adds them to the anchored rect. Measured, an 829x146
+## cell drew a 1658x292 sheet spilling across its neighbours in the sheet, which is rule 4's failure exactly
+## — a cell that looks plausible and is not.
+##
+## So the bound here is the REGION's own declared face, read out of mock_targets.json rather than restated
+## as a constant (rule 12): what the sheet must fill is the rect the mock was measured over.
+func _mock_rig_tray_fills_its_own_cell() -> void:
+	var reg: Variant = JSON.parse_string(read_text("res://games/grove/tools/mock_targets.json"))
+	var region: Dictionary = ((reg as Dictionary).get("regions", {}) as Dictionary).get("infobar_tray", {})
+	var face: Array = region.get("face", [])
+	ok(String(region.get("element", "")) == "tray" and face.size() == 4,
+		"mock_targets.json still has an infobar_tray region built by the 'tray' adapter")
+	if face.size() != 4:
+		return
+	var face_w := float(face[2])
+	var face_h := float(face[3])
+	var built: Dictionary = MockElements.build("tray", region.get("args", {}), face_w, {})
+	ok(not built.is_empty(), "the 'tray' adapter builds the board's info tray at the mock's own face width")
+	if built.is_empty():
+		return
+	var tray: Control = built["node"]
+	get_root().add_child(tray)
+	tray.position = Vector2(40, 40)
+	for _i in 3:
+		await process_frame
+	var sheet := tray.find_child(ActionBar.DECKLE_SURFACE_NODE, true, false) as Control
+	ok(sheet != null, "the built tray carries the shipping cut-paper sheet")
+	if sheet != null:
+		# ONE cell, its OWN size. The declared face is the whole contract: the sheet may not fall short of
+		# it (the profiler would read the flat field as the element) and may not run past it (it would
+		# profile the NEIGHBOURING cell's paper as this one's shadow).
+		ok(sheet.size.is_equal_approx(Vector2(face_w, face_h)),
+			"the sheet fills its cell at the mock's own %dx%d (drew %s)"
+				% [int(face_w), int(face_h), str(sheet.size)])
+		ok(sheet.global_position.is_equal_approx(tray.global_position),
+			"…and starts at the cell's own origin, so it spills across no neighbour (%s vs %s)"
+				% [str(sheet.global_position), str(tray.global_position)])
+		# and it is still the board's TAB, not a plain rounded rect: the sheet is 0x0 when the adapter
+		# returns, so the trapezoid is re-solved by the shipping `resized` hook at the size above. A cleared
+		# anchor (the other way to make `size` stick) severs that and renders shape="rect" flare=0 —
+		# measured, and indistinguishable from a correct cell without this assert.
+		var lean: float = EdgeTabKit.lean_of(sheet.size.x, sheet.size.y, sheet.flare)
+		ok(sheet.shape == "tab" and sheet.flare > 0.0 and lean > 0.026 and lean < 0.037,
+			"…and leans like the row it belongs to (shape=%s lean %.4f; the row's own is 0.0311)"
+				% [str(sheet.shape), lean])
+	get_root().remove_child(tray)
+	tray.free()

@@ -10,7 +10,10 @@ extends RefCounted
 ##     opts the screen itself passes. A hand-rolled stand-in measures the stand-in.
 ##  2. TAKE ITS SIZE FROM THE MOCK. The face width is handed in; the element is built AT that width.
 ##     Never resample afterwards — a rescaled capture has a resampler's blur in exactly the pixels a
-##     shadow lives in.
+##     shadow lives in. And write that size on the node whose rect the ELEMENT's own layout derives from:
+##     an ANCHORED child (`tray`'s sheet is anchored full-rect inside its host, and so is the wallet's
+##     backer) refuses `size` and keeps the write as OFFSETS, which the next layout pass ADDS to its
+##     anchored rect — measured, an 829x146 tray cell drew a 1658x292 sheet across its neighbours.
 ##  3. SCALE **EVERY** METRIC, not just the ones one knob happens to own. `nav` derives its whole
 ##     geometry — corner, glyph, caption, halo reach — from `slot_w`, so handing it the mock's width
 ##     scales the tab coherently and there is nothing else to do. `wallet` does NOT: its
@@ -337,15 +340,31 @@ static func _build_tray(args: Dictionary, face_w: float, mods: Dictionary) -> Di
 	var tray: Control = ActionBar.info_tray(inner, face_h, {}, bleed, face_h)
 	tray.custom_minimum_size = Vector2(face_w, face_h)
 	tray.size = Vector2(face_w, face_h)
-	var surface := tray.find_child(ActionBar.DECKLE_SURFACE_NODE, false, false) as Control
+	# THE SHEET IS TWO LEVELS DOWN, and its rect is not ours to write. `_apply_info_deckle_surface` hangs it
+	# off a plain Control (DECKLE_HOST_NODE) precisely so the tray's PanelContainer cannot re-fit it and eat
+	# the bleed, and anchors it FULL_RECT inside that host with `offset_bottom = bleed`. Two consequences:
+	#   * a NON-recursive lookup on the tray finds nothing, and this adapter then refuses every run;
+	#   * `surface.size = …` is REFUSED by Godot ("Nodes with non-equal opposite anchors will have their size
+	#     overridden") and is not merely ignored — the write lands in the sheet's OFFSETS, which the next
+	#     layout pass adds to the anchored rect. Measured: an 829x146 cell drew a 1658x292 sheet, exactly
+	#     double, spilling across its neighbours in the sheet as a cell that looks plausible and is not.
+	# So the SIZE is written on the host — the rect those anchors resolve against, and the same rect the
+	# PanelContainer fits it to on the shipping screen — and the sheet follows, bleed and all. Its trapezoid
+	# is re-solved by the shipping `resized` hook when that layout pass lands, exactly as it is for the
+	# board's own expanding tray; re-flaring here (at 0x0) would only write `shape = rect`.
+	var host := tray.find_child(ActionBar.DECKLE_HOST_NODE, false, false) as Control
+	var surface: Control = null
+	if host != null:
+		surface = host.find_child(ActionBar.DECKLE_SURFACE_NODE, false, false) as Control
 	if surface == null:
-		push_error("mock_elements: the info tray built no cut-paper surface")
+		push_error("mock_elements: the info tray built no cut-paper surface under %s" % ActionBar.DECKLE_HOST_NODE)
 		return {}
-	surface.size = Vector2(face_w, face_h + bleed)
+	host.custom_minimum_size = Vector2(face_w, face_h)
+	host.size = Vector2(face_w, face_h)
 	surface.shadow_reach *= face_h / native_px      # the one absolute length the shipping call does not scale
 	if mods.has("fill"):
 		surface.paper_color = Color(String(mods["fill"]))
-	ActionBar._reflare(surface)
+	surface.queue_redraw()
 	return {"node": tray, "drawn_w": face_w, "face_w": face_w, "face_h": face_h, "face_dx": 0.0}
 
 
