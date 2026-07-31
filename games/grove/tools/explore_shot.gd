@@ -41,6 +41,33 @@ func _initialize() -> void:
 	Save.grove_write()
 	Save.add_coins(2000)
 
+	if which == "loadout":
+		# The loadout moved onto Map, but this documented capture mode kept opening Rush. Exercise the
+		# real entry dialog and refuse a plausible narrow screenshot.
+		load("res://engine/scripts/core/login.gd").claim_today()
+		var map = load("res://engine/scenes/Map.tscn").instantiate()
+		root.add_child(map)
+		current_scene = map
+		await create_timer(0.7).timeout
+		map._open_expedition(0)
+		await create_timer(0.7).timeout
+		var overlay := map.get_node_or_null("ExpeditionOverlay") as Control
+		var center := overlay.get_child(1) as CenterContainer if overlay != null else null
+		var dialog := center.get_child(0) as Control if center != null and center.get_child_count() > 0 else null
+		var panel := dialog.find_child("MeadowDialogPanel", true, false) as Control if dialog != null else null
+		var viewport_w: float = map.get_viewport_rect().size.x
+		var dialog_w := panel.custom_minimum_size.x if panel != null else 0.0
+		print("EXPLORE LOADOUT dialog_w=%.0f viewport_w=%.0f pct=%.1f" % [
+			dialog_w, viewport_w, 100.0 * dialog_w / maxf(1.0, viewport_w)])
+		if panel == null or dialog_w < viewport_w * 0.70:
+			print("REFUSED: explore/loadout is missing or narrower than the roomy shared frame.")
+			Base.finish(self, 2)
+			return
+		var el := Base.capture(self, out, args)
+		print("SHOT explore/loadout=%s (err %d)" % [out, el])
+		Base.finish(self, el)
+		return
+
 	var path := "res://engine/scenes/ExploreRush.tscn"
 	match which:
 		"trade":
