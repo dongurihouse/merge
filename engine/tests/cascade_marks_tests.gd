@@ -11,6 +11,7 @@ func _initialize() -> void:
 	_test_the_one_rule_is_run_length_in_every_mode()
 	_test_rest_finds_remote_actionable_chains()
 	_test_rest_ranks_longest_first_and_keeps_all()
+	_test_rest_overlap_keeps_only_the_longest_chain()
 	_test_every_mode_draws_the_same_chain_stack()
 	_test_a_dimmed_chain_is_the_same_stack_turned_down()
 	_test_drag_keeps_only_the_longest_chain_loud()
@@ -155,6 +156,49 @@ func _test_rest_ranks_longest_first_and_keeps_all() -> void:
 		"every resting chain keeps its contour and target bloom (got %d marks)" % all_marks.size())
 	var top := int((all_marks[0] as Dictionary).get("n", 0))
 	ok(top == 6, "REST still ranks the longest chain first (got %d)" % top)
+
+func _test_rest_overlap_keeps_only_the_longest_chain() -> void:
+	var b := _blank_board()
+	# Start with one unambiguous ×4 ladder.
+	b.place(Vector2i(5, 1), 101)
+	b.place(Vector2i(5, 2), 101)
+	b.place(Vector2i(5, 3), 102)
+	b.place(Vector2i(5, 4), 103)
+	b.place(Vector2i(5, 5), 104)
+	var marks := CascadeMarks.build(b, {"mode": CascadeMarks.MODE_REST})
+	var chains: Array = []
+	for raw in marks:
+		if String((raw as Dictionary).get("role", "")) == "chain":
+			chains.append(raw)
+	var ns: Array = []
+	for raw in chains:
+		ns.append(int((raw as Dictionary).get("n", 0)))
+	ok(ns == [4],
+		"overlapping nested routes reserve their cells for the longest chain only (got %s)" % str(ns))
+
+	# Adding another same-line component creates two ×3 candidates: one genuinely disjoint route and
+	# one remote route that reuses cells already claimed by ×4. Only the former may remain.
+	b.place(Vector2i(1, 1), 101)
+	b.place(Vector2i(1, 2), 101)
+	b.place(Vector2i(1, 3), 102)
+	b.place(Vector2i(1, 4), 103)
+	marks = CascadeMarks.build(b, {"mode": CascadeMarks.MODE_REST})
+	chains.clear()
+	for raw in marks:
+		if String((raw as Dictionary).get("role", "")) == "chain":
+			chains.append(raw)
+	ns.clear()
+	var used := {}
+	var overlap := false
+	for raw in chains:
+		ns.append(int((raw as Dictionary).get("n", 0)))
+		for raw_cell in Array((raw as Dictionary).get("run", [])):
+			var cell := Vector2i(raw_cell)
+			if used.has(cell):
+				overlap = true
+			used[cell] = true
+	ok(ns == [4, 3], "a disjoint chain remains beside the longest overlapping winner (got %s)" % str(ns))
+	ok(not overlap, "every displayed resting chain owns a disjoint set of run cells")
 
 # THE ONE EFFECT STACK. A chain is drawn with the same effects whatever the board is doing: the
 # contour over its run, the target bloom on run[0], and the ×n chip on that same cell. Only `weight`

@@ -76,7 +76,7 @@ static func build(board, ctx: Dictionary) -> Array:
 			return _rest_marks(board, ctx)
 
 # --- REST -------------------------------------------------------------------------------------
-# Every actionable chain at or above GUIDE_MIN_N, longest first.
+# The longest-first, cell-disjoint actionable chains at or above GUIDE_MIN_N.
 static func _rest_marks(board, ctx: Dictionary) -> Array:
 	var out: Array = []
 	for raw in _rest_entries(board):
@@ -86,7 +86,8 @@ static func _rest_marks(board, ctx: Dictionary) -> Array:
 ## What the resting board has to say: every legal piece-to-piece merge whose resulting run meets the
 ## guide floor. DRAG already answers that question for one held piece through `_merge_targets`; REST
 ## asks it for every occupied source. Equivalent sources can describe the same target and contour,
-## so those visual duplicates collapse before the deterministic longest-first sort.
+## so those visual duplicates collapse before the deterministic longest-first sort. After sorting,
+## each kept route reserves its run cells: a shorter/later route that reuses any of them is suppressed.
 static func _rest_entries(board) -> Array:
 	var occupied: Array = []
 	for i in board.items.size():
@@ -134,7 +135,24 @@ static func _rest_entries(board) -> Array:
 		return BoardModel.idx(Vector2i((a as Dictionary).get("from", Vector2i.ZERO))) \
 			< BoardModel.idx(Vector2i((b as Dictionary).get("from", Vector2i.ZERO)))
 	)
-	return chains
+	# Greedy selection is the player-facing rule directly: longest route wins its cells, then the
+	# next-longest route may remain only if every cell is still free. The existing row-major target
+	# and source tie-breaks make equal-length choices deterministic too.
+	var kept: Array = []
+	var reserved := {}
+	for raw_entry in chains:
+		var entry: Dictionary = raw_entry
+		var overlaps := false
+		for raw_cell in _run_of(entry):
+			if reserved.has(Vector2i(raw_cell)):
+				overlaps = true
+				break
+		if overlaps:
+			continue
+		kept.append(entry)
+		for raw_cell in _run_of(entry):
+			reserved[Vector2i(raw_cell)] = true
+	return kept
 
 ## One resting entry, at the loudness the caller is drawing it. REST and the background of a DRAG
 ## both come through here, so a dimmed chain is this same stack at DRAG_DIM.
