@@ -2024,7 +2024,11 @@ func _open_expedition(z: int = -1) -> void:
 	var modal := Overlay.modal(self, "ExpeditionOverlay", {"ink": DOCK_INK})
 	var overlay: Control = modal["overlay"]
 	var cc: CenterContainer = modal["center"]
-	var width: float = minf(get_viewport_rect().size.x * 0.9, 540.0)
+	var cfg: Dictionary = Game.kit_config()
+	var viewport_size := get_viewport_rect().size
+	# Rush is a full five-choice loadout, not a compact confirmation card. Give it the same shared
+	# standard-width frame as Daily/Mail so the rows and descriptions have room to breathe.
+	var width: float = viewport_size.x * Kit.DIALOG_DESIGN_PCT["dialog"] / 100.0
 	var switch_h := 40.0
 	var ui_refs := {"cost_chip": null, "go": null}
 	var refresh_state := func() -> void:
@@ -2090,11 +2094,12 @@ func _open_expedition(z: int = -1) -> void:
 	actions.add_child(cancel)
 	col.add_child(actions)
 	# the SHARED standard dialog face (workbench-tuned border / banner / ✕), as mail/shop/settings wear
-	var fo: Dictionary = Kit.dialog_opts_from_config(Game.kit_config())
+	var fo: Dictionary = Kit.dialog_opts_from_config(cfg)
+	fo["content_scale"] = Kit.dialog_content_scale(cfg, "dialog")
 	fo["banner_text"] = "Load out"
 	fo["banner_icon_id"] = "leaf"
 	fo["on_close"] = func() -> void: overlay.queue_free()
-	fo["list_max_h"] = get_viewport_rect().size.y * 0.7
+	fo["list_max_h"] = viewport_size.y * 0.7
 	var dialog: Control = Kit.dialog_frame(col, width, fo)
 	cc.add_child(dialog)
 	FX.pop_in(dialog)
