@@ -2302,6 +2302,14 @@ func _test_loadout_toggle_updates_in_place() -> void:
 		return
 	var cc := overlay.get_child(1) as CenterContainer
 	var dialog_before := cc.get_child(0) as Control
+	var dialog_panel := dialog_before.find_child("MeadowDialogPanel", true, false) as Control
+	var viewport_w: float = map.get_viewport_rect().size.x
+	ok(dialog_panel != null, "the Rush loadout uses the shared framed dialog")
+	ok(dialog_panel != null and absf(dialog_panel.custom_minimum_size.x - viewport_w * 0.75) <= 1.0,
+		"the Rush loadout uses the roomy standard 75%% frame width (%.0f of %.0f)"
+			% [dialog_panel.custom_minimum_size.x if dialog_panel != null else 0.0, viewport_w])
+	ok(dialog_panel != null and dialog_panel.custom_minimum_size.x > 540.0,
+		"the Rush loadout is wider than the cramped legacy 540px cap")
 	var sw: Button = _switch_for_label(dialog_before, "Lantern")
 	ok(sw != null, "the Lantern loadout row has a switch to toggle")
 	if sw == null:

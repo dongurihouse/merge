@@ -28,18 +28,23 @@ const BAKED := "res://games/grove/assets/baked/"
 ## key format change) would report a clean tree over nothing at all — floor it well under the real
 ## count but far above zero.
 const MIN_SPRITES := 30
+const MIN_SHADOWS := 7
 
 func _initialize() -> void:
 	print("== Baked-mirror freshness guard ==")
 	var cfg := Kit.load_config(Kit.CONFIG_PATH)
 	Kit.clear_clean_cache()
+	Kit._live_shadow_log.clear()
 	var nodes := BakeTargets.build_all(cfg)          # drives clean_tex_path → populates _clean_cache
 	var keys: Array = Kit._clean_cache.keys()
+	var shadow_specs: Array = BakeTargets.shadow_specs()
 
 	# Anti-Potemkin: an empty dialog list or an empty key set makes every check below vacuous, and a
 	# guard that discovers nothing passes loudest.
 	ok(nodes.size() > 0, "BakeTargets.build_all() built the kit dialogs (%d)" % nodes.size())
 	ok(keys.size() >= MIN_SPRITES, "discovered the bakeable sprite set (%d, floor %d)" % [keys.size(), MIN_SPRITES])
+	ok(shadow_specs.size() >= MIN_SHADOWS,
+		"discovered the finished Daily shadow set (%d, floor %d)" % [shadow_specs.size(), MIN_SHADOWS])
 
 	var missing: Array = []      # no mirror committed at all — the cold-boot live-polish case
 	var stale: Array = []        # mirror exists, bytes differ from a fresh bake
@@ -65,6 +70,30 @@ func _initialize() -> void:
 		if FileAccess.get_file_as_bytes(out_abs) != bytes:
 			stale.append(rel)
 
+	var shadow_missing: Array = []
+	var shadow_stale: Array = []
+	var shadow_unreadable: Array = []
+	var shadow_compared := 0
+	for raw_spec in shadow_specs:
+		var spec: Dictionary = raw_spec
+		var src := String(spec.path)
+		var cap := int(spec.clean_cap)
+		var opts := Dictionary(spec.opts)
+		var rel := Kit.shadowed_baked_path(src, cap, opts).replace(BAKED, "")
+		var tex := load(src) as Texture2D if ResourceLoader.exists(src) else null
+		if tex == null:
+			shadow_unreadable.append(rel)
+			continue
+		var base: Image = Kit._clean_image(tex.get_image(), cap) if cap > 0 else tex.get_image()
+		var bytes := Kit.add_drop_shadow(base, opts).save_png_to_buffer()
+		var out_abs := ProjectSettings.globalize_path(Kit.shadowed_baked_path(src, cap, opts))
+		if not FileAccess.file_exists(out_abs):
+			shadow_missing.append(rel)
+			continue
+		shadow_compared += 1
+		if FileAccess.get_file_as_bytes(out_abs) != bytes:
+			shadow_stale.append(rel)
+
 	for n in nodes:
 		if n is Node:
 			(n as Node).queue_free()
@@ -72,6 +101,7 @@ func _initialize() -> void:
 	# Second known-positive: the byte comparison has to have actually RUN. If every mirror were
 	# missing, `stale` would be empty for the wrong reason.
 	ok(compared > 0, "read and re-baked the committed mirrors (%d compared)" % compared)
+	ok(shadow_compared > 0, "read and re-baked the committed Daily shadows (%d compared)" % shadow_compared)
 
 	if not missing.is_empty() or not stale.is_empty():
 		print("  ----------------------------------------------------------------")
@@ -88,8 +118,17 @@ func _initialize() -> void:
 		print("  ----------------------------------------------------------------")
 	if not unreadable.is_empty():
 		print("  sources that no longer load as a Texture2D: ", ", ".join(unreadable))
+	if not shadow_missing.is_empty() or not shadow_stale.is_empty():
+		print("  Daily finished shadows missing/stale: ", ", ".join(shadow_missing + shadow_stale))
+	if not shadow_unreadable.is_empty():
+		print("  Daily shadow sources that no longer load: ", ", ".join(shadow_unreadable))
 
 	ok(missing.is_empty(), "every bakeable sprite has a committed mirror (%d missing)" % missing.size())
 	ok(stale.is_empty(), "every committed mirror matches a fresh bake (%d stale)" % stale.size())
 	ok(unreadable.is_empty(), "every discovered source still loads (%d unreadable)" % unreadable.size())
+	ok(shadow_missing.is_empty(), "every Daily shape shadow has a committed mirror (%d missing)" % shadow_missing.size())
+	ok(shadow_stale.is_empty(), "every Daily shape shadow matches a fresh bake (%d stale)" % shadow_stale.size())
+	ok(shadow_unreadable.is_empty(), "every Daily shadow source still loads (%d unreadable)" % shadow_unreadable.size())
+	ok(Kit._live_shadow_log.is_empty(),
+		"building the real dialog targets uses no live shape-shadow fallback (%s)" % str(Kit._live_shadow_log))
 	finish()

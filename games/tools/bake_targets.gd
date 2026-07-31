@@ -44,6 +44,10 @@ static func build_all(cfg: Dictionary) -> Array:
 	# their mirrors and the guard test holds them baked. @256 matches _sprite's clean_tex_path cap.
 	for rel in LoginUI.bake_sprites():
 		Kit.clean_tex_path(Look.kit(String(rel)), 256)
+	# Daily's final reward/chest sprites also carry a shape-following drop shadow. Loading the finished
+	# mirror here exercises the real runtime lookup; the bake tool and freshness guard share shadow_specs().
+	for spec in shadow_specs():
+		Kit.shadowed_tex_path(String(spec.path), int(spec.clean_cap), Dictionary(spec.opts))
 	# The REAL level dialog (engine/scripts/ui/level_popup.gd) draws the v2 medallion art set —
 	# same live-polish trap. LevelPopup.bake_sprites declares [rel, cap] pairs (caps differ per sprite).
 	for spec in LevelPopup.bake_sprites():
@@ -61,6 +65,9 @@ static func build_all(cfg: Dictionary) -> Array:
 	for cell_path in Kit.CELL_SPRITE_PATHS.values():
 		Kit.clean_tex_path(String(cell_path), Kit.CELL_SPRITE_CAP)
 	return out
+
+static func shadow_specs() -> Array:
+	return LoginUI.bake_shadow_specs()
 
 ## The home-screen CHROME — the bottom nav + the live-ops rail — is what cost ~480ms to build on a cold
 ## boot (each disc shell + icon polished live). They are all the SAME shared home button (Kit.home_button:

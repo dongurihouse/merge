@@ -23,6 +23,7 @@ func _initialize() -> void:
 	_white_role_builds_with_white_tile()
 	_shared_frame_uses_soft_cream_tile()
 	_cutpaper_inspector_opens_on_the_schema_default()
+	await _daily_dialog_reuses_prebaked_reward_shadows()
 	_daily_card_face_tones()
 	_daily_card_uses_face_only_for_daily()
 	_mail_claim_all_footer_is_transparent()
@@ -99,6 +100,71 @@ func _daily_card_uses_face_only_for_daily() -> void:
 	card.free()
 	shop.free()
 	Kit.clear_config_cache()
+
+## Opening Daily used to bake every shape-following reward shadow on the main thread, and claiming
+## rebuilt the grid and baked them all again. Two real LoginUI rebuilds must instead point at the same
+## committed shadow textures; an ImageTexture synthesized by add_drop_shadow has no resource_path and
+## cannot be shared across rebuilds.
+func _daily_dialog_reuses_prebaked_reward_shadows() -> void:
+	var days := [
+		{"day": 1, "label": "Day 1", "reward": {"coins": 100}, "state": "done"},
+		{"day": 2, "label": "Day 2", "reward": {"water": 20}, "state": "done"},
+		{"day": 3, "label": "Day 3", "reward": {"gems": 2}, "state": "done"},
+		{"day": 4, "label": "Day 4", "reward": {"coins": 120}, "state": "done"},
+		{"day": 5, "label": "Day 5", "reward": {"water": 25}, "state": "done"},
+		{"day": 6, "label": "Day 6", "reward": {"gems": 3}, "state": "done"},
+		{"day": 7, "label": "Day 7", "reward": {"coins": 300}, "state": "future"},
+	]
+	var first := VBoxContainer.new()
+	var second := VBoxContainer.new()
+	get_root().add_child(first)
+	get_root().add_child(second)
+	LoginUI._rebuild(Kit, first, 700.0, days)
+	LoginUI._rebuild(Kit, second, 700.0, days)
+	await process_frame
+	var a := _daily_reward_textures(first)
+	var b := _daily_reward_textures(second)
+	ok(a.size() == 6 and b.size() == 6,
+		"the fixture builds six ordinary Daily reward shadows (%d / %d)" % [a.size(), b.size()])
+	var all_baked := a.size() == b.size() and not a.is_empty()
+	var all_reused := all_baked
+	for i in mini(a.size(), b.size()):
+		var ta := a[i] as Texture2D
+		var tb := b[i] as Texture2D
+		all_baked = all_baked and ta != null \
+			and String(ta.resource_path).begins_with("res://games/grove/assets/baked/") \
+			and String(ta.resource_path).contains("-shadow-")
+		all_reused = all_reused and ta == tb
+	ok(all_baked,
+		"Daily reward shadows are committed resource-backed textures, never live ImageTextures")
+	ok(all_reused,
+		"claim-style Daily rebuilds reuse the same reward shadow textures")
+	first.queue_free()
+	second.queue_free()
+	await process_frame
+
+func _daily_reward_textures(root: Node) -> Array:
+	var out: Array = []
+	_collect_daily_reward_textures(root, out)
+	return out
+
+func _collect_daily_reward_textures(node: Node, out: Array) -> void:
+	if String(node.name) == "DailyRewardIconHost":
+		var tr := _first_texture_rect(node)
+		if tr != null:
+			out.append(tr.texture)
+		return
+	for child in node.get_children():
+		_collect_daily_reward_textures(child, out)
+
+func _first_texture_rect(node: Node) -> TextureRect:
+	if node is TextureRect:
+		return node as TextureRect
+	for child in node.get_children():
+		var found := _first_texture_rect(child)
+		if found != null:
+			return found
+	return null
 
 ## The CutPaperPanel layers of a daily face, in child order.
 func _cp_layers(face: Control) -> Array:

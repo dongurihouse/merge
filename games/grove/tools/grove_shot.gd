@@ -236,8 +236,8 @@ func _initialize() -> void:
 				if hold_tier > 0:
 					ready[Vector2i(6, 6)] = 100 + hold_tier
 			elif phase == "two":
-				# TWO chains armed at once, on ONE line, four rows apart so they can never join:
-				# a ×3 and a ×4, each with its own contour and its own ×n.
+				# Two visible chains on one line: ×4 wins the cells shared with the extra remote ×3
+				# candidate, while the genuinely disjoint ×3 remains.
 				ready = {
 					Vector2i(1, 1): 101,
 					Vector2i(1, 2): 101,
@@ -386,6 +386,29 @@ func _initialize() -> void:
 				if not reached_run_frame:
 					push_warning("cascade shot phase=run did not reach the seeded mid-run frame before capture")
 				Engine.time_scale = 0.0
+			elif phase == "two":
+				await create_timer(0.35).timeout
+				var two_outline: Control = scn.get("_cascade_outline")
+				var two_ns: Array = []
+				var two_used := {}
+				var two_overlap := false
+				if two_outline != null and is_instance_valid(two_outline):
+					for raw_mark in Array(two_outline.get("marks")):
+						var mark: Dictionary = raw_mark
+						if String(mark.get("role", "")) != "chain":
+							continue
+						two_ns.append(int(mark.get("n", 0)))
+						for raw_cell in Array(mark.get("run", [])):
+							var cell := Vector2i(raw_cell)
+							if two_used.has(cell):
+								two_overlap = true
+							two_used[cell] = true
+				print("CASCADE TWO chains=%d lengths=%s overlap=%d" % [
+					two_ns.size(), str(two_ns), int(two_overlap)])
+				if two_ns != [4, 3] or two_overlap:
+					print("REFUSED: cascade phase=two is not the disjoint longest-first result.")
+					Base.finish(self, 2)
+					return
 			else:
 				await create_timer(0.35).timeout
 		"played":

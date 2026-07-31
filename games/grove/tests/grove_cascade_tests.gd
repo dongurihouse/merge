@@ -886,8 +886,8 @@ func _test_drag_focuses_the_held_cascade_path() -> void:
 		t4: 204,
 		t5: 205,
 	})
-	ok(_outline_ladder_count(b) == 2 and _outline_has_tag(b, "×5") and _outline_has_tag(b, "×3"),
-		"REST reports both actionable chains in the mixed component")
+	ok(_outline_ladder_count(b) == 1 and _outline_has_tag(b, "×5") and not _outline_has_tag(b, "×3"),
+		"REST gives the mixed component to its longest ×5 route")
 	_input_begin_drag(b, from)
 	await process_frame
 	ok(_outline_has_pad_kind_at(b, "cascade", target),
@@ -900,11 +900,10 @@ func _test_drag_focuses_the_held_cascade_path() -> void:
 		"drag focus puts the cascade number on the occupied drop target, not the chain end")
 	_input_release(b, from)
 	await process_frame
-	# The drag's chain and a resting chain are the SAME mark now, so "no drag ladder" is no longer a
-	# thing to count — what tells them apart is which chain is drawn. The drag focuses one ×3; release
-	# restores every actionable route, including both this ×3 and the longer ×5.
-	ok(_outline_ladder_count(b) == 2 and _outline_has_tag(b, "×5") and _outline_has_tag(b, "×3"),
-		"releasing the drag restores every resting actionable chain")
+	# The drag focuses its held-piece ×3 even though the resting arbitration gives those shared cells
+	# to ×5. Release restores that longest resting winner.
+	ok(_outline_ladder_count(b) == 1 and _outline_has_tag(b, "×5") and not _outline_has_tag(b, "×3"),
+		"releasing the drag restores the longest resting chain for the shared cells")
 	b.queue_free()
 
 func _test_drag_stage_starts_from_single_tier_neighbors() -> void:
@@ -1162,9 +1161,9 @@ func _test_ready_outline_and_flag_off() -> void:
 	off.queue_free()
 	Feat.FLAGS["cascade"] = original
 
-# Multiple chains at the same time. REST now enumerates every legal source→target merge, so the ×4
-# component also contributes the nested t2→t2 ×3. Pin all three actionable routes, then add another
-# line and prove it adds a fourth rather than replacing one.
+# Multiple chains at the same time. The ×4 component also has a nested t2→t2 ×3 candidate, but those
+# routes share cells: only the longest may own that cell set. The separate ×3 remains, then another
+# disjoint line adds one more.
 func _test_two_chains_arm_and_draw_at_once() -> void:
 	var b := _open_board("cascade_two_chains_at_once")
 	await process_frame
@@ -1181,35 +1180,42 @@ func _test_two_chains_arm_and_draw_at_once() -> void:
 		Vector2i(5, 5): 104,
 	})
 	await process_frame      # _rebuild_tags queue_free()s the previous chips; let the frees land
-	ok(_outline_ladder_count(b) == 3,
-		"REST keeps all three actionable routes across the two components (got %d)"
+	ok(_outline_ladder_count(b) == 2,
+		"REST keeps the longest route plus the disjoint chain (got %d)"
 			% _outline_ladder_count(b))
 	var labels := _outline_label_texts(b)
 	labels.sort()
-	ok(_outline_number_tag_count(b) == 3 and labels == ["×3", "×3", "×4"],
-		"each actionable chain carries its own ×n (%s)" % str(labels))
+	ok(_outline_number_tag_count(b) == 2 and labels == ["×3", "×4"],
+		"the nested shared-cell ×3 is suppressed in favor of ×4 (%s)" % str(labels))
 	var o := _outline(b)
 	var boxes: Array = []
+	var used := {}
+	var overlap := false
 	for raw in _marks_with_role(b, "chain"):
 		var run := Array((raw as Dictionary).get("run", []))
 		ok(not run.is_empty(), "each armed entry carries the run its contour is built from")
+		for raw_cell in run:
+			var cell := Vector2i(raw_cell)
+			if used.has(cell):
+				overlap = true
+			used[cell] = true
 		boxes.append(_loop_bounds(o, run))
 	var has_separate_components := false
 	for i in boxes.size():
 		for j in range(i + 1, boxes.size()):
 			if not (boxes[i] as Rect2).intersects(boxes[j] as Rect2):
 				has_separate_components = true
-	ok(boxes.size() == 3 and has_separate_components,
-		"nested routes stay separate from the other component instead of spanning the board")
-	# and a second line arming beside them is a fourth mark, not a replacement.
+	ok(boxes.size() == 2 and has_separate_components and not overlap,
+		"the two visible chains use separate components and share no cells")
+	# and a second line arming beside them is a third mark, not a replacement.
 	b.board.place(Vector2i(3, 1), 201)
 	b.board.place(Vector2i(3, 2), 201)
 	b.board.place(Vector2i(3, 3), 202)
 	b.board.place(Vector2i(3, 4), 203)
 	b._rebuild_all()
 	await process_frame
-	ok(_outline_ladder_count(b) == 4 and _outline_number_tag_count(b) == 4,
-		"a chain on another line adds a fourth mark rather than replacing one (got %d)"
+	ok(_outline_ladder_count(b) == 3 and _outline_number_tag_count(b) == 3,
+		"a chain on another line adds a third disjoint mark rather than replacing one (got %d)"
 			% _outline_ladder_count(b))
 	b.queue_free()
 
