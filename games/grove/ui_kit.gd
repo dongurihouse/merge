@@ -1090,6 +1090,9 @@ static var _clean_cache: Dictionary = {}
 # LIVE defringe/feather fallback below — i.e. a bakeable sprite that was NOT pre-baked. On a shipped boot
 # this must stay empty; an entry means a new asset polishes live on cold boot (run `make bake-textures`).
 static var _live_polish_log: Array = []
+# The same guard for a finished, shape-shadowed sprite. Daily loads these mirrors directly; an entry
+# means a missing mirror forced blur/composite work back onto the main thread during dialog build.
+static var _live_shadow_log: Array = []
 
 ## The baked-mirror path for a source sprite at a given cap: `baked/<subpath under the assets root>`
 ## with the cap tagged in the name (so one source baked at two caps stays two distinct files). A
@@ -1127,6 +1130,34 @@ static func clean_tex_path(path: String, max_dim: int = 256) -> Texture2D:
 	var t := ImageTexture.create_from_image(_clean_image(img, max_dim))
 	_clean_cache[key] = t
 	return t
+
+## A committed mirror for an alpha-shaped sprite AFTER its optional clean pass and shape-following
+## drop shadow. The clean cap and alpha are in the filename so two real recipes cannot alias.
+static func shadowed_baked_path(path: String, clean_cap: int, opts: Dictionary = {}) -> String:
+	var root: String = Game.art("")
+	var rel := path.substr(root.length()) if root != "" and path.begins_with(root) else path.get_file()
+	var dir := rel.get_base_dir()
+	var cap_tag := "native" if clean_cap <= 0 else str(clean_cap)
+	var alpha := int(round(clampf(float(opts.get("shadow_alpha", 0.5)), 0.0, 1.0) * 100.0))
+	var tail := "%s@%s-shadow-a%02d.png" % [rel.get_file().get_basename(), cap_tag, alpha]
+	return Game.art("baked/" + (tail if dir == "" else dir + "/" + tail))
+
+## Load a finished shape-shadow mirror. Missing mirrors stay visually correct through the deterministic
+## live fallback, but record the performance violation so the bake/freshness tests cannot ship it.
+static func shadowed_tex_path(path: String, clean_cap: int, opts: Dictionary = {}) -> Texture2D:
+	if path == "" or not ResourceLoader.exists(path):
+		return null
+	var bp := shadowed_baked_path(path, clean_cap, opts)
+	if ResourceLoader.exists(bp):
+		return load(bp) as Texture2D
+	_live_shadow_log.append("%s@%d" % [path, clean_cap])
+	var tex := load(path) as Texture2D
+	if tex == null:
+		return null
+	var img := tex.get_image()
+	if clean_cap > 0:
+		img = _clean_image(img, clean_cap)
+	return ImageTexture.create_from_image(add_drop_shadow(img, opts))
 
 static func _clean_image(src: Image, max_dim: int) -> Image:
 	var img := src.duplicate() as Image

@@ -25,6 +25,7 @@ func _initialize() -> void:
 	Kit.clear_clean_cache()
 	var nodes := BakeTargets.build_all(cfg)        # drives clean_tex_path → populates _clean_cache
 	var keys: Array = Kit._clean_cache.keys()
+	var shadow_specs: Array = BakeTargets.shadow_specs()
 
 	var added := 0
 	var changed := 0
@@ -61,14 +62,46 @@ func _initialize() -> void:
 		if status == "NEW": added += 1
 		else: changed += 1
 
+	for spec in shadow_specs:
+		var src := String((spec as Dictionary).path)
+		var cap := int((spec as Dictionary).clean_cap)
+		var opts := Dictionary((spec as Dictionary).opts)
+		if not ResourceLoader.exists(src):
+			print("  SKIP    %s  (shadow source missing)" % src.replace(ASSETS, "")); failed += 1; continue
+		var tex := load(src) as Texture2D
+		if tex == null:
+			print("  SKIP    %s  (shadow source is not a Texture2D)" % src.replace(ASSETS, "")); failed += 1; continue
+		var base: Image = Kit._clean_image(tex.get_image(), cap) if cap > 0 else tex.get_image()
+		var finished: Image = Kit.add_drop_shadow(base, opts)
+		var bytes := finished.save_png_to_buffer()
+		var out_path := Kit.shadowed_baked_path(src, cap, opts)
+		var out_abs := ProjectSettings.globalize_path(out_path)
+		var rel := out_path.replace(BAKED, "")
+		var status := ""
+		if not FileAccess.file_exists(out_abs):
+			status = "NEW"
+		elif FileAccess.get_file_as_bytes(out_abs) != bytes:
+			status = "CHANGED"
+		if status == "":
+			unchanged += 1
+			continue
+		DirAccess.make_dir_recursive_absolute(out_abs.get_base_dir())
+		var f := FileAccess.open(out_abs, FileAccess.WRITE)
+		if f == null:
+			print("  FAIL    %s  (cannot write)" % rel); failed += 1; continue
+		f.store_buffer(bytes); f.close()
+		print("  %-7s %-44s (%dx%d)" % [status, rel, finished.get_width(), finished.get_height()])
+		if status == "NEW": added += 1
+		else: changed += 1
+
 	for n in nodes:
 		if n is Node:
 			(n as Node).queue_free()
 
 	if added == 0 and changed == 0 and failed == 0:
-		print("== %d dialogs → %d sprites; all up to date (nothing to bake) ==" % [nodes.size(), keys.size()])
+		print("== %d dialogs → %d sprites + %d shadows; all up to date (nothing to bake) ==" % [nodes.size(), keys.size(), shadow_specs.size()])
 	else:
-		print("== %d dialogs → %d sprites; %d new, %d changed, %d unchanged, %d failed ==" % [nodes.size(), keys.size(), added, changed, unchanged, failed])
+		print("== %d dialogs → %d sprites + %d shadows; %d new, %d changed, %d unchanged, %d failed ==" % [nodes.size(), keys.size(), shadow_specs.size(), added, changed, unchanged, failed])
 		if added + changed > 0:
 			print("   next: run `godot --headless --path . --import` so the new/changed PNGs get .import sidecars")
 	quit(1 if failed > 0 else 0)

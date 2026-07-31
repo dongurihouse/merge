@@ -90,6 +90,21 @@ static func bake_sprites() -> Array:
 	out.append_array(REWARD_ART.values())
 	return out
 
+## The exact finished shape shadows this dialog displays. `clean_cap = 0` means the authored Daily
+## skin sprite is already clean; the kit fallbacks and capstone chest use the same @256 clean pass
+## as `_sprite`. BakeTargets, the bake tool, the freshness guard, and runtime all consume this list.
+static func bake_shadow_specs() -> Array:
+	var out: Array = []
+	for key in REWARD_SKIN.values():
+		out.append({"path": SKIN_DIR + String(key) + ".png", "clean_cap": 0,
+			"opts": {"shadow_alpha": 0.32}})
+	for rel in REWARD_ART.values():
+		out.append({"path": Look.kit(String(rel)), "clean_cap": 256,
+			"opts": {"shadow_alpha": 0.32}})
+	out.append({"path": Look.kit(ART_CHEST), "clean_cap": 256,
+		"opts": {"shadow_alpha": 0.32}})
+	return out
+
 ## A small four-point sparkle, code-drawn (the mock scatters them over today's cell and the capstone
 ## banner). Code-drawn rather than art so it scales cleanly with the cell.
 class Spark:
@@ -481,7 +496,7 @@ static func _capstone_drawn(Kit: GDScript, d: Dictionary, w: float, h: float) ->
 	var sprig_l := _sprite_cropped(Kit, ART_LEAF_L, h * 0.82)
 	sprig_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(sprig_l)
-	var chest := _shadowed(Kit, Kit.clean_tex_path(Look.kit(String(d.get("mystery_icon", ART_CHEST))), 256), h * 1.02)
+	var chest := _shadowed_sprite(Kit, Look.kit(String(d.get("mystery_icon", ART_CHEST))), 256, h * 1.02)
 	chest.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(chest)
 	var sprig_r := _sprite_cropped(Kit, ART_LEAF_R, h * 0.82)
@@ -546,23 +561,17 @@ static func _reward_art(Kit: GDScript, reward: Dictionary, px: float) -> Control
 ## shared glyph via Kit.make_icon (a cosmetic star, or any id the pack doesn't cover).
 static func _reward_icon(Kit: GDScript, id: String, px: float) -> Control:
 	if REWARD_SKIN.has(id):
-		var t := _daily_tex(String(REWARD_SKIN[id]))
-		if t != null:
-			return _shadowed(Kit, t, px)
+		var skin_path := SKIN_DIR + String(REWARD_SKIN[id]) + ".png"
+		if ResourceLoader.exists(skin_path):
+			return _shadowed_sprite(Kit, skin_path, 0, px)
 	if REWARD_ART.has(id):
-		return _shadowed(Kit, Kit.clean_tex_path(Look.kit(String(REWARD_ART[id])), 256), px)
+		return _shadowed_sprite(Kit, Look.kit(String(REWARD_ART[id])), 256, px)
 	return Kit.daily_icon(id, px, true)
 
-## Bake the shared shape-true drop shadow (via the kit) onto a texture and return it as a centred sprite, so
-## a day card's reward icon (and the day-7 chest) sits on its own soft shadow. A missing texture → the plain
-## sprite (no shadow).
-static func _shadowed(Kit: GDScript, tex: Texture2D, px: float) -> Control:
-	if tex == null:
-		return _skin_sprite(tex, px)
-	var img := tex.get_image()
-	if img == null:
-		return _skin_sprite(tex, px)
-	return _skin_sprite(ImageTexture.create_from_image(Kit.add_drop_shadow(img, {"shadow_alpha": 0.32})), px)
+## The same shape-true shadow as before, now loaded as finished pixels rather than blurred/composited
+## during every open and claim rebuild.
+static func _shadowed_sprite(Kit: GDScript, path: String, clean_cap: int, px: float) -> Control:
+	return _skin_sprite(Kit.shadowed_tex_path(path, clean_cap, {"shadow_alpha": 0.32}), px)
 
 ## The currencies a rung pays, premium → coins → water (the mock's reading order).
 static func _reward_ids(reward: Dictionary) -> Array:
